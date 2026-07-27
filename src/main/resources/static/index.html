@@ -1,0 +1,2066 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, user-scalable=no">
+    <title>LET'S WORKOUT - Power-Hypertrophy WebApp</title>
+    <!-- Premium Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;800&family=Noto+Sans+KR:wght@300;400;700;900&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --bg-color: #0b0b0d;
+            --bg-gradient: radial-gradient(circle at top, #1c1c24 0%, #0b0b0d 100%);
+            --card-bg: rgba(30, 30, 38, 0.65);
+            --card-border: rgba(255, 255, 255, 0.08);
+            --accent-color: #FFD700; /* Modern electric gold */
+            --accent-hover: #FFC107;
+            --accent-gradient: linear-gradient(135deg, #FFD700 0%, #FFA000 100%);
+            --text-main: #F5F5F7;
+            --text-muted: #9E9EAF;
+            --border-color: #22222a;
+            --success-color: #34C759;
+            --fail-color: #FF3B30;
+            --warning-color: #FF9500;
+            --shadow-premium: 0 12px 40px rgba(0, 0, 0, 0.6);
+            --safe-top: env(safe-area-inset-top, 0px);
+            --safe-bottom: env(safe-area-inset-bottom, 0px);
+            --font-family: 'Outfit', 'Noto Sans KR', -apple-system, sans-serif;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            font-family: var(--font-family);
+            -webkit-tap-highlight-color: transparent;
+        }
+
+        body {
+            background: var(--bg-color);
+            background-image: var(--bg-gradient);
+            background-attachment: fixed;
+            color: var(--text-main);
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            overflow-x: hidden;
+            font-size: 16px;
+        }
+
+        /* View Section Handling */
+        .view-section {
+            display: none;
+            flex: 1;
+            flex-direction: column;
+            padding: 16px;
+            padding-bottom: calc(var(--safe-bottom) + 90px);
+            max-width: 500px; /* iPhone Portrait Fit */
+            width: 100%;
+            margin: 0 auto;
+            animation: fadeIn 0.3s ease-out;
+        }
+
+        .view-section.active {
+            display: flex;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        /* Top Sticky Header */
+        header {
+            position: sticky;
+            top: 0;
+            z-index: 100;
+            background: rgba(11, 11, 13, 0.85);
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+            border-bottom: 1px solid var(--card-border);
+            padding: calc(var(--safe-top) + 12px) 16px 12px 16px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            box-shadow: 0 4px 30px rgba(0, 0, 0, 0.4);
+        }
+
+        .header-left, .header-right {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .header-btn {
+            background: rgba(255, 255, 255, 0.08);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            color: var(--text-main);
+            padding: 8px 14px;
+            border-radius: 20px;
+            font-size: 13px;
+            font-weight: 600;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+
+        .header-btn:active {
+            transform: scale(0.95);
+            background: rgba(255, 255, 255, 0.15);
+        }
+
+        .vol-badge {
+            color: var(--accent-color);
+            border-color: rgba(255, 215, 0, 0.25);
+            background: rgba(255, 215, 0, 0.05);
+        }
+
+        .stopwatch {
+            font-family: monospace;
+            font-size: 16px;
+            font-weight: 800;
+            color: #FFFFFF;
+            background: rgba(0, 0, 0, 0.4);
+            padding: 6px 12px;
+            border-radius: 12px;
+            letter-spacing: 1px;
+            border: 1px solid var(--border-color);
+        }
+
+        .finish-btn {
+            background: var(--accent-gradient);
+            color: #000000;
+            border: none;
+            padding: 8px 16px;
+            border-radius: 20px;
+            font-weight: 800;
+            font-size: 14px;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            box-shadow: 0 4px 15px rgba(255, 215, 0, 0.3);
+        }
+
+        .finish-btn:active {
+            transform: scale(0.95);
+        }
+
+        /* Bottom Sticky Tabbar */
+        .bottom-nav {
+            position: fixed;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            background: rgba(15, 15, 20, 0.92);
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+            border-top: 1px solid var(--card-border);
+            padding-bottom: calc(var(--safe-bottom) + 8px);
+            padding-top: 10px;
+            display: flex;
+            justify-content: space-around;
+            z-index: 95;
+            box-shadow: 0 -8px 30px rgba(0, 0, 0, 0.5);
+        }
+
+        .nav-item {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 4px;
+            background: none;
+            border: none;
+            color: var(--text-muted);
+            font-size: 10px;
+            font-weight: 700;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            width: 30%;
+        }
+
+        .nav-item.active {
+            color: var(--accent-color);
+        }
+
+        .nav-icon-svg {
+            width: 22px;
+            height: 22px;
+            stroke: currentColor;
+            fill: none;
+            stroke-width: 2;
+            stroke-linecap: round;
+            stroke-linejoin: round;
+            transition: stroke 0.2s ease;
+        }
+
+        .nav-item.active .nav-icon-svg {
+            stroke: var(--accent-color);
+        }
+
+        /* Trendy Home UI */
+        .brand-container {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-top: calc(var(--safe-top) + 12px);
+            margin-bottom: 20px;
+        }
+
+        .home-title {
+            font-size: 26px;
+            font-weight: 900;
+            color: #FFFFFF;
+            letter-spacing: -0.5px;
+            text-transform: uppercase;
+        }
+
+        .home-title span {
+            color: transparent;
+            -webkit-background-clip: text;
+            background-clip: text;
+            background-image: var(--accent-gradient);
+        }
+
+        /* Segmented Control Split Selector */
+        .split-segment-container {
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid var(--card-border);
+            border-radius: 14px;
+            padding: 4px;
+            display: flex;
+            gap: 2px;
+            margin-bottom: 20px;
+        }
+
+        .split-segment-btn {
+            flex: 1;
+            background: none;
+            border: none;
+            color: var(--text-muted);
+            padding: 10px 0;
+            font-size: 13px;
+            font-weight: 800;
+            border-radius: 10px;
+            cursor: pointer;
+            transition: all 0.25s ease;
+            text-align: center;
+        }
+
+        .split-segment-btn.active {
+            background: rgba(255, 255, 255, 0.1);
+            color: var(--accent-color);
+            box-shadow: 0 2px 10px rgba(0,0,0,0.3);
+        }
+
+        /* Premium Glass Cards */
+        .card-premium {
+            background: var(--card-bg);
+            border: 1px solid var(--card-border);
+            border-radius: 20px;
+            padding: 22px;
+            margin-bottom: 20px;
+            box-shadow: var(--shadow-premium);
+            position: relative;
+            overflow: hidden;
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+        }
+
+        .card-premium::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 4px;
+            height: 100%;
+            background: var(--accent-gradient);
+        }
+
+        .recommend-title {
+            font-size: 11px;
+            text-transform: uppercase;
+            letter-spacing: 1.5px;
+            color: var(--accent-color);
+            margin-bottom: 8px;
+            font-weight: 800;
+        }
+
+        .recommend-name {
+            font-size: 20px;
+            font-weight: 900;
+            color: #FFFFFF;
+            margin-bottom: 8px;
+            line-height: 1.2;
+        }
+
+        .recommend-desc {
+            font-size: 13px;
+            color: var(--text-muted);
+            line-height: 1.5;
+            margin-bottom: 20px;
+        }
+
+        .start-btn {
+            background: var(--accent-gradient);
+            color: #000000;
+            border: none;
+            width: 100%;
+            padding: 16px;
+            border-radius: 16px;
+            font-weight: 800;
+            font-size: 15px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            box-shadow: 0 6px 20px rgba(255, 215, 0, 0.25);
+            transition: all 0.2s ease;
+        }
+
+        .start-btn:active {
+            transform: scale(0.97);
+            box-shadow: 0 2px 10px rgba(255, 215, 0, 0.15);
+        }
+
+        .select-split-title {
+            font-size: 15px;
+            font-weight: 800;
+            margin-bottom: 12px;
+            color: #FFFFFF;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .split-grid {
+            display: grid;
+            grid-template-columns: repeat(1, 1fr);
+            gap: 10px;
+        }
+
+        .split-select-btn {
+            background: rgba(255, 255, 255, 0.03);
+            border: 1px solid var(--card-border);
+            border-radius: 16px;
+            padding: 16px;
+            color: var(--text-main);
+            font-weight: 700;
+            font-size: 14px;
+            text-align: left;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            backdrop-filter: blur(5px);
+        }
+
+        .split-select-btn:active {
+            background: rgba(255, 255, 255, 0.07);
+            transform: scale(0.98);
+        }
+
+        .split-btn-meta {
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+        }
+
+        .split-btn-meta .tag {
+            font-size: 10px;
+            color: var(--accent-color);
+            text-transform: uppercase;
+            font-weight: 800;
+            letter-spacing: 0.5px;
+        }
+
+        .split-btn-meta .subtitle {
+            font-size: 13px;
+            color: var(--text-main);
+            font-weight: 700;
+        }
+
+        .split-arrow {
+            color: var(--text-muted);
+            font-weight: 800;
+            font-size: 18px;
+        }
+
+        /* Calendar View CSS Updates */
+        .calendar-header-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-top: calc(var(--safe-top) + 12px);
+            margin-bottom: 16px;
+        }
+
+        .calendar-title {
+            font-size: 18px;
+            font-weight: 800;
+            color: #FFFFFF;
+        }
+
+        .calendar-nav-btn {
+            background: rgba(255, 255, 255, 0.06);
+            border: 1px solid var(--card-border);
+            color: var(--text-main);
+            width: 38px;
+            height: 38px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            outline: none;
+            transition: all 0.2s ease;
+        }
+
+        .calendar-nav-btn:active {
+            background: rgba(255, 255, 255, 0.12);
+        }
+
+        .calendar-grid {
+            display: grid;
+            grid-template-columns: repeat(7, 1fr);
+            gap: 6px;
+            background: var(--card-bg);
+            border: 1px solid var(--card-border);
+            border-radius: 20px;
+            padding: 14px;
+            box-shadow: var(--shadow-premium);
+            margin-bottom: 20px;
+            backdrop-filter: blur(10px);
+        }
+
+        .calendar-weekday {
+            text-align: center;
+            font-size: 11px;
+            font-weight: 900;
+            color: var(--text-muted);
+            padding-bottom: 6px;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+        }
+
+        .calendar-day {
+            aspect-ratio: 1;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            font-size: 13px;
+            font-weight: 700;
+            border-radius: 10px;
+            cursor: pointer;
+            position: relative;
+            transition: all 0.2s ease;
+            color: var(--text-main);
+            background: rgba(255, 255, 255, 0.01);
+            border: 1px solid transparent;
+        }
+
+        .calendar-day:active:not(.empty) {
+            background: rgba(255, 255, 255, 0.08);
+        }
+
+        .calendar-day.empty {
+            cursor: default;
+            background: none;
+        }
+
+        .calendar-day.today {
+            border: 1px dashed var(--accent-color);
+        }
+
+        .calendar-day.selected {
+            background: rgba(255, 215, 0, 0.15) !important;
+            border: 1px solid var(--accent-color);
+            color: #FFFFFF;
+        }
+
+        .calendar-day.worked {
+            background: rgba(255, 255, 255, 0.04);
+            border: 1px solid rgba(255, 255, 255, 0.03);
+        }
+
+        .calendar-marker {
+            width: 4px;
+            height: 4px;
+            border-radius: 50%;
+            background-color: var(--accent-color);
+            position: absolute;
+            bottom: 4px;
+        }
+
+        .calendar-day-label {
+            font-size: 8px;
+            color: var(--accent-color);
+            position: absolute;
+            bottom: 3px;
+            font-weight: 800;
+            transform: scale(0.9);
+        }
+
+        /* Log Detail View */
+        .log-details-container {
+            background: var(--card-bg);
+            border: 1px solid var(--card-border);
+            border-radius: 20px;
+            padding: 20px;
+            box-shadow: var(--shadow-premium);
+            backdrop-filter: blur(10px);
+        }
+
+        .log-details-title {
+            font-size: 15px;
+            font-weight: 800;
+            color: #FFFFFF;
+            margin-bottom: 14px;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+            padding-bottom: 8px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .log-date-badge {
+            font-size: 11px;
+            color: var(--accent-color);
+            background: rgba(255, 215, 0, 0.1);
+            padding: 4px 8px;
+            border-radius: 8px;
+            font-weight: 700;
+        }
+
+        .log-empty {
+            color: var(--text-muted);
+            font-size: 13px;
+            text-align: center;
+            padding: 24px 0;
+        }
+
+        .log-item {
+            margin-bottom: 12px;
+            padding-bottom: 12px;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.04);
+        }
+
+        .log-item:last-child {
+            margin-bottom: 0;
+            padding-bottom: 0;
+            border-bottom: none;
+        }
+
+        .log-ex-name {
+            font-weight: 800;
+            font-size: 14px;
+            color: #FFFFFF;
+            margin-bottom: 6px;
+            display: flex;
+            justify-content: space-between;
+        }
+
+        .log-set-list {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 6px;
+        }
+
+        .log-set-badge {
+            font-size: 11px;
+            background: rgba(255, 255, 255, 0.04);
+            border: 1px solid var(--border-color);
+            padding: 4px 8px;
+            border-radius: 8px;
+            color: var(--text-main);
+        }
+
+        .log-set-badge.fail {
+            border-color: rgba(255, 59, 48, 0.3);
+            background: rgba(255, 59, 48, 0.05);
+            color: #FF453A;
+        }
+
+        /* Settings CSS */
+        .settings-header {
+            font-size: 20px;
+            font-weight: 800;
+            color: #FFFFFF;
+            margin-top: calc(var(--safe-top) + 12px);
+            margin-bottom: 16px;
+        }
+
+        /* Tracker View */
+        #active-workout-view {
+            padding-top: 0;
+        }
+
+        .exercise-card {
+            background: var(--card-bg);
+            border: 1px solid var(--card-border);
+            border-radius: 20px;
+            padding: 16px;
+            margin-bottom: 16px;
+            box-shadow: var(--shadow-premium);
+        }
+
+        .exercise-title {
+            font-size: 15px;
+            font-weight: 800;
+            color: #FFFFFF;
+            margin-bottom: 12px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border-left: 3px solid var(--accent-color);
+            padding-left: 8px;
+        }
+
+        .exercise-meta {
+            font-size: 11px;
+            color: var(--text-muted);
+            font-weight: 600;
+        }
+
+        .set-row {
+            display: grid;
+            grid-template-columns: 24px 1.3fr 1.3fr 0.9fr 0.9fr 0.8fr 34px;
+            align-items: center;
+            gap: 4px;
+            padding: 8px 0;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.03);
+            transition: opacity 0.25s ease;
+        }
+
+        .set-row.checked {
+            opacity: 0.45;
+        }
+
+        .set-prev-info {
+            font-size: 12px;
+            color: var(--text-muted);
+            line-height: 1.3;
+            text-align: center;
+        }
+
+        .set-no {
+            font-weight: 800;
+            color: var(--accent-color);
+            font-size: 14px;
+            text-align: center;
+        }
+
+        .set-target-info {
+            font-size: 11px;
+            color: var(--text-muted);
+            line-height: 1.3;
+        }
+
+        .input-group {
+            display: flex;
+            align-items: center;
+            background: rgba(0, 0, 0, 0.3);
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            padding: 4px;
+        }
+
+        .input-group input {
+            background: transparent;
+            border: none;
+            color: #FFFFFF;
+            width: 100%;
+            text-align: center;
+            font-size: 16px;
+            font-weight: 700;
+            outline: none;
+        }
+
+        .input-group span {
+            font-size: 10px;
+            color: var(--text-muted);
+            padding-right: 4px;
+        }
+
+        .check-btn {
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid var(--border-color);
+            border-radius: 50%;
+            width: 30px;
+            height: 30px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            color: var(--text-muted);
+            justify-self: center;
+        }
+
+        .check-btn.checked {
+            background: var(--success-color);
+            border-color: var(--success-color);
+            color: #000000;
+        }
+
+        .check-btn svg {
+            width: 14px;
+            height: 14px;
+            fill: none;
+            stroke: currentColor;
+            stroke-width: 3.5;
+            stroke-linecap: round;
+            stroke-linejoin: round;
+        }
+
+        /* Overlay Modal */
+        .overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.85);
+            z-index: 200;
+            opacity: 0;
+            visibility: hidden;
+            transition: all 0.3s ease;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 16px;
+        }
+
+        .overlay.active {
+            opacity: 1;
+            visibility: visible;
+        }
+
+        .modal {
+            background: rgba(24, 24, 30, 0.95);
+            border: 1px solid var(--card-border);
+            border-radius: 24px;
+            width: 100%;
+            max-width: 400px;
+            padding: 24px;
+            box-shadow: var(--shadow-premium);
+            transform: scale(0.9);
+            transition: all 0.3s ease;
+            max-height: 85vh;
+            overflow-y: auto;
+            backdrop-filter: blur(20px);
+        }
+
+        .overlay.active .modal {
+            transform: scale(1);
+        }
+
+        .modal-title {
+            font-size: 18px;
+            font-weight: 800;
+            color: var(--accent-color);
+            margin-bottom: 16px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .close-btn {
+            background: none;
+            border: none;
+            color: var(--text-muted);
+            font-size: 24px;
+            cursor: pointer;
+        }
+
+        .form-group {
+            margin-bottom: 14px;
+        }
+
+        .form-group label {
+            display: block;
+            font-size: 12px;
+            color: var(--text-muted);
+            margin-bottom: 6px;
+            font-weight: 700;
+        }
+
+        .form-group input {
+            width: 100%;
+            background: rgba(0, 0, 0, 0.4);
+            border: 1px solid var(--border-color);
+            border-radius: 12px;
+            padding: 12px;
+            color: #FFFFFF;
+            font-size: 16px;
+            font-weight: 700;
+            outline: none;
+        }
+
+        .form-group input:focus {
+            border-color: var(--accent-color);
+        }
+
+        .save-btn {
+            background: var(--accent-gradient);
+            color: #000000;
+            border: none;
+            width: 100%;
+            padding: 14px;
+            border-radius: 16px;
+            font-weight: 800;
+            font-size: 15px;
+            cursor: pointer;
+            margin-top: 12px;
+            box-shadow: 0 4px 15px rgba(255, 215, 0, 0.25);
+        }
+
+        .save-btn:active {
+            transform: scale(0.98);
+        }
+
+        .conn-status {
+            font-size: 12px;
+            padding: 8px 12px;
+            border-radius: 10px;
+            background: rgba(255, 255, 255, 0.03);
+            border: 1px solid var(--card-border);
+            margin-bottom: 16px;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .status-dot {
+            width: 6px;
+            height: 6px;
+            border-radius: 50%;
+        }
+
+        .status-dot.connected {
+            background-color: var(--success-color);
+            box-shadow: 0 0 8px var(--success-color);
+        }
+
+        .status-dot.fallback {
+            background-color: var(--warning-color);
+            box-shadow: 0 0 8px var(--warning-color);
+        }
+
+        .ai-feedback-box {
+            background: rgba(255, 149, 0, 0.05);
+            border: 1px solid rgba(255, 149, 0, 0.25);
+            border-radius: 16px;
+            padding: 16px;
+            margin: 16px 0;
+            color: var(--text-main);
+            font-size: 13px;
+            line-height: 1.5;
+        }
+
+        .ai-header {
+            font-weight: 800;
+            color: var(--warning-color);
+            margin-bottom: 8px;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .feedback-status {
+            padding: 4px 10px;
+            border-radius: 8px;
+            font-size: 11px;
+            font-weight: 800;
+            display: inline-block;
+            margin-bottom: 8px;
+        }
+
+        .feedback-status.success {
+            background: rgba(52, 199, 89, 0.15);
+            color: var(--success-color);
+            border: 1px solid rgba(52, 199, 89, 0.25);
+        }
+
+        .feedback-status.fail {
+            background: rgba(255, 59, 48, 0.15);
+            color: var(--fail-color);
+            border: 1px solid rgba(255, 59, 48, 0.25);
+        }
+
+        .super-set-badge {
+            background: linear-gradient(135deg, #FF9500, #FF3B30);
+            color: #FFFFFF;
+            font-size: 9px;
+            font-weight: 800;
+            padding: 2px 5px;
+            border-radius: 6px;
+            margin-left: 6px;
+        }
+
+    </style>
+    <link rel="stylesheet" href="/styles.css?v=20260727-5">
+</head>
+<body>
+
+    <!-- First-Time Onboarding Gym Modal -->
+    <div id="onboarding-overlay" class="overlay active" style="display: none; z-index: 9999;">
+        <div class="modal" style="max-width: 420px; padding: 24px; text-align: left;">
+            <div class="modal-title">
+                <span>🏋️ 헬스장 설정 (최초 1회)</span>
+            </div>
+            <p style="font-size: 12.5px; color: var(--text-muted); margin-bottom: 16px; line-height: 1.5;">
+                다니시는 헬스장의 보유 원판과 덤벨 간격을 입력하시면 점진적 과부하 무게를 보유 장비에 맞게 자동 보정해드립니다.
+            </p>
+            
+            <div class="form-group">
+                <label>헬스장 이름</label>
+                <input type="text" id="onboard-gym-name" value="우리동네 헬스장">
+            </div>
+
+            <div class="form-group">
+                <label>보유 바벨 원판 (중복 체크 가능)</label>
+                <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; font-size: 13px; margin-top: 4px;">
+                    <label style="color: #fff;"><input type="checkbox" class="plate-check" value="20.0" checked> 20kg</label>
+                    <label style="color: #fff;"><input type="checkbox" class="plate-check" value="15.0" checked> 15kg</label>
+                    <label style="color: #fff;"><input type="checkbox" class="plate-check" value="10.0" checked> 10kg</label>
+                    <label style="color: #fff;"><input type="checkbox" class="plate-check" value="5.0" checked> 5kg</label>
+                    <label style="color: #fff;"><input type="checkbox" class="plate-check" value="2.5" checked> 2.5kg</label>
+                    <label style="color: #fff;"><input type="checkbox" class="plate-check" value="1.25" checked> 1.25kg</label>
+                </div>
+            </div>
+
+            <div class="form-group">
+                <label>덤벨 증량 간격</label>
+                <select id="onboard-db-interval" style="width: 100%; background: rgba(0,0,0,0.4); border: 1px solid var(--border-color); border-radius: 12px; padding: 10px; color: #fff; font-size: 14px;">
+                    <option value="1.0">1.0 kg 간격</option>
+                    <option value="2.0" selected>2.0 kg 간격</option>
+                    <option value="2.5">2.5 kg 간격</option>
+                </select>
+            </div>
+
+            <button class="save-btn" onclick="saveOnboardingGym()">설정 완료하고 시작하기</button>
+        </div>
+    </div>
+
+    <!-- Workout Sticky Header -->
+    <header id="active-workout-header" style="display: none;">
+        <div class="header-left">
+            <button class="header-btn" onclick="abortWorkout()">✖ 중단</button>
+            <button class="header-btn vol-badge">💪 Vol: <span id="vol-counter">0</span> kg</button>
+        </div>
+        <div class="header-right">
+            <div class="stopwatch">
+                <span class="stopwatch-time" id="stopwatch-display">00:00</span>
+                <button class="stopwatch-toggle" id="stopwatch-toggle" type="button" onclick="toggleStopwatchPause()" aria-label="초시계 일시정지">
+                    <svg viewBox="0 0 24 24" aria-hidden="true">
+                        <rect x="7" y="5" width="3.5" height="14" rx="1"></rect>
+                        <rect x="13.5" y="5" width="3.5" height="14" rx="1"></rect>
+                    </svg>
+                </button>
+            </div>
+            <button class="finish-btn" onclick="finishWorkout()">완료</button>
+        </div>
+    </header>
+
+    <!-- 1. HOME VIEW SECTION -->
+    <section class="view-section active" id="home-view">
+        <div class="brand-container">
+            <h1 class="home-title">LET'S <span>WORKOUT</span></h1>
+        </div>
+        
+        <!-- Google sheets connectivity status -->
+        <div class="conn-status">
+            <div class="status-dot" id="home-status-dot"></div>
+            <span id="home-conn-text">구글 시트 연동 체크 중...</span>
+        </div>
+
+        <!-- 2, 3, 4, 5 Split Selector Segment -->
+        <div class="split-segment-container">
+            <button class="split-segment-btn" id="split-btn-2" onclick="selectSplit(2)">2분할</button>
+            <button class="split-segment-btn" id="split-btn-3" onclick="selectSplit(3)">3분할</button>
+            <button class="split-segment-btn" id="split-btn-4" onclick="selectSplit(4)">4분할</button>
+            <button class="split-segment-btn" id="split-btn-5" onclick="selectSplit(5)">5분할</button>
+        </div>
+
+        <!-- Recommended Workout Card -->
+        <div class="card-premium">
+            <div class="recommend-title">오늘의 추천 트레이닝</div>
+            <div class="recommend-name" id="recommend-name">Day 1 - Loading...</div>
+            <div class="recommend-desc" id="recommend-desc">
+                루틴 정보를 불러오는 중입니다...
+            </div>
+            <button class="start-btn" onclick="startRecommendedWorkout()">
+                ⚡ 추천 운동 시작하기
+            </button>
+        </div>
+
+        <!-- Split Day Selection List -->
+        <div class="select-split-title">
+            <svg class="nav-icon-svg" style="width: 16px; height: 16px; stroke: var(--accent-color);" viewBox="0 0 24 24"><path d="M4 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1z"></path><line x1="4" y1="22" x2="4" y2="15"></line></svg>
+            <span>분할별 훈련 루틴 직접 골라 시작</span>
+        </div>
+        <div class="split-grid" id="split-grid">
+            <!-- Populated via JavaScript -->
+        </div>
+    </section>
+
+    <!-- 2. CALENDAR VIEW SECTION -->
+    <section class="view-section" id="calendar-view">
+        <div class="calendar-header-row">
+            <button class="calendar-nav-btn" onclick="prevMonth()">◀</button>
+            <div class="calendar-title" id="calendar-month-year">2026년 7월</div>
+            <button class="calendar-nav-btn" onclick="nextMonth()">▶</button>
+        </div>
+
+        <!-- Month calendar grid -->
+        <div class="calendar-grid" id="calendar-grid">
+            <!-- Will generate days dynamically -->
+        </div>
+
+        <!-- Workout detail viewer -->
+        <div class="log-details-container">
+            <div class="log-details-title">
+                <span>📅 훈련 세션 디테일</span>
+                <span class="log-date-badge" id="selected-date-badge">2026-07-15</span>
+            </div>
+            <div id="log-details-content">
+                <div class="log-empty">달력의 훈련 기록이 있는 날짜를 클릭하면 상세 데이터가 표시됩니다.</div>
+            </div>
+        </div>
+    </section>
+
+    <!-- 3. SETTINGS VIEW SECTION -->
+    <section class="view-section" id="settings-view">
+        <h2 class="settings-header">⚙️ SBD 1RM 및 기본 설정</h2>
+        
+        <div class="conn-status" id="settings-conn-status">
+            <div class="status-dot" id="settings-status-dot"></div>
+            <span id="settings-conn-text">로딩 중...</span>
+        </div>
+
+        <div class="form-group">
+            <label>스쿼트 (Squat) 1RM (kg)</label>
+            <input type="number" id="input-squat" step="2.5" min="0" inputmode="decimal">
+        </div>
+        <div class="form-group">
+            <label>벤치프레스 (Bench Press) 1RM (kg)</label>
+            <input type="number" id="input-bench" step="2.5" min="0" inputmode="decimal">
+        </div>
+        <div class="form-group">
+            <label>데드리프트 (Deadlift) 1RM (kg)</label>
+            <input type="number" id="input-deadlift" step="2.5" min="0" inputmode="decimal">
+        </div>
+        <div class="form-group">
+            <label>오버헤드 프레스 (OHP) 1RM (kg)</label>
+            <input type="number" id="input-ohp" step="2.5" min="0" inputmode="decimal">
+        </div>
+
+        <button class="save-btn" onclick="saveSettings()">⚙️ 설정값 저장 및 동기화</button>
+    </section>
+
+    <!-- 4. ACTIVE WORKOUT VIEW SECTION (Bottom nav hidden) -->
+    <section class="view-section" id="active-workout-view">
+        <div class="day-info" id="active-day-info" style="margin-top: 12px; margin-bottom: 16px;">
+            <h2 id="active-day-title" style="font-size: 20px; font-weight:900;">운동명</h2>
+            <p id="active-day-desc" style="font-size: 13px; color: var(--text-muted); margin-top:4px;">설명</p>
+        </div>
+
+        <div id="workout-container">
+            <!-- Populated via JS -->
+        </div>
+    </section>
+
+    <!-- Bottom Tab Navigation Menu -->
+    <nav class="bottom-nav" id="bottom-nav">
+        <button class="nav-item active" onclick="switchTab('home-view')">
+            <svg class="nav-icon-svg" viewBox="0 0 24 24"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"></path><polyline points="9 22 9 12 15 12 15 22"></polyline></svg>
+            <span>홈</span>
+        </button>
+        <button class="nav-item" onclick="switchTab('calendar-view')">
+            <svg class="nav-icon-svg" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect><line x1="16" y1="2" x2="16" y2="6"></line><line x1="8" y1="2" x2="8" y2="6"></line><line x1="3" y1="10" x2="21" y2="10"></line></svg>
+            <span>훈련 일지</span>
+        </button>
+        <button class="nav-item" onclick="switchTab('settings-view')">
+            <svg class="nav-icon-svg" viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"></path></svg>
+            <span>설정</span>
+        </button>
+    </nav>
+
+    <!-- AI 자율조절 모달 -->
+    <div class="overlay" id="feedback-overlay">
+        <div class="modal" style="max-height: 90vh; overflow-y: auto;">
+            <div class="modal-title">
+                <span>🧠 AI 훈련 결과 리포트</span>
+                <button class="close-btn" onclick="closeFeedbackModal()">×</button>
+            </div>
+
+            <div style="text-align: center; margin: 12px 0;">
+                <div id="feedback-badge" class="feedback-status">SUCCESS</div>
+            </div>
+
+            <!-- AI 분석 처방 박스 -->
+            <div class="ai-feedback-box">
+                <div class="ai-header">💡 AI 분석 및 처방</div>
+                <p id="feedback-text">훈련 데이터를 분석 중입니다...</p>
+            </div>
+
+            <!-- 점진적 과부하 달성 리포트 -->
+            <div class="ai-feedback-box" style="background: rgba(0, 212, 255, 0.05); border: 1px solid var(--accent-color); margin-bottom: 12px;">
+                <div class="ai-header" style="color: var(--accent-color);">📈 점진적 과부하 성장 리포트</div>
+                <ul id="overload-report-list" style="margin: 6px 0 0 0; padding-left: 20px; font-size: 12px; color: #FFFFFF; line-height: 1.6; text-align: left;">
+                    <!-- 과부하 달성 항목 리스트 주입 -->
+                </ul>
+            </div>
+
+            <!-- 오늘 운동 요약 통계 -->
+            <div style="background: rgba(0, 0, 0, 0.3); padding: 14px; border-radius: 16px; border: 1px solid var(--card-border); margin-bottom: 12px;">
+                <div style="font-size: 13px; font-weight: 700; color: #FFFFFF; text-align: center; margin-bottom: 10px;">📊 세션 요약 통계</div>
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px; text-align: center;">
+                    <div style="background: rgba(255,255,255,0.03); padding: 8px; border-radius: 8px;">
+                        <div style="font-size: 10px; color: var(--text-muted); font-weight: 800;">총 훈련 볼륨</div>
+                        <div id="session-volume" style="font-weight: 800; color: var(--accent-color); font-size: 15px; margin-top: 2px;">0 kg</div>
+                    </div>
+                    <div style="background: rgba(255,255,255,0.03); padding: 8px; border-radius: 8px;">
+                        <div style="font-size: 10px; color: var(--text-muted); font-weight: 800;">성공 세트 비율</div>
+                        <div id="session-sets-rate" style="font-weight: 800; color: var(--accent-color); font-size: 15px; margin-top: 2px;">0/0</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 주간 부위별 완료 세트 수 -->
+            <div style="background: rgba(0, 0, 0, 0.3); padding: 14px; border-radius: 16px; border: 1px solid var(--card-border); margin-bottom: 16px;">
+                <div style="font-size: 13px; font-weight: 700; color: #FFFFFF; text-align: center; margin-bottom: 10px;">💪 이번 주 부위별 총 완료 세트 수</div>
+                <div id="weekly-muscle-sets-container" style="display: grid; grid-template-columns: repeat(5, 1fr); text-align: center; gap: 4px;">
+                    <!-- 부위별 완료 세트수 주입 -->
+                </div>
+            </div>
+
+            <button class="save-btn" onclick="closeFeedbackModal()">홈 화면으로 이동</button>
+        </div>
+    </div>
+
+    <script>
+        // Global State Variables
+        let oneRms = { squat: 150.0, bench: 100.0, deadlift: 160.0, ohp: 60.0, activeSplit: 5 };
+        let sheetsConnected = false;
+        let routineData = {}; // Keyed by split ("2", "3", "4", "5")
+        let completedLogs = [];
+        let currentDayId = "Day 1";
+        let nextRecommendedDayId = "Day 1";
+
+        // Stopwatch state
+        let stopwatchSeconds = 0;
+        let stopwatchInterval = null;
+        let stopwatchPaused = false;
+
+        // Calendar state
+        let currentYear = 2026;
+        let currentMonth = 6; // 0-indexed (July)
+
+        // Initialize WebApp
+        window.addEventListener("DOMContentLoaded", async () => {
+            const today = new Date();
+            currentYear = today.getFullYear();
+            currentMonth = today.getMonth();
+
+            await fetchSettings();
+            await fetchRoutine();
+            await fetchStatus();
+            await fetchLogs();
+            
+            // Check first-time onboarding
+            checkOnboarding();
+
+            // Set active split segment button
+            setActiveSplitSegmentUI();
+            
+            // Render UI
+            updateRecommendationUI();
+            renderSplitSelectorGrid();
+        });
+
+        // Calculate current active week number based on logs for the active split
+        function getActiveWeekNum() {
+            const activeSplit = oneRms.activeSplit;
+            
+            if (!completedLogs || completedLogs.length === 0) {
+                return 1;
+            }
+            
+            // Find the latest logged entry that belongs specifically to this active split size
+            let lastLog = null;
+            for (let i = completedLogs.length - 1; i >= 0; i--) {
+                const log = completedLogs[i];
+                if (log.split === activeSplit) {
+                    lastLog = log;
+                    break;
+                }
+            }
+            
+            if (!lastLog) {
+                return 1;
+            }
+            
+            const lastDStr = lastLog.day;
+            const lastD = lastDStr ? parseInt(lastDStr.replaceAll(/[^0-9]/g, "")) : 1;
+            const lastW = lastLog.week || 1;
+            
+            if (lastD >= activeSplit) {
+                return lastW + 1;
+            }
+            return lastW;
+        }
+
+        // Fetch settings from server
+        async function fetchSettings() {
+            try {
+                const res = await fetch("/api/workout/settings");
+                const data = await res.json();
+                oneRms = data.oneRms;
+                sheetsConnected = data.sheetsConnected;
+                updateSettingsUI();
+            } catch (err) {
+                console.error("1RM 로드 실패", err);
+            }
+        }
+
+        function updateSettingsUI() {
+            document.getElementById("input-squat").value = oneRms.squat;
+            document.getElementById("input-bench").value = oneRms.bench;
+            document.getElementById("input-deadlift").value = oneRms.deadlift;
+            document.getElementById("input-ohp").value = oneRms.ohp;
+
+            const dotClass = sheetsConnected ? "status-dot connected" : "status-dot fallback";
+            const statusText = sheetsConnected ? "구글 시트 연동 완료 (실시간 동기화)" : "구글 시트 미연동 (로컬 임시 저장 모드)";
+
+            document.getElementById("home-status-dot").className = dotClass;
+            document.getElementById("home-conn-text").innerText = statusText;
+            document.getElementById("settings-status-dot").className = dotClass;
+            document.getElementById("settings-conn-text").innerText = statusText;
+
+            setActiveSplitSegmentUI();
+        }
+
+        function setActiveSplitSegmentUI() {
+            document.querySelectorAll(".split-segment-btn").forEach(btn => {
+                btn.classList.remove("active");
+            });
+            const activeBtn = document.getElementById("split-btn-" + oneRms.activeSplit);
+            if (activeBtn) {
+                activeBtn.classList.add("active");
+            }
+        }
+
+        // Fetch routines for all splits
+        async function fetchRoutine() {
+            try {
+                const res = await fetch("/api/workout/routine");
+                routineData = await res.json();
+            } catch (err) {
+                console.error("루틴 정보 로드 실패", err);
+            }
+        }
+
+        // Fetch recommendation status
+        async function fetchStatus() {
+            try {
+                const res = await fetch("/api/workout/status");
+                const data = await res.json();
+                nextRecommendedDayId = data.nextRecommendedDay || "Day 1";
+            } catch (err) {
+                console.error("추천 정보 조회 실패", err);
+            }
+        }
+
+        // Update Today's Recommendation Card
+        function updateRecommendationUI() {
+            const currentSplitStr = String(oneRms.activeSplit);
+            const activeRoutine = routineData[currentSplitStr];
+            if (!activeRoutine) return;
+
+            // Make sure recommended day is within the active split scope
+            let nextDay = activeRoutine.find(d => d.id === nextRecommendedDayId);
+            if (!nextDay) {
+                nextDay = activeRoutine[0];
+                nextRecommendedDayId = nextDay.id;
+            }
+
+            if (nextDay) {
+                const currentWeek = getActiveWeekNum();
+                let recommendName = nextDay.name;
+                recommendName = recommendName.replace(/Day\s*\d+/i, `Week ${currentWeek} ${nextDay.id}`);
+                document.getElementById("recommend-name").innerText = recommendName;
+                
+                let desc = "";
+                if (oneRms.activeSplit === 2) {
+                    if (nextRecommendedDayId === "Day 1") desc = "🎯 상체 프레임 확장 및 텐션 유지 (가슴, 등, 어깨, 팔 통합 트레이닝)";
+                    else if (nextRecommendedDayId === "Day 2") desc = "🎯 하체 대퇴사두 및 햄스트링 고볼륨 성장 (스쿼트 & 루마니안 데드리프트 중심)";
+                } else if (oneRms.activeSplit === 3) {
+                    if (nextRecommendedDayId === "Day 1") desc = "🎯 상체 밀기 기능 강화 (벤치프레스 1RM 텐션 확보 & 삼각근 고립)";
+                    else if (nextRecommendedDayId === "Day 2") desc = "🎯 상체 당기기 볼륨 극대화 (바벨 로우 및 풀업 프레임 크기 강화)";
+                    else if (nextRecommendedDayId === "Day 3") desc = "🎯 대하체 폭발적 성장 세션 (스쿼트 & 덤벨 RDL 요추 세이프 훈련)";
+                } else if (oneRms.activeSplit === 4) {
+                    if (nextRecommendedDayId === "Day 1") desc = "🎯 가슴 볼륨 극대화 및 이두 동반 타격 (다음날 하체 세션으로 상체 휴식 충분)";
+                    else if (nextRecommendedDayId === "Day 2") desc = "🎯 스쿼트 강도 확보 및 하체 후면 고립 세션";
+                    else if (nextRecommendedDayId === "Day 3") desc = "🎯 어깨 레이즈 폭격 및 삼두 완전 쥐어짜기 (팔 기능 회복 보완)";
+                    else if (nextRecommendedDayId === "Day 4") desc = "🎯 등 전체 프레임 너비 및 두께 타격 (바벨 로우 & 암 풀 다운 볼륨)";
+                } else {
+                    if (nextRecommendedDayId === "Day 1") desc = "🎯 등 전체 두께/너비 확보 (다음 날 가슴 밀기로 이두 회복 충분)";
+                    else if (nextRecommendedDayId === "Day 2") desc = "🎯 벤치프레스 고중량 텐션 유지 및 가슴 볼륨 폭격";
+                    else if (nextRecommendedDayId === "Day 3") desc = "🎯 스쿼트 기반 대퇴사두/햄스트링 폭발적 성장 (상체 완전 휴식)";
+                    else if (nextRecommendedDayId === "Day 4") desc = "🎯 삼두 개입 배제 레이즈 중심 어깨 단독 고립 폭격";
+                    else if (nextRecommendedDayId === "Day 5") desc = "🎯 온전한 팔 컨디션을 통한 이두/삼두 슈퍼세트 털기 (주말 48시간 휴식)";
+                }
+                
+                document.getElementById("recommend-desc").innerText = desc;
+            }
+        }
+
+        // Render manual split selectors (Home Tab)
+        function renderSplitSelectorGrid() {
+            const grid = document.getElementById("split-grid");
+            grid.innerHTML = "";
+
+            const currentSplitStr = String(oneRms.activeSplit);
+            const activeRoutine = routineData[currentSplitStr];
+            if (!activeRoutine) return;
+
+            const currentWeek = getActiveWeekNum();
+
+            activeRoutine.forEach(day => {
+                const btn = document.createElement("button");
+                btn.className = "split-select-btn";
+                btn.onclick = () => startSelectedWorkout(day.id);
+                
+                let dayDetail = day.name.split("|")[1] || day.name;
+                
+                btn.innerHTML = `
+                    <div class="split-btn-meta">
+                        <span class="tag">${currentWeek}W ${day.id}</span>
+                        <span class="subtitle">${dayDetail.trim()}</span>
+                    </div>
+                    <span class="split-arrow">▶</span>
+                `;
+                grid.appendChild(btn);
+            });
+        }
+
+        // Select a split segment
+        async function selectSplit(splitNum) {
+            oneRms.activeSplit = splitNum;
+            // Silent save to backend
+            await saveSettingsSilent();
+            updateSettingsUI();
+            updateRecommendationUI();
+            renderSplitSelectorGrid();
+        }
+
+        // Fetch logs
+        async function fetchLogs() {
+            try {
+                const res = await fetch("/api/workout/logs");
+                completedLogs = await res.json();
+                renderCalendar();
+            } catch (err) {
+                console.error("로그 리스트 조회 실패", err);
+            }
+        }
+
+        // Tab Switch logic
+        function switchTab(viewId) {
+            document.querySelectorAll(".view-section").forEach(sec => {
+                sec.classList.remove("active");
+            });
+            document.getElementById(viewId).classList.add("active");
+
+            document.querySelectorAll(".nav-item").forEach(item => {
+                item.classList.remove("active");
+            });
+
+            let idx = 0;
+            if (viewId === "calendar-view") idx = 1;
+            else if (viewId === "settings-view") idx = 2;
+            document.querySelectorAll(".nav-item")[idx].classList.add("active");
+
+            if (viewId === "calendar-view") {
+                fetchLogs();
+            }
+        }
+
+        function startRecommendedWorkout() {
+            startWorkout(nextRecommendedDayId);
+        }
+
+        function startSelectedWorkout(dayId) {
+            startWorkout(dayId);
+        }
+
+        // Start active workout tracking
+        function startWorkout(dayId) {
+            currentDayId = dayId;
+            const currentSplitStr = String(oneRms.activeSplit);
+            const activeRoutine = routineData[currentSplitStr];
+            if (!activeRoutine) return;
+
+            const dayObj = activeRoutine.find(d => d.id === dayId);
+            if (!dayObj) return;
+
+            // Hide tabbar and show workout header
+            document.getElementById("bottom-nav").style.display = "none";
+            document.getElementById("active-workout-header").style.display = "flex";
+            
+            // Switch view
+            document.querySelectorAll(".view-section").forEach(sec => {
+                sec.classList.remove("active");
+            });
+            document.getElementById("active-workout-view").classList.add("active");
+
+            // Setup active details
+            const currentWeek = getActiveWeekNum();
+            let activeTitle = dayObj.name;
+            activeTitle = activeTitle.replace(/Day\s*\d+/i, `Week ${currentWeek} ${dayObj.id}`);
+            document.getElementById("active-day-title").innerText = activeTitle;
+            
+            renderExercises(dayObj);
+            
+            // Start Timer
+            startStopwatch();
+            calculateVolume();
+        }
+
+        // Render exercise list in workout mode
+        function renderExercises(dayObj) {
+            const container = document.getElementById("workout-container");
+            container.innerHTML = "";
+
+            dayObj.exercises.forEach((ex, exIdx) => {
+                const card = document.createElement("div");
+                card.className = "exercise-card";
+
+                const isSuper = ex.name.includes("슈퍼세트");
+                let badge = "";
+                if (isSuper) badge = '<span class="super-set-badge">SuperSet</span>';
+
+                // Target weight calculation
+                let targetWeight = (ex.targetWeight !== undefined) ? ex.targetWeight : ex.defaultWeight;
+
+                // 2.5kg Rounding
+                targetWeight = Math.round(targetWeight / 2.5) * 2.5;
+
+                // Target reps calculation
+                let targetReps = ex.targetReps;
+
+                card.innerHTML = `
+                    <div class="exercise-title">
+                        <span>${ex.name} ${badge}</span>
+                        <span class="exercise-meta">${ex.sets}세트 × ${ex.repsRange}회 (RPE ${ex.rpeTarget})</span>
+                    </div>
+                    <div class="sets-table" id="ex-${exIdx}">
+                        <div class="set-row" style="font-weight:700; color:var(--text-main); border-bottom: 1px solid rgba(255, 255, 255, 0.08);">
+                            <div class="set-no">#</div>
+                            <div class="set-prev-info">Previous</div>
+                            <div class="set-target-info">강도</div>
+                            <div class="set-target-info">Kg</div>
+                            <div class="set-target-info">Reps</div>
+                            <div class="set-target-info">RPE</div>
+                            <div style="width: 34px;"></div>
+                        </div>
+                        <!-- Set rows populated below -->
+                    </div>
+                `;
+
+                const table = card.querySelector(".sets-table");
+                for (let s = 1; s <= ex.sets; s++) {
+                    const row = document.createElement("div");
+                    row.className = "set-row";
+                    row.id = `row-${exIdx}-${s}`;
+                    row.innerHTML = `
+                        <div class="set-no">${s}</div>
+                        <div class="set-prev-info">${formatPreviousCell(ex, s)}</div>
+                        <div class="set-target-info set-intensity-info">
+                            <div style="font-weight:700; color:var(--text-muted); font-size:12.5px;">${formatIntensityCell(ex)}</div>
+                        </div>
+                        <div class="input-group">
+                            <input type="number" class="weight-input" value="${targetWeight}" step="2.5" min="0" inputmode="decimal" onchange="calculateVolume()">
+                            <span>kg</span>
+                        </div>
+                        <div class="input-group">
+                            <input type="number" class="reps-input" value="${targetReps}" min="0" inputmode="numeric" onchange="calculateVolume()">
+                            <span>회</span>
+                        </div>
+                        <div class="input-group">
+                            <input type="number" class="rpe-input-field" value="${ex.rpeTarget}" min="5" max="10" step="0.5" inputmode="decimal" onchange="calculateVolume()">
+                            <span>RPE</span>
+                        </div>
+                        <button class="check-btn" onclick="toggleSet(${exIdx}, ${s})">
+                            <svg viewBox="0 0 24 24">
+                                <polyline points="20 6 9 17 4 12"></polyline>
+                            </svg>
+                        </button>
+                    `;
+                    table.appendChild(row);
+                }
+
+                container.appendChild(card);
+            });
+        }
+
+        // Recalculate targets based on checkbox changes
+        function recalculateWorkoutTargets() {
+            const currentSplitStr = String(oneRms.activeSplit);
+            const activeRoutine = routineData[currentSplitStr];
+            if (!activeRoutine) return;
+
+            const dayObj = activeRoutine.find(d => d.id === currentDayId);
+            if (!dayObj) return;
+
+            renderExercises(dayObj);
+            calculateVolume();
+        }
+
+        function formatIntensityCell(ex) {
+            if (!ex.coreLift || !ex.intensity) {
+                return "-";
+            }
+            return `${Math.round(ex.intensity * 100)}%`;
+        }
+
+        function togglePrevLog(btn) {
+            const content = btn.nextElementSibling;
+            const arrow = btn.querySelector(".arrow");
+            if (content.style.display === "none") {
+                content.style.display = "block";
+                arrow.innerText = "▼";
+            } else {
+                content.style.display = "none";
+                arrow.innerText = "▶";
+            }
+        }
+
+        function checkOnboarding() {
+            const onboarded = localStorage.getItem("gym_onboarded");
+            if (!onboarded) {
+                document.getElementById("onboarding-overlay").style.display = "flex";
+            }
+        }
+
+        async function saveOnboardingGym() {
+            const name = document.getElementById("onboard-gym-name").value || "우리동네 헬스장";
+            const interval = parseFloat(document.getElementById("onboard-db-interval").value) || 2.0;
+            
+            const plates = [];
+            document.querySelectorAll(".plate-check:checked").forEach(cb => {
+                plates.push(parseFloat(cb.value));
+            });
+
+            try {
+                await fetch("/api/workout/gyms", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({
+                        name: name,
+                        barbellWeight: 20.0,
+                        availablePlates: plates.length > 0 ? plates : [20.0, 15.0, 10.0, 5.0, 2.5, 1.25],
+                        dumbbellInterval: interval
+                    })
+                });
+                localStorage.setItem("gym_onboarded", "true");
+                document.getElementById("onboarding-overlay").style.display = "none";
+            } catch (e) {
+                console.error("Onboarding failed", e);
+            }
+        }
+
+        function startStopwatch() {
+            if (stopwatchInterval) clearInterval(stopwatchInterval);
+            stopwatchSeconds = 0;
+            stopwatchPaused = false;
+            updateStopwatchDisplay();
+            updateStopwatchToggle();
+            stopwatchInterval = setInterval(() => {
+                if (stopwatchPaused) return;
+                stopwatchSeconds++;
+                updateStopwatchDisplay();
+            }, 1000);
+        }
+
+        function stopStopwatch() {
+            if (stopwatchInterval) clearInterval(stopwatchInterval);
+            stopwatchInterval = null;
+            stopwatchPaused = false;
+            updateStopwatchToggle();
+        }
+
+        function updateStopwatchDisplay() {
+            const mm = String(Math.floor(stopwatchSeconds / 60)).padStart(2, '0');
+            const ss = String(stopwatchSeconds % 60).padStart(2, '0');
+            document.getElementById("stopwatch-display").innerText = `${mm}:${ss}`;
+        }
+
+        function updateStopwatchToggle() {
+            const btn = document.getElementById("stopwatch-toggle");
+            if (!btn) return;
+
+            if (stopwatchPaused) {
+                btn.classList.add("paused");
+                btn.setAttribute("aria-label", "초시계 재개");
+                btn.innerHTML = `
+                    <svg viewBox="0 0 24 24" aria-hidden="true">
+                        <path d="M8 5v14l11-7z"></path>
+                    </svg>
+                `;
+            } else {
+                btn.classList.remove("paused");
+                btn.setAttribute("aria-label", "초시계 일시정지");
+                btn.innerHTML = `
+                    <svg viewBox="0 0 24 24" aria-hidden="true">
+                        <rect x="7" y="5" width="3.5" height="14" rx="1"></rect>
+                        <rect x="13.5" y="5" width="3.5" height="14" rx="1"></rect>
+                    </svg>
+                `;
+            }
+        }
+
+        function toggleStopwatchPause() {
+            if (!stopwatchInterval) return;
+            stopwatchPaused = !stopwatchPaused;
+            updateStopwatchToggle();
+        }
+
+        // Check button click logic
+        function toggleSet(exIdx, setNo) {
+            const row = document.getElementById(`row-${exIdx}-${setNo}`);
+            const btn = row.querySelector(".check-btn");
+            
+            if (row.classList.contains("checked")) {
+                row.classList.remove("checked");
+                btn.classList.remove("checked");
+            } else {
+                row.classList.add("checked");
+                btn.classList.add("checked");
+            }
+
+            calculateVolume();
+        }
+
+        function calculateVolume() {
+            let total = 0;
+            document.querySelectorAll(".set-row.checked").forEach(row => {
+                const w = parseFloat(row.querySelector(".weight-input").value) || 0;
+                const r = parseInt(row.querySelector(".reps-input").value) || 0;
+                total += w * r;
+            });
+            document.getElementById("vol-counter").innerText = total.toLocaleString();
+        }
+
+        function formatPreviousCell(ex, setNo) {
+            if (ex.previousSets && Array.isArray(ex.previousSets) && ex.previousSets.length >= setNo) {
+                const prev = ex.previousSets[setNo - 1];
+                if (prev && prev.weight != null && prev.reps != null) {
+                    return `${prev.weight}kg × ${prev.reps}`;
+                }
+            }
+            if (ex.previousLog && ex.previousLog.weight != null && ex.previousLog.reps != null) {
+                return `${ex.previousLog.weight}kg × ${ex.previousLog.reps}`;
+            }
+            return "-";
+        }
+
+        function abortWorkout() {
+            if (confirm("훈련 기록 작성을 취소하시겠습니까? 현재까지의 기록은 저장되지 않습니다.")) {
+                stopStopwatch();
+                document.getElementById("active-workout-header").style.display = "none";
+                document.getElementById("bottom-nav").style.display = "flex";
+                switchTab("home-view");
+            }
+        }
+
+        // Submit completed workout logs
+        async function finishWorkout() {
+            const currentSplitStr = String(oneRms.activeSplit);
+            const activeRoutine = routineData[currentSplitStr];
+            if (!activeRoutine) return;
+
+            const dayObj = activeRoutine.find(d => d.id === currentDayId);
+            if (!dayObj) return;
+
+            const logs = [];
+            const currentWeek = getActiveWeekNum();
+
+            dayObj.exercises.forEach((ex, exIdx) => {
+                let targetWeight = (ex.targetWeight !== undefined) ? ex.targetWeight : ex.defaultWeight;
+                if (ex.coreLift && ex.targetWeight === undefined) {
+                    const oneRmValue = oneRms[ex.coreLiftType] || 100.0;
+                    targetWeight = oneRmValue * ex.intensity;
+                }
+                targetWeight = Math.round(targetWeight / 2.5) * 2.5;
+
+                let targetReps = ex.targetReps;
+
+                for (let s = 1; s <= ex.sets; s++) {
+                    const row = document.getElementById(`row-${exIdx}-${s}`);
+                    const checked = row.classList.contains("checked");
+                    
+                    const weightVal = parseFloat(row.querySelector(".weight-input").value) || 0;
+                    const repsVal = parseInt(row.querySelector(".reps-input").value) || 0;
+                    
+                    let rpeVal = 8.0;
+                    const rpeInput = row.querySelector(".rpe-input-field");
+                    if (rpeInput) {
+                        rpeVal = parseFloat(rpeInput.value) || 8.0;
+                    }
+
+                    logs.push({
+                        exercise: ex.name,
+                        setNo: s,
+                        targetWeight: targetWeight,
+                        weight: weightVal,
+                        targetReps: targetReps,
+                        reps: repsVal,
+                        rpe: checked ? rpeVal : 0.0,
+                        status: (checked && repsVal >= targetReps) ? "SUCCESS" : "FAIL",
+                        split: oneRms.activeSplit,
+                        week: currentWeek,
+                        day: dayObj.id
+                    });
+                }
+            });
+
+            try {
+                const res = await fetch("/api/workout/finish", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({
+                        split: oneRms.activeSplit,
+                        week: currentWeek,
+                        day: dayObj.id,
+                        logs: logs
+                    })
+                });
+
+                if (res.ok) {
+                    const data = await res.json();
+                    showFeedbackModal(data);
+                } else {
+                    alert("서버 통신 오류가 발생했습니다.");
+                }
+            } catch (err) {
+                console.error("기록 제출 실패", err);
+                alert("기록 저장에 실패했습니다. 네트워크를 확인해주세요.");
+            }
+        }
+
+        function showFeedbackModal(data) {
+            stopStopwatch();
+            document.getElementById("active-workout-header").style.display = "none";
+            document.getElementById("bottom-nav").style.display = "flex";
+
+            // Status Badge
+            const badge = document.getElementById("feedback-badge");
+            badge.innerText = data.status === "SUCCESS" ? "훈련 성공" : "훈련 완료";
+            badge.className = data.status === "SUCCESS" ? "feedback-status success" : "feedback-status fail";
+
+            // Feedback Message
+            document.getElementById("feedback-text").innerText = data.feedback;
+
+            // Overload Progress Report List
+            const listEl = document.getElementById("overload-report-list");
+            listEl.innerHTML = "";
+            if (data.progressReport && data.progressReport.length > 0) {
+                data.progressReport.forEach(item => {
+                    const li = document.createElement("li");
+                    li.innerText = item;
+                    listEl.appendChild(li);
+                });
+            } else {
+                listEl.innerHTML = '<li style="list-style: none; margin-left: -20px; color: var(--text-muted);">진행 중인 종목 피드백이 없습니다.</li>';
+            }
+
+            // Session Stats
+            document.getElementById("session-volume").innerText = `${Math.round(data.totalVolume).toLocaleString()} kg`;
+            document.getElementById("session-sets-rate").innerText = `${data.completedSets} / ${data.totalSets} 세트`;
+
+            // Weekly Muscle Sets Cumulative
+            const containerEl = document.getElementById("weekly-muscle-sets-container");
+            containerEl.innerHTML = "";
+            if (data.weeklyMuscleSets) {
+                for (const muscle in data.weeklyMuscleSets) {
+                    const count = data.weeklyMuscleSets[muscle] || 0;
+                    const itemDiv = document.createElement("div");
+                    itemDiv.style.background = "rgba(255,255,255,0.03)";
+                    itemDiv.style.padding = "6px 2px";
+                    itemDiv.style.borderRadius = "8px";
+                    itemDiv.innerHTML = `
+                        <div style="font-size: 10px; color: var(--text-muted); font-weight: 800;">${muscle}</div>
+                        <div style="font-weight: 800; color: #FFFFFF; font-size: 13px; margin-top: 2px;">${count}세트</div>
+                    `;
+                    containerEl.appendChild(itemDiv);
+                }
+            }
+
+            // Open Modal
+            document.getElementById("feedback-overlay").classList.add("active");
+        }
+
+        async function closeFeedbackModal() {
+            document.getElementById("feedback-overlay").classList.remove("active");
+            
+            await fetchSettings();
+            await fetchStatus();
+            await fetchLogs();
+            await fetchRoutine();
+            updateSettingsUI();
+            updateRecommendationUI();
+            renderSplitSelectorGrid();
+            
+            switchTab("home-view");
+        }
+
+        // Save Settings (Manual button click)
+        async function saveSettings() {
+            const body = {
+                squat: parseFloat(document.getElementById("input-squat").value) || 150.0,
+                bench: parseFloat(document.getElementById("input-bench").value) || 100.0,
+                deadlift: parseFloat(document.getElementById("input-deadlift").value) || 160.0,
+                ohp: parseFloat(document.getElementById("input-ohp").value) || 60.0,
+                activeSplit: oneRms.activeSplit
+            };
+
+            try {
+                const res = await fetch("/api/workout/settings", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify(body)
+                });
+                if (res.ok) {
+                    oneRms = await res.json();
+                    alert("설정 수치가 정상 업데이트 되었습니다!");
+                    updateSettingsUI();
+                    updateRecommendationUI();
+                    renderSplitSelectorGrid();
+                    switchTab("home-view");
+                }
+            } catch (err) {
+                console.error("1RM 저장 실패", err);
+            }
+        }
+
+        // Save settings silently (upon split change)
+        async function saveSettingsSilent() {
+            const body = {
+                squat: oneRms.squat,
+                bench: oneRms.bench,
+                deadlift: oneRms.deadlift,
+                ohp: oneRms.ohp,
+                activeSplit: oneRms.activeSplit
+            };
+
+            try {
+                const res = await fetch("/api/workout/settings", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify(body)
+                });
+                if (res.ok) {
+                    oneRms = await res.json();
+                }
+            } catch (err) {
+                console.error("Split 설정 변경 실패", err);
+            }
+        }
+
+        // Calendar Engine (Generates dynamic grid)
+        const monthNames = ["1월", "2월", "3월", "4월", "5월", "6월", "7월", "8월", "9월", "10월", "11월", "12월"];
+
+        function prevMonth() {
+            currentMonth--;
+            if (currentMonth < 0) {
+                currentMonth = 11;
+                currentYear--;
+            }
+            renderCalendar();
+        }
+
+        function nextMonth() {
+            currentMonth++;
+            if (currentMonth > 11) {
+                currentMonth = 0;
+                currentYear++;
+            }
+            renderCalendar();
+        }
+
+        function renderCalendar() {
+            document.getElementById("calendar-month-year").innerText = `${currentYear}년 ${monthNames[currentMonth]}`;
+            
+            const grid = document.getElementById("calendar-grid");
+            grid.innerHTML = "";
+
+            const weekdays = ["일", "월", "화", "수", "목", "금", "토"];
+            weekdays.forEach(day => {
+                const el = document.createElement("div");
+                el.className = "calendar-weekday";
+                el.innerText = day;
+                grid.appendChild(el);
+            });
+
+            const totalDays = new Date(currentYear, currentMonth + 1, 0).getDate();
+            const startOffset = new Date(currentYear, currentMonth, 1).getDay();
+
+            for (let i = 0; i < startOffset; i++) {
+                const el = document.createElement("div");
+                el.className = "calendar-day empty";
+                grid.appendChild(el);
+            }
+
+            // Map completed logs to date keys
+            const logsByDate = {};
+            completedLogs.forEach(log => {
+                if (log.date) {
+                    if (!logsByDate[log.date]) {
+                        logsByDate[log.date] = [];
+                    }
+                    logsByDate[log.date].push(log);
+                }
+            });
+
+            const today = new Date();
+            const todayStr = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
+
+            for (let d = 1; d <= totalDays; d++) {
+                const dayEl = document.createElement("div");
+                dayEl.className = "calendar-day";
+                
+                const curDateStr = `${currentYear}-${String(currentMonth + 1).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
+                dayEl.innerText = d;
+
+                if (curDateStr === todayStr) {
+                    dayEl.classList.add("today");
+                }
+
+                if (logsByDate[curDateStr]) {
+                    dayEl.classList.add("worked");
+                    
+                    const marker = document.createElement("div");
+                    marker.className = "calendar-marker";
+                    dayEl.appendChild(marker);
+
+                    const firstLog = logsByDate[curDateStr][0];
+                    let labelText = "운동";
+                    
+                    const logSplit = firstLog.split;
+                    const logDayId = firstLog.day;
+                    const routine = routineData[String(logSplit)];
+                    let dayName = "";
+                    if (routine) {
+                        const dayObj = routine.find(d => d.id === logDayId);
+                        if (dayObj) {
+                            dayName = dayObj.name;
+                        }
+                    }
+
+                    if (dayName) {
+                        if (dayName.includes("등") || dayName.includes("Back")) labelText = "등";
+                        else if (dayName.includes("가슴") || dayName.includes("Chest")) labelText = "가슴";
+                        else if (dayName.includes("하체") || dayName.includes("Leg")) labelText = "하체";
+                        else if (dayName.includes("어깨") || dayName.includes("Shoulder")) labelText = "어깨";
+                        else if (dayName.includes("팔") || dayName.includes("Arm")) labelText = "팔";
+                        else if (dayName.includes("상체") || dayName.includes("Upper")) labelText = "상체";
+                        else if (dayName.includes("밀기") || dayName.includes("Push")) labelText = "밀기";
+                        else if (dayName.includes("당기기") || dayName.includes("Pull")) labelText = "당기기";
+                    }
+
+                    const textLabel = document.createElement("div");
+                    textLabel.className = "calendar-day-label";
+                    textLabel.innerText = labelText;
+                    dayEl.appendChild(textLabel);
+                }
+
+                dayEl.onclick = () => selectCalendarDay(curDateStr, logsByDate[curDateStr]);
+                grid.appendChild(dayEl);
+            }
+        }
+
+        // Calendar Day selection logic
+        function selectCalendarDay(dateStr, dayLogs) {
+            document.querySelectorAll(".calendar-day").forEach(el => {
+                el.classList.remove("selected");
+            });
+
+            // Find clicked day cell
+            const cells = document.querySelectorAll(".calendar-day:not(.empty)");
+            const dayNum = parseInt(dateStr.split("-")[2]);
+            cells.forEach(c => {
+                if (parseInt(c.firstChild.textContent) === dayNum) {
+                    c.classList.add("selected");
+                }
+            });
+
+            document.getElementById("selected-date-badge").innerText = dateStr;
+
+            const content = document.getElementById("log-details-content");
+            content.innerHTML = "";
+
+            if (!dayLogs || dayLogs.length === 0) {
+                content.innerHTML = '<div class="log-empty">해당 날짜에 등록된 훈련 기록이 없습니다.</div>';
+                return;
+            }
+
+            const exGroups = {};
+            dayLogs.forEach(log => {
+                if (!exGroups[log.exercise]) {
+                    let dayNameString = `Week ${log.week} ${log.day}`;
+                    const routine = routineData[String(log.split)];
+                    if (routine) {
+                        const dayObj = routine.find(d => d.id === log.day);
+                        if (dayObj) {
+                            dayNameString = `Week ${log.week} ${log.day} | ${dayObj.name.split(' | ')[1] || dayObj.name}`;
+                        }
+                    }
+                    
+                    exGroups[log.exercise] = {
+                        dayName: dayNameString,
+                        sets: []
+                    };
+                }
+                exGroups[log.exercise].sets.push(log);
+            });
+
+            for (const exName in exGroups) {
+                const item = document.createElement("div");
+                item.className = "log-item";
+                
+                const group = exGroups[exName];
+                let setBadgesHTML = "";
+                
+                group.sets.forEach(set => {
+                    const isSuccess = set.status === "SUCCESS";
+                    const badgeClass = isSuccess ? "log-set-badge" : "log-set-badge fail";
+                    const rpeText = set.rpe > 0 ? `, RPE ${set.rpe}` : "";
+                    setBadgesHTML += `
+                        <span class="${badgeClass}">
+                            Set ${set.setNo}: ${set.weight}kg × ${set.reps}회${rpeText}
+                        </span>
+                    `;
+                });
+
+                item.innerHTML = `
+                    <div class="log-ex-name">
+                        <span>💪 ${exName}</span>
+                        <span style="font-size:11px; font-weight:400; color:var(--text-muted);">${group.dayName.split(" | ")[0] || group.dayName}</span>
+                    </div>
+                    <div class="log-set-list">
+                        ${setBadgesHTML}
+                    </div>
+                `;
+                content.appendChild(item);
+            }
+        }
+    </script>
+</body>
+</html>

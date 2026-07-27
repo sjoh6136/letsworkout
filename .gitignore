@@ -1,0 +1,13 @@
+__pycache__/
+*.pyc
+.venv/
+target/
+data/app_state.json
+data/*.tmp
+credentials.json
+.env
+*.log
+logs.json
+gym_settings.json
+previous.md
+routine_compare_report.json
