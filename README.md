@@ -2,7 +2,7 @@
 
 [![Deploy to Render](https://render.com/images/deploy-to-render-button.svg)](https://render.com/deploy?repo=https://github.com/sjoh6136/letsworkout)
 
-개인용 운동 루틴/기록 웹앱입니다. 현재 실제 실행 경로는 `serve.py` 하나로 통일되어 있고, Flask가 정적 UI와 API를 같이 제공합니다.
+개인용 운동 루틴/기록 웹앱입니다. 현재 실행 진입점은 `serve.py` 하나이며, Flask가 정적 UI와 API를 함께 제공합니다.
 
 ## 로컬 실행
 
@@ -11,20 +11,33 @@ pip install -r requirements.txt
 python serve.py
 ```
 
-브라우저에서는 `http://localhost:8080`으로 접속합니다. iPhone에서 테스트할 때는 PC와 같은 Wi-Fi에 연결한 뒤 `http://PC_IP:8080`으로 접속합니다.
+브라우저에서 `http://localhost:8080`으로 접속합니다. iPhone에서 테스트할 때는 PC와 같은 Wi-Fi에 연결한 뒤 `http://PC_IP:8080`으로 접속합니다.
 
-## 주요 파일
+## Google Sheets 저장소
 
-- `serve.py`: Flask 서버/API
-- `src/main/resources/static/index.html`: 앱 화면
-- `src/main/resources/static/styles.css`: 앱 스타일
-- `data/routines.json`: 2~5분할 루틴
-- `data/exercise_definitions.json`: 운동별 증량 기준
-- `data/app_state.json`: 개인 기록/1RM/헬스장 설정, GitHub에 올리지 않음
+운동 기록과 1RM 설정은 Google Sheets를 기준 저장소로 사용합니다.
+
+- Spreadsheet ID: `1EZYNSFxd7iuEbKRCNSYyB-rVHz72TkS4TOAJcUxabBA`
+- 1RM/분할 설정 탭: `Setting_1RM`
+- 운동 로그 탭: `Workout_Logs`
+
+로컬에서는 루트의 `credentials.json`을 읽습니다. 이 파일은 GitHub에 올리지 않습니다.
+
+Render에서는 서비스의 `Environment` 메뉴에서 아래 중 하나를 설정합니다.
+
+- 권장: `GOOGLE_APPLICATION_CREDENTIALS_JSON` 환경변수에 `credentials.json` 전체 내용을 붙여넣기
+- 대안: Secret File로 `credentials.json`을 업로드
+
+필수 환경변수:
+
+```text
+GOOGLE_SHEETS_SPREADSHEET_ID=1EZYNSFxd7iuEbKRCNSYyB-rVHz72TkS4TOAJcUxabBA
+APP_TIMEZONE=Asia/Seoul
+```
+
+Google Sheets 연결에 실패하면 앱은 기존처럼 로컬 JSON 파일에 임시 저장합니다.
 
 ## Render 배포
-
-Render Web Service에서 아래 설정을 사용합니다.
 
 ```text
 Build Command: pip install -r requirements.txt
@@ -32,13 +45,4 @@ Start Command: gunicorn serve:app --bind 0.0.0.0:$PORT
 Health Check Path: /healthz
 ```
 
-환경 변수는 아래처럼 설정합니다.
-
-```text
-APP_TIMEZONE=Asia/Seoul
-APP_DATA_DIR=/var/data
-```
-
-개인 기록을 유지하려면 Render Persistent Disk를 추가하고 mount path를 `/var/data`로 설정합니다.
-
-처음 테스트 배포는 `render.yaml` 기준으로 `/tmp/letsworkout-data`에 기록합니다. 이 방식은 빠르게 띄우기 좋지만 Render 재시작/재배포 시 기록이 사라질 수 있습니다. 기록을 유지하려면 Render 서비스 생성 후 Persistent Disk를 붙이고 `APP_DATA_DIR`을 `/var/data`로 바꿉니다.
+Render 무료 인스턴스는 유휴 상태에서 잠들 수 있으므로 첫 접속이 느리거나 일시적으로 실패할 수 있습니다.

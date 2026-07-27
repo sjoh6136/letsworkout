@@ -14,3 +14,7 @@ services:
         value: Asia/Seoul
       - key: APP_DATA_DIR
         value: /tmp/letsworkout-data
+      - key: GOOGLE_SHEETS_SPREADSHEET_ID
+        value: 1EZYNSFxd7iuEbKRCNSYyB-rVHz72TkS4TOAJcUxabBA
+      - key: GOOGLE_APPLICATION_CREDENTIALS_JSON
+        sync: false

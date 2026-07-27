@@ -22,6 +22,11 @@ STATE_FILE = STATE_DIR / "app_state.json"
 GYM_SETTINGS_FILE = ROOT / "gym_settings.json"
 APP_TIMEZONE = os.environ.get("APP_TIMEZONE", "Asia/Seoul")
 ALLOWED_ORIGIN = os.environ.get("ALLOWED_ORIGIN")
+SPREADSHEET_ID = os.environ.get("GOOGLE_SHEETS_SPREADSHEET_ID", "1EZYNSFxd7iuEbKRCNSYyB-rVHz72TkS4TOAJcUxabBA")
+GOOGLE_CREDENTIALS_JSON = os.environ.get("GOOGLE_APPLICATION_CREDENTIALS_JSON") or os.environ.get("GOOGLE_CREDENTIALS_JSON")
+GOOGLE_CREDENTIALS_PATH = os.environ.get("GOOGLE_APPLICATION_CREDENTIALS") or os.environ.get("GOOGLE_SHEETS_CREDENTIALS_PATH")
+SHEETS_ENABLED = os.environ.get("GOOGLE_SHEETS_ENABLED", "true").lower() not in {"0", "false", "no"}
+_SHEETS_STORE = None
 
 DEFAULT_ONE_RMS = {
     "squat": 150.0,
@@ -69,6 +74,214 @@ def save_json(path: Path, data) -> None:
     tmp_path.replace(path)
 
 
+def sheet_float(value, default=0.0):
+    try:
+        return float(str(value).strip())
+    except (TypeError, ValueError):
+        return default
+
+
+def sheet_int(value, default=0):
+    try:
+        return int(float(str(value).strip()))
+    except (TypeError, ValueError):
+        return default
+
+
+class GoogleSheetsStore:
+    SETTINGS_TAB = "Setting_1RM"
+    LOGS_TAB = "Workout_Logs"
+    SETTINGS_HEADER = ["Squat", "Bench", "Deadlift", "OHP", "ActiveSplit"]
+    LOG_HEADER = [
+        "",
+        "날짜",
+        "분할",
+        "주차",
+        "일차",
+        "운동종목",
+        "세트수",
+        "무게(kg)",
+        "횟수(reps)",
+        "RPE",
+        "상태(SUCCESS/FAIL)",
+        "목표무게(kg)",
+        "목표횟수(reps)",
+    ]
+
+    def __init__(self):
+        self.connected = False
+        self.error = None
+        self.spreadsheet = None
+        if SHEETS_ENABLED:
+            self.connect()
+
+    def connect(self):
+        try:
+            import gspread
+
+            if GOOGLE_CREDENTIALS_JSON:
+                credentials = json.loads(GOOGLE_CREDENTIALS_JSON)
+                client = gspread.service_account_from_dict(credentials)
+            else:
+                credential_candidates = []
+                if GOOGLE_CREDENTIALS_PATH:
+                    credential_candidates.append(Path(GOOGLE_CREDENTIALS_PATH))
+                credential_candidates.extend([
+                    ROOT / "credentials.json",
+                    Path("/etc/secrets/credentials.json"),
+                ])
+                credentials_path = next((path for path in credential_candidates if path.exists()), None)
+                if credentials_path is None:
+                    raise FileNotFoundError("Google service account credentials were not found.")
+                client = gspread.service_account(filename=str(credentials_path))
+
+            self.spreadsheet = client.open_by_key(SPREADSHEET_ID)
+            self.ensure_tabs()
+            self.connected = True
+            print(">>> Google Sheets connected. <<<")
+        except Exception as exc:
+            self.error = str(exc)
+            print(f"[warn] Google Sheets unavailable, using local file storage: {exc}")
+
+    def worksheet(self, title, rows=100, cols=20):
+        import gspread
+
+        try:
+            return self.spreadsheet.worksheet(title)
+        except gspread.exceptions.WorksheetNotFound:
+            return self.spreadsheet.add_worksheet(title=title, rows=rows, cols=cols)
+
+    def ensure_tabs(self):
+        settings = self.worksheet(self.SETTINGS_TAB, rows=2, cols=10)
+        logs = self.worksheet(self.LOGS_TAB, rows=1000, cols=13)
+
+        values = settings.get("A1:E2")
+        if not values:
+            settings.update(
+                values=[self.SETTINGS_HEADER, [
+                    DEFAULT_ONE_RMS["squat"],
+                    DEFAULT_ONE_RMS["bench"],
+                    DEFAULT_ONE_RMS["deadlift"],
+                    DEFAULT_ONE_RMS["ohp"],
+                    DEFAULT_ONE_RMS["activeSplit"],
+                ]],
+                range_name="A1:E2",
+            )
+        else:
+            settings.update(values=[self.SETTINGS_HEADER], range_name="A1:E1")
+            if len(values) < 2 or len(values[1]) < 5:
+                row = (values[1] if len(values) > 1 else []) + [""] * 5
+                settings.update(values=[[
+                    row[0] or DEFAULT_ONE_RMS["squat"],
+                    row[1] or DEFAULT_ONE_RMS["bench"],
+                    row[2] or DEFAULT_ONE_RMS["deadlift"],
+                    row[3] or DEFAULT_ONE_RMS["ohp"],
+                    row[4] or DEFAULT_ONE_RMS["activeSplit"],
+                ]], range_name="A2:E2")
+
+        logs.update(values=[self.LOG_HEADER], range_name="A1:M1")
+
+    def load_one_rms(self):
+        settings = self.worksheet(self.SETTINGS_TAB, rows=2, cols=10)
+        row = (settings.get("A2:E2") or [[]])[0]
+        row = row + [""] * 5
+        return {
+            "squat": sheet_float(row[0], DEFAULT_ONE_RMS["squat"]),
+            "bench": sheet_float(row[1], DEFAULT_ONE_RMS["bench"]),
+            "deadlift": sheet_float(row[2], DEFAULT_ONE_RMS["deadlift"]),
+            "ohp": sheet_float(row[3], DEFAULT_ONE_RMS["ohp"]),
+            "activeSplit": sheet_int(row[4], DEFAULT_ONE_RMS["activeSplit"]),
+        }
+
+    def save_one_rms(self, one_rms):
+        settings = self.worksheet(self.SETTINGS_TAB, rows=2, cols=10)
+        settings.update(values=[self.SETTINGS_HEADER], range_name="A1:E1")
+        settings.update(values=[[
+            sheet_float(one_rms.get("squat"), DEFAULT_ONE_RMS["squat"]),
+            sheet_float(one_rms.get("bench"), DEFAULT_ONE_RMS["bench"]),
+            sheet_float(one_rms.get("deadlift"), DEFAULT_ONE_RMS["deadlift"]),
+            sheet_float(one_rms.get("ohp"), DEFAULT_ONE_RMS["ohp"]),
+            sheet_int(one_rms.get("activeSplit"), DEFAULT_ONE_RMS["activeSplit"]),
+        ]], range_name="A2:E2")
+
+    def load_logs(self):
+        logs = self.worksheet(self.LOGS_TAB, rows=1000, cols=13)
+        rows = logs.get("A2:M")
+        parsed = []
+        for row in rows:
+            log = self.parse_log_row(row)
+            if log:
+                parsed.append(log)
+        return parsed
+
+    def parse_log_row(self, row):
+        row = [str(value).strip() for value in row]
+        start = 1 if len(row) > 1 and not row[0] and "-" in row[1] else 0
+        row = row + [""] * (start + 12 - len(row))
+        if len(row) - start < 12 or not row[start]:
+            return None
+        return {
+            "date": row[start],
+            "split": sheet_int(row[start + 1]),
+            "week": sheet_int(row[start + 2], 1),
+            "day": row[start + 3],
+            "exercise": row[start + 4],
+            "setNo": sheet_int(row[start + 5], 1),
+            "weight": sheet_float(row[start + 6]),
+            "reps": sheet_int(row[start + 7]),
+            "rpe": sheet_float(row[start + 8]),
+            "status": row[start + 9] or "FAIL",
+            "targetWeight": sheet_float(row[start + 10], sheet_float(row[start + 6])),
+            "targetReps": sheet_int(row[start + 11], sheet_int(row[start + 7])),
+        }
+
+    def append_logs(self, logs):
+        if not logs:
+            return True
+        worksheet = self.worksheet(self.LOGS_TAB, rows=1000, cols=13)
+        rows = []
+        for log in logs:
+            rows.append([
+                "",
+                log.get("date", ""),
+                log.get("split", ""),
+                log.get("week", ""),
+                log.get("day", ""),
+                log.get("exercise", ""),
+                log.get("setNo", ""),
+                log.get("weight", ""),
+                log.get("reps", ""),
+                log.get("rpe", ""),
+                log.get("status", ""),
+                log.get("targetWeight", ""),
+                log.get("targetReps", ""),
+            ])
+        worksheet.append_rows(rows, value_input_option="RAW")
+        return True
+
+
+def sheets_store():
+    global _SHEETS_STORE
+    if _SHEETS_STORE is None:
+        _SHEETS_STORE = GoogleSheetsStore()
+    return _SHEETS_STORE
+
+
+def sheets_connected():
+    return sheets_store().connected
+
+
+def append_workout_logs_to_sheet(logs):
+    store = sheets_store()
+    if not store.connected:
+        return False
+    try:
+        return store.append_logs(logs)
+    except Exception as exc:
+        print(f"[warn] failed to append workout logs to Google Sheets: {exc}")
+        return False
+
+
 def today_iso():
     try:
         tz = ZoneInfo(APP_TIMEZONE)
@@ -85,7 +298,7 @@ def load_legacy_gyms():
     return DEFAULT_GYM["id"], [copy.deepcopy(DEFAULT_GYM)]
 
 
-def load_state():
+def load_file_state():
     state = load_json(STATE_FILE, None)
     if not isinstance(state, dict):
         active_gym_id, gyms = load_legacy_gyms()
@@ -111,7 +324,25 @@ def load_state():
     return state
 
 
+def load_state():
+    state = load_file_state()
+    store = sheets_store()
+    if store.connected:
+        try:
+            state["oneRms"].update(store.load_one_rms())
+            state["logs"] = store.load_logs()
+        except Exception as exc:
+            print(f"[warn] failed to load Google Sheets state, using local file state: {exc}")
+    return state
+
+
 def save_state(state) -> None:
+    store = sheets_store()
+    if store.connected:
+        try:
+            store.save_one_rms(state.get("oneRms", {}))
+        except Exception as exc:
+            print(f"[warn] failed to save 1RM to Google Sheets: {exc}")
     save_json(STATE_FILE, state)
 
 
@@ -425,7 +656,7 @@ def evaluate_and_update(state, logs, split, week, day_id):
     return {
         "status": status,
         "feedback": feedback,
-        "sheetsConnected": False,
+        "sheetsConnected": sheets_connected(),
         "totalVolume": sum(log["weight"] * log["reps"] for log in logs if log["status"] == "SUCCESS"),
         "completedSets": sum(1 for log in logs if log["status"] == "SUCCESS"),
         "totalSets": len(logs),
@@ -474,7 +705,7 @@ def workout_settings():
         save_state(state)
         return jsonify(state["oneRms"])
 
-    return jsonify({"oneRms": state["oneRms"], "sheetsConnected": False})
+    return jsonify({"oneRms": state["oneRms"], "sheetsConnected": sheets_connected()})
 
 
 @app.route("/api/workout/routine")
@@ -499,7 +730,7 @@ def workout_status():
             break
 
     return jsonify({
-        "sheetsConnected": False,
+        "sheetsConnected": sheets_connected(),
         "lastCompletedDay": last_completed,
         "nextRecommendedDay": next_recommended,
     })
@@ -521,7 +752,9 @@ def workout_finish():
 
     feedback = evaluate_and_update(state, logs, split, week, day_id)
     state["logs"].extend(logs)
+    logs_saved_to_sheet = append_workout_logs_to_sheet(logs)
     save_state(state)
+    feedback["sheetsConnected"] = logs_saved_to_sheet
     return jsonify(feedback)
 
 
