@@ -6,7 +6,7 @@ services:
     buildCommand: pip install -r requirements.txt
     startCommand: gunicorn serve:app --bind 0.0.0.0:$PORT
     healthCheckPath: /healthz
-    autoDeploy: false
+    autoDeployTrigger: commit
     envVars:
       - key: PYTHON_VERSION
         value: 3.12.13
