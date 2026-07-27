@@ -1184,6 +1184,31 @@
             renderSplitSelectorGrid();
         });
 
+        const RETRYABLE_STATUS_CODES = new Set([404, 408, 425, 429, 500, 502, 503, 504]);
+
+        function delay(ms) {
+            return new Promise(resolve => setTimeout(resolve, ms));
+        }
+
+        async function apiFetch(url, options = {}, retries = 3) {
+            let lastError = null;
+            for (let attempt = 0; attempt <= retries; attempt++) {
+                try {
+                    const res = await fetch(url, { cache: "no-store", ...options });
+                    if (!RETRYABLE_STATUS_CODES.has(res.status) || attempt === retries) {
+                        return res;
+                    }
+                } catch (err) {
+                    lastError = err;
+                    if (attempt === retries) {
+                        throw err;
+                    }
+                }
+                await delay(350 * (attempt + 1));
+            }
+            throw lastError || new Error("Request failed");
+        }
+
         // Calculate current active week number based on logs for the active split
         function getActiveWeekNum() {
             const activeSplit = oneRms.activeSplit;
@@ -1219,7 +1244,7 @@
         // Fetch settings from server
         async function fetchSettings() {
             try {
-                const res = await fetch("/api/workout/settings");
+                const res = await apiFetch("/api/workout/settings");
                 const data = await res.json();
                 oneRms = data.oneRms;
                 sheetsConnected = data.sheetsConnected;
@@ -1259,7 +1284,7 @@
         // Fetch routines for all splits
         async function fetchRoutine() {
             try {
-                const res = await fetch("/api/workout/routine");
+                const res = await apiFetch("/api/workout/routine");
                 routineData = await res.json();
             } catch (err) {
                 console.error("루틴 정보 로드 실패", err);
@@ -1269,7 +1294,7 @@
         // Fetch recommendation status
         async function fetchStatus() {
             try {
-                const res = await fetch("/api/workout/status");
+                const res = await apiFetch("/api/workout/status");
                 const data = await res.json();
                 nextRecommendedDayId = data.nextRecommendedDay || "Day 1";
             } catch (err) {
@@ -1363,7 +1388,7 @@
         // Fetch logs
         async function fetchLogs() {
             try {
-                const res = await fetch("/api/workout/logs");
+                const res = await apiFetch("/api/workout/logs");
                 completedLogs = await res.json();
                 renderCalendar();
             } catch (err) {
@@ -1559,7 +1584,7 @@
             });
 
             try {
-                await fetch("/api/workout/gyms", {
+                await apiFetch("/api/workout/gyms", {
                     method: "POST",
                     headers: { "Content-Type": "application/json" },
                     body: JSON.stringify({
@@ -1732,7 +1757,7 @@
             });
 
             try {
-                const res = await fetch("/api/workout/finish", {
+                const res = await apiFetch("/api/workout/finish", {
                     method: "POST",
                     headers: { "Content-Type": "application/json" },
                     body: JSON.stringify({
@@ -1832,7 +1857,7 @@
             };
 
             try {
-                const res = await fetch("/api/workout/settings", {
+                const res = await apiFetch("/api/workout/settings", {
                     method: "POST",
                     headers: { "Content-Type": "application/json" },
                     body: JSON.stringify(body)
@@ -1861,7 +1886,7 @@
             };
 
             try {
-                const res = await fetch("/api/workout/settings", {
+                const res = await apiFetch("/api/workout/settings", {
                     method: "POST",
                     headers: { "Content-Type": "application/json" },
                     body: JSON.stringify(body)

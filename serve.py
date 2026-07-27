@@ -41,7 +41,7 @@ DEFAULT_GYM = {
 }
 
 
-app = Flask(__name__, static_folder=str(STATIC_DIR), static_url_path="")
+app = Flask(__name__, static_folder=None)
 
 
 @app.after_request
@@ -436,7 +436,7 @@ def evaluate_and_update(state, logs, split, week, day_id):
 
 @app.route("/")
 def index():
-    return send_from_directory(app.static_folder, "index.html")
+    return send_from_directory(STATIC_DIR, "index.html")
 
 
 @app.route("/healthz")
@@ -446,7 +446,20 @@ def healthz():
 
 @app.route("/<path:path>")
 def static_files(path):
-    return send_from_directory(app.static_folder, path)
+    static_root = STATIC_DIR.resolve()
+    target = (static_root / path).resolve()
+    try:
+        target.relative_to(static_root)
+    except ValueError:
+        return jsonify({"error": "not found"}), 404
+
+    if target.is_file():
+        return send_from_directory(STATIC_DIR, path)
+
+    if path.startswith("api/"):
+        return jsonify({"error": "not found"}), 404
+
+    return send_from_directory(STATIC_DIR, "index.html")
 
 
 @app.route("/api/workout/settings", methods=["GET", "POST"])
