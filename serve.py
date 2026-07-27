@@ -93,7 +93,6 @@ class GoogleSheetsStore:
     LOGS_TAB = "Workout_Logs"
     SETTINGS_HEADER = ["Squat", "Bench", "Deadlift", "OHP", "ActiveSplit"]
     LOG_HEADER = [
-        "",
         "날짜",
         "분할",
         "주차",
@@ -153,7 +152,7 @@ class GoogleSheetsStore:
 
     def ensure_tabs(self):
         settings = self.worksheet(self.SETTINGS_TAB, rows=2, cols=10)
-        logs = self.worksheet(self.LOGS_TAB, rows=1000, cols=13)
+        logs = self.worksheet(self.LOGS_TAB, rows=1000, cols=14)
 
         values = settings.get("A1:E2")
         if not values:
@@ -179,7 +178,7 @@ class GoogleSheetsStore:
                     row[4] or DEFAULT_ONE_RMS["activeSplit"],
                 ]], range_name="A2:E2")
 
-        logs.update(values=[self.LOG_HEADER], range_name="A1:M1")
+        logs.update(values=[self.LOG_HEADER + ["", ""]], range_name="A1:N1")
 
     def load_one_rms(self):
         settings = self.worksheet(self.SETTINGS_TAB, rows=2, cols=10)
@@ -205,8 +204,8 @@ class GoogleSheetsStore:
         ]], range_name="A2:E2")
 
     def load_logs(self):
-        logs = self.worksheet(self.LOGS_TAB, rows=1000, cols=13)
-        rows = logs.get("A2:M")
+        logs = self.worksheet(self.LOGS_TAB, rows=1000, cols=14)
+        rows = logs.get("A2:N")
         parsed = []
         for row in rows:
             log = self.parse_log_row(row)
@@ -216,7 +215,9 @@ class GoogleSheetsStore:
 
     def parse_log_row(self, row):
         row = [str(value).strip() for value in row]
-        start = 1 if len(row) > 1 and not row[0] and "-" in row[1] else 0
+        start = next((idx for idx, value in enumerate(row) if re.fullmatch(r"\d{4}-\d{2}-\d{2}", value)), None)
+        if start is None:
+            return None
         row = row + [""] * (start + 12 - len(row))
         if len(row) - start < 12 or not row[start]:
             return None
@@ -238,11 +239,10 @@ class GoogleSheetsStore:
     def append_logs(self, logs):
         if not logs:
             return True
-        worksheet = self.worksheet(self.LOGS_TAB, rows=1000, cols=13)
+        worksheet = self.worksheet(self.LOGS_TAB, rows=1000, cols=14)
         rows = []
         for log in logs:
             rows.append([
-                "",
                 log.get("date", ""),
                 log.get("split", ""),
                 log.get("week", ""),
@@ -256,7 +256,7 @@ class GoogleSheetsStore:
                 log.get("targetWeight", ""),
                 log.get("targetReps", ""),
             ])
-        worksheet.append_rows(rows, value_input_option="RAW")
+        worksheet.append_rows(rows, value_input_option="RAW", table_range="A1:L1")
         return True
 
 
