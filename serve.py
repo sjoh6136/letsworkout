@@ -718,6 +718,8 @@ def workout_routine():
 def workout_status():
     state = load_state()
     active_split = as_int(state["oneRms"].get("activeSplit"), 5)
+    routine_days = load_routines().get(str(active_split), [])
+    routine_day_count = len(routine_days) or active_split
     next_recommended = "Day 1"
     last_completed = None
 
@@ -725,12 +727,13 @@ def workout_status():
         if log.get("split") == active_split:
             last_num = day_number(log.get("day"))
             last_completed = f"Day {last_num}"
-            next_num = last_num + 1 if last_num < active_split else 1
+            next_num = last_num + 1 if last_num < routine_day_count else 1
             next_recommended = f"Day {next_num}"
             break
 
     return jsonify({
         "sheetsConnected": sheets_connected(),
+        "routineDayCount": routine_day_count,
         "lastCompletedDay": last_completed,
         "nextRecommendedDay": next_recommended,
     })

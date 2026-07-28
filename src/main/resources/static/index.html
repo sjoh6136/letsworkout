@@ -903,7 +903,7 @@
         }
 
     </style>
-    <link rel="stylesheet" href="/styles.css?v=20260727-5">
+    <link rel="stylesheet" href="/styles.css?v=20260728-1">
 </head>
 <body>
 
@@ -1152,6 +1152,7 @@
         let completedLogs = [];
         let currentDayId = "Day 1";
         let nextRecommendedDayId = "Day 1";
+        let settingsSaveVersion = 0;
 
         // Stopwatch state
         let stopwatchSeconds = 0;
@@ -1168,10 +1169,12 @@
             currentYear = today.getFullYear();
             currentMonth = today.getMonth();
 
-            await fetchSettings();
-            await fetchRoutine();
-            await fetchStatus();
-            await fetchLogs();
+            await Promise.all([
+                fetchSettings(),
+                fetchRoutine(),
+                fetchStatus(),
+                fetchLogs()
+            ]);
             
             // Check first-time onboarding
             checkOnboarding();
@@ -1209,9 +1212,15 @@
             throw lastError || new Error("Request failed");
         }
 
+        function getActiveRoutineDayCount() {
+            const activeRoutine = routineData[String(oneRms.activeSplit)];
+            return activeRoutine && activeRoutine.length ? activeRoutine.length : oneRms.activeSplit;
+        }
+
         // Calculate current active week number based on logs for the active split
         function getActiveWeekNum() {
             const activeSplit = oneRms.activeSplit;
+            const activeDayCount = getActiveRoutineDayCount();
             
             if (!completedLogs || completedLogs.length === 0) {
                 return 1;
@@ -1235,7 +1244,7 @@
             const lastD = lastDStr ? parseInt(lastDStr.replaceAll(/[^0-9]/g, "")) : 1;
             const lastW = lastLog.week || 1;
             
-            if (lastD >= activeSplit) {
+            if (lastD >= activeDayCount) {
                 return lastW + 1;
             }
             return lastW;
@@ -1321,27 +1330,34 @@
                 recommendName = recommendName.replace(/Day\s*\d+/i, `Week ${currentWeek} ${nextDay.id}`);
                 document.getElementById("recommend-name").innerText = recommendName;
                 
-                let desc = "";
-                if (oneRms.activeSplit === 2) {
-                    if (nextRecommendedDayId === "Day 1") desc = "🎯 상체 프레임 확장 및 텐션 유지 (가슴, 등, 어깨, 팔 통합 트레이닝)";
-                    else if (nextRecommendedDayId === "Day 2") desc = "🎯 하체 대퇴사두 및 햄스트링 고볼륨 성장 (스쿼트 & 루마니안 데드리프트 중심)";
-                } else if (oneRms.activeSplit === 3) {
-                    if (nextRecommendedDayId === "Day 1") desc = "🎯 상체 밀기 기능 강화 (벤치프레스 1RM 텐션 확보 & 삼각근 고립)";
-                    else if (nextRecommendedDayId === "Day 2") desc = "🎯 상체 당기기 볼륨 극대화 (바벨 로우 및 풀업 프레임 크기 강화)";
-                    else if (nextRecommendedDayId === "Day 3") desc = "🎯 대하체 폭발적 성장 세션 (스쿼트 & 덤벨 RDL 요추 세이프 훈련)";
-                } else if (oneRms.activeSplit === 4) {
-                    if (nextRecommendedDayId === "Day 1") desc = "🎯 가슴 볼륨 극대화 및 이두 동반 타격 (다음날 하체 세션으로 상체 휴식 충분)";
-                    else if (nextRecommendedDayId === "Day 2") desc = "🎯 스쿼트 강도 확보 및 하체 후면 고립 세션";
-                    else if (nextRecommendedDayId === "Day 3") desc = "🎯 어깨 레이즈 폭격 및 삼두 완전 쥐어짜기 (팔 기능 회복 보완)";
-                    else if (nextRecommendedDayId === "Day 4") desc = "🎯 등 전체 프레임 너비 및 두께 타격 (바벨 로우 & 암 풀 다운 볼륨)";
-                } else {
-                    if (nextRecommendedDayId === "Day 1") desc = "🎯 등 전체 두께/너비 확보 (다음 날 가슴 밀기로 이두 회복 충분)";
-                    else if (nextRecommendedDayId === "Day 2") desc = "🎯 벤치프레스 고중량 텐션 유지 및 가슴 볼륨 폭격";
-                    else if (nextRecommendedDayId === "Day 3") desc = "🎯 스쿼트 기반 대퇴사두/햄스트링 폭발적 성장 (상체 완전 휴식)";
-                    else if (nextRecommendedDayId === "Day 4") desc = "🎯 삼두 개입 배제 레이즈 중심 어깨 단독 고립 폭격";
-                    else if (nextRecommendedDayId === "Day 5") desc = "🎯 온전한 팔 컨디션을 통한 이두/삼두 슈퍼세트 털기 (주말 48시간 휴식)";
-                }
-                
+                const descriptions = {
+                    2: {
+                        "Day 1": "상체 A: 프레스와 로우를 중심으로 상체 전체를 균형 있게 진행합니다.",
+                        "Day 2": "하체 A: 스쿼트와 힙힌지 패턴을 같이 가져가는 기본 하체 세션입니다.",
+                        "Day 3": "상체 B: 벤치와 수직 당기기를 중심으로 상체 볼륨을 보완합니다.",
+                        "Day 4": "하체 B: 데드리프트와 단측 하체 운동으로 후면 사슬을 보강합니다."
+                    },
+                    3: {
+                        "Day 1": "Push: 가슴, 어깨, 삼두를 한 번에 묶는 밀기 세션입니다.",
+                        "Day 2": "Pull: 등, 후면 어깨, 이두를 묶는 당기기 세션입니다.",
+                        "Day 3": "Legs: 스쿼트, 힙힌지, 하체 고립, 코어를 한 번에 정리합니다."
+                    },
+                    4: {
+                        "Day 1": "가슴/삼두: 벤치프레스와 프레스 보조 운동을 중심으로 진행합니다.",
+                        "Day 2": "등/이두: 로우와 풀다운을 중심으로 등 전체를 채웁니다.",
+                        "Day 3": "하체: 스쿼트와 후면 사슬 운동을 같이 가져갑니다.",
+                        "Day 4": "어깨/팔: OHP, 레터럴, 팔 고립 운동으로 마무리합니다."
+                    },
+                    5: {
+                        "Day 1": "가슴: 벤치프레스와 인클라인 프레스로 가슴 볼륨을 쌓습니다.",
+                        "Day 2": "등: 로우와 풀다운으로 두께와 너비를 같이 가져갑니다.",
+                        "Day 3": "어깨: OHP와 레터럴, 후면 어깨를 분리해서 진행합니다.",
+                        "Day 4": "하체: 스쿼트, RDL, 프레스와 고립 운동을 순서대로 진행합니다.",
+                        "Day 5": "팔/복근: 이두, 삼두, 복근을 짧고 집중적으로 정리합니다."
+                    }
+                };
+                const desc = descriptions[oneRms.activeSplit]?.[nextRecommendedDayId] || "";
+
                 document.getElementById("recommend-desc").innerText = desc;
             }
         }
@@ -1376,13 +1392,18 @@
         }
 
         // Select a split segment
-        async function selectSplit(splitNum) {
+        function selectSplit(splitNum) {
+            if (oneRms.activeSplit === splitNum) return;
+
             oneRms.activeSplit = splitNum;
-            // Silent save to backend
-            await saveSettingsSilent();
+
+            setActiveSplitSegmentUI();
             updateSettingsUI();
             updateRecommendationUI();
             renderSplitSelectorGrid();
+
+            const saveVersion = ++settingsSaveVersion;
+            saveSettingsSilent(saveVersion);
         }
 
         // Fetch logs
@@ -1832,22 +1853,28 @@
             document.getElementById("feedback-overlay").classList.add("active");
         }
 
-        async function closeFeedbackModal() {
+        function closeFeedbackModal() {
             document.getElementById("feedback-overlay").classList.remove("active");
-            
-            await fetchSettings();
-            await fetchStatus();
-            await fetchLogs();
-            await fetchRoutine();
+            switchTab("home-view");
+
+            refreshHomeData();
+        }
+
+        async function refreshHomeData() {
+            await Promise.all([
+                fetchSettings(),
+                fetchStatus(),
+                fetchLogs(),
+                fetchRoutine()
+            ]);
             updateSettingsUI();
             updateRecommendationUI();
             renderSplitSelectorGrid();
-            
-            switchTab("home-view");
         }
 
         // Save Settings (Manual button click)
         async function saveSettings() {
+            settingsSaveVersion++;
             const body = {
                 squat: parseFloat(document.getElementById("input-squat").value) || 150.0,
                 bench: parseFloat(document.getElementById("input-bench").value) || 100.0,
@@ -1876,7 +1903,7 @@
         }
 
         // Save settings silently (upon split change)
-        async function saveSettingsSilent() {
+        async function saveSettingsSilent(saveVersion = ++settingsSaveVersion) {
             const body = {
                 squat: oneRms.squat,
                 bench: oneRms.bench,
@@ -1892,7 +1919,10 @@
                     body: JSON.stringify(body)
                 });
                 if (res.ok) {
-                    oneRms = await res.json();
+                    const saved = await res.json();
+                    if (saveVersion === settingsSaveVersion) {
+                        oneRms = saved;
+                    }
                 }
             } catch (err) {
                 console.error("Split 설정 변경 실패", err);

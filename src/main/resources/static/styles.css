@@ -27,7 +27,7 @@
 }
 
 html {
-    scroll-behavior: smooth;
+    scroll-behavior: auto;
 }
 
 body {
@@ -1368,5 +1368,42 @@ header {
     min-width: 48px;
     font-family: 'Outfit', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
     font-variant-numeric: tabular-nums;
+}
+
+/* Make repeated mobile taps feel immediate. */
+button,
+input,
+select,
+textarea,
+[role="button"] {
+    touch-action: manipulation;
+}
+
+.view-section {
+    animation-duration: 0.08s;
+}
+
+@keyframes fadeIn {
+    from {
+        opacity: 0.96;
+        transform: translateY(2px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+.header-btn,
+.finish-btn,
+.nav-item,
+.split-segment-btn,
+.split-select-btn,
+.calendar-nav-btn,
+.start-btn,
+.save-btn,
+.check-btn,
+.stopwatch-toggle {
+    transition-duration: 0.08s;
 }
 
