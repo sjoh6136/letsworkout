@@ -144,6 +144,13 @@ M/N and later columns are not part of the normal log schema.
 
 Gym equipment settings are stored in a separate `Gym_Settings` tab. Keep it separate from `Workout_Logs` so workout log columns never shift.
 
+Login data is stored separately:
+
+- `User_Accounts`: username, display name, password salt/hash, account metadata
+- `User_Sessions`: hashed session tokens and expiry/revocation metadata
+
+Never store plaintext passwords. Do not place auth/session columns in `Workout_Logs`.
+
 ## Backend Coding Rules
 
 - Keep `serve.py` straightforward.
@@ -153,6 +160,8 @@ Gym equipment settings are stored in a separate `Gym_Settings` tab. Keep it sepa
 - `/api/workout/status` recommends the next workout day.
 - Recommendation logic must use the actual routine day count, not the split number.
 - `/api/workout/finish` saves workout logs and evaluates progression.
+- `/api/auth/status`, `/api/auth/register`, `/api/auth/login`, and `/api/auth/logout` are public auth endpoints.
+- Other `/api/*` endpoints require the `lw_session` cookie.
 - Be careful around Google Sheets write paths. Column alignment regressions are high risk.
 
 ## Frontend Coding Rules
@@ -243,11 +252,11 @@ if ($missing.Count) { $missing; exit 1 } else { 'routine/exercise dictionary ok'
 Live deploy check:
 
 ```powershell
-$r = Invoke-RestMethod -Uri 'https://letsworkout-nm75.onrender.com/api/workout/routine' -TimeoutSec 30
-$r.PSObject.Properties.Name | ForEach-Object { $_ + ':' + $r.$_.Count }
+$auth = Invoke-RestMethod -Uri 'https://letsworkout-nm75.onrender.com/api/auth/status' -TimeoutSec 30
+$auth | ConvertTo-Json -Compress
 ```
 
-Expected routine counts:
+Routine data expectations when checking with an authenticated API session or local `data/routines.json`:
 
 ```text
 2:4
@@ -289,7 +298,7 @@ For routine changes, verify the live API contains the new exercise names and no 
 - Google Sheets append alignment can break if blank leading cells are introduced.
 - `src/main/resources/exercise_definitions.json` may drift from `data/exercise_definitions.json`; keep both synchronized.
 - Routine names must be exact strings. Small name differences can break progression continuity.
-- The app currently has no login system; treat it as a personal single-user app.
+- The app has a simple login system. First account creation is allowed only while `User_Accounts` is empty.
 
 ## Do Not
 

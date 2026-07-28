@@ -3,6 +3,7 @@ __pycache__/
 .venv/
 target/
 data/app_state.json
+data/auth_state.json
 data/*.tmp
 credentials.json
 .env

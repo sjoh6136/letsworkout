@@ -1,15 +1,18 @@
 from __future__ import annotations
 
 import copy
+import hashlib
+import hmac
 import json
 import os
 import re
+import secrets
 import time
-from datetime import datetime
+from datetime import datetime, timedelta
 from pathlib import Path
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
-from flask import Flask, jsonify, request, send_from_directory
+from flask import Flask, g, jsonify, make_response, request, send_from_directory
 
 
 ROOT = Path(__file__).resolve().parent
@@ -19,6 +22,7 @@ STATE_DIR = Path(os.environ.get("APP_DATA_DIR", ROOT / "data")).resolve()
 ROUTINES_FILE = DATA_DIR / "routines.json"
 EXERCISE_DEFINITIONS_FILE = DATA_DIR / "exercise_definitions.json"
 STATE_FILE = STATE_DIR / "app_state.json"
+AUTH_FILE = STATE_DIR / "auth_state.json"
 GYM_SETTINGS_FILE = ROOT / "gym_settings.json"
 APP_TIMEZONE = os.environ.get("APP_TIMEZONE", "Asia/Seoul")
 ALLOWED_ORIGIN = os.environ.get("ALLOWED_ORIGIN")
@@ -26,7 +30,12 @@ SPREADSHEET_ID = os.environ.get("GOOGLE_SHEETS_SPREADSHEET_ID", "1EZYNSFxd7iuEbK
 GOOGLE_CREDENTIALS_JSON = os.environ.get("GOOGLE_APPLICATION_CREDENTIALS_JSON") or os.environ.get("GOOGLE_CREDENTIALS_JSON")
 GOOGLE_CREDENTIALS_PATH = os.environ.get("GOOGLE_APPLICATION_CREDENTIALS") or os.environ.get("GOOGLE_SHEETS_CREDENTIALS_PATH")
 SHEETS_ENABLED = os.environ.get("GOOGLE_SHEETS_ENABLED", "true").lower() not in {"0", "false", "no"}
+AUTH_COOKIE_NAME = "lw_session"
+AUTH_SESSION_DAYS = max(1, int(os.environ.get("AUTH_SESSION_DAYS", "180")))
+AUTH_PASSWORD_ITERATIONS = 200_000
+AUTH_CACHE_SECONDS = 60
 _SHEETS_STORE = None
+_AUTH_SESSION_CACHE = {}
 
 DEFAULT_ONE_RMS = {
     "squat": 150.0,
@@ -101,6 +110,106 @@ def sheet_bool(value):
     return str(value).strip().lower() in {"1", "true", "yes", "y", "active", "활성"}
 
 
+def now_dt():
+    try:
+        tz = ZoneInfo(APP_TIMEZONE)
+    except ZoneInfoNotFoundError:
+        tz = ZoneInfo("UTC")
+    return datetime.now(tz)
+
+
+def now_iso():
+    return now_dt().isoformat(timespec="seconds")
+
+
+def parse_iso_dt(value):
+    if not value:
+        return None
+    try:
+        parsed = datetime.fromisoformat(str(value).replace("Z", "+00:00"))
+        if parsed.tzinfo is None:
+            parsed = parsed.replace(tzinfo=now_dt().tzinfo)
+        return parsed
+    except ValueError:
+        return None
+
+
+def hash_password(password, salt_hex=None, iterations=AUTH_PASSWORD_ITERATIONS):
+    salt_hex = salt_hex or secrets.token_hex(16)
+    digest = hashlib.pbkdf2_hmac(
+        "sha256",
+        str(password).encode("utf-8"),
+        bytes.fromhex(salt_hex),
+        int(iterations),
+    ).hex()
+    return salt_hex, digest
+
+
+def verify_password(password, salt_hex, expected_hash, iterations):
+    if not password or not salt_hex or not expected_hash:
+        return False
+    _, digest = hash_password(password, salt_hex=salt_hex, iterations=int(iterations or AUTH_PASSWORD_ITERATIONS))
+    return hmac.compare_digest(digest, str(expected_hash))
+
+
+def session_token_hash(token):
+    return hashlib.sha256(str(token).encode("utf-8")).hexdigest()
+
+
+def public_user(user):
+    if not user:
+        return None
+    return {
+        "id": user.get("id"),
+        "username": user.get("username"),
+        "displayName": user.get("displayName") or user.get("username"),
+    }
+
+
+def normalize_username(username):
+    return re.sub(r"\s+", "", str(username or "")).strip().lower()
+
+
+def active_users(users):
+    return [user for user in users or [] if sheet_bool(user.get("active", True))]
+
+
+def normalize_user(user):
+    source = user if isinstance(user, dict) else {}
+    username = normalize_username(source.get("username"))
+    return {
+        "id": str(source.get("id") or f"user_{int(time.time() * 1000)}").strip(),
+        "username": username,
+        "displayName": str(source.get("displayName") or username or "User").strip(),
+        "passwordSalt": str(source.get("passwordSalt") or "").strip(),
+        "passwordHash": str(source.get("passwordHash") or "").strip(),
+        "iterations": sheet_int(source.get("iterations"), AUTH_PASSWORD_ITERATIONS),
+        "active": sheet_bool(source.get("active", True)),
+        "createdAt": str(source.get("createdAt") or now_iso()),
+        "lastLoginAt": str(source.get("lastLoginAt") or ""),
+    }
+
+
+def normalize_session(session):
+    source = session if isinstance(session, dict) else {}
+    return {
+        "tokenHash": str(source.get("tokenHash") or "").strip(),
+        "userId": str(source.get("userId") or "").strip(),
+        "username": normalize_username(source.get("username")),
+        "createdAt": str(source.get("createdAt") or now_iso()),
+        "expiresAt": str(source.get("expiresAt") or (now_dt() + timedelta(days=AUTH_SESSION_DAYS)).isoformat(timespec="seconds")),
+        "revokedAt": str(source.get("revokedAt") or ""),
+        "userAgent": str(source.get("userAgent") or "")[:200],
+    }
+
+
+def session_is_active(session):
+    if not session or session.get("revokedAt"):
+        return False
+    expires_at = parse_iso_dt(session.get("expiresAt"))
+    return bool(expires_at and expires_at > now_dt())
+
+
 def clean_plates(plates):
     values = []
     for plate in plates or []:
@@ -144,6 +253,8 @@ class GoogleSheetsStore:
     SETTINGS_TAB = "Setting_1RM"
     LOGS_TAB = "Workout_Logs"
     GYM_SETTINGS_TAB = "Gym_Settings"
+    USER_ACCOUNTS_TAB = "User_Accounts"
+    USER_SESSIONS_TAB = "User_Sessions"
     SETTINGS_HEADER = ["Squat", "Bench", "Deadlift", "OHP", "ActiveSplit"]
     GYM_SETTINGS_HEADER = [
         "Active",
@@ -153,6 +264,26 @@ class GoogleSheetsStore:
         "AvailablePlates",
         "DumbbellInterval",
         "MachineProgressionMap",
+    ]
+    USER_ACCOUNTS_HEADER = [
+        "UserId",
+        "Username",
+        "DisplayName",
+        "PasswordSalt",
+        "PasswordHash",
+        "Iterations",
+        "Active",
+        "CreatedAt",
+        "LastLoginAt",
+    ]
+    USER_SESSIONS_HEADER = [
+        "TokenHash",
+        "UserId",
+        "Username",
+        "CreatedAt",
+        "ExpiresAt",
+        "RevokedAt",
+        "UserAgent",
     ]
     LOG_HEADER = [
         "날짜",
@@ -216,6 +347,8 @@ class GoogleSheetsStore:
         settings = self.worksheet(self.SETTINGS_TAB, rows=2, cols=10)
         logs = self.worksheet(self.LOGS_TAB, rows=1000, cols=14)
         gym_settings = self.worksheet(self.GYM_SETTINGS_TAB, rows=50, cols=8)
+        user_accounts = self.worksheet(self.USER_ACCOUNTS_TAB, rows=20, cols=10)
+        user_sessions = self.worksheet(self.USER_SESSIONS_TAB, rows=100, cols=8)
 
         values = settings.get("A1:E2")
         if not values:
@@ -243,6 +376,8 @@ class GoogleSheetsStore:
 
         logs.update(values=[self.LOG_HEADER + ["", ""]], range_name="A1:N1")
         gym_settings.update(values=[self.GYM_SETTINGS_HEADER], range_name="A1:G1")
+        user_accounts.update(values=[self.USER_ACCOUNTS_HEADER], range_name="A1:I1")
+        user_sessions.update(values=[self.USER_SESSIONS_HEADER], range_name="A1:G1")
 
     def load_one_rms(self):
         settings = self.worksheet(self.SETTINGS_TAB, rows=2, cols=10)
@@ -312,6 +447,84 @@ class GoogleSheetsStore:
         gym_settings.update(values=rows, range_name=f"A1:G{len(rows)}")
         return active_gym_id, gyms
 
+    def load_users(self):
+        accounts = self.worksheet(self.USER_ACCOUNTS_TAB, rows=20, cols=10)
+        rows = accounts.get("A2:I")
+        users = []
+        for row in rows:
+            row = row + [""] * 9
+            if not row[0] and not row[1]:
+                continue
+            users.append(normalize_user({
+                "id": row[0],
+                "username": row[1],
+                "displayName": row[2],
+                "passwordSalt": row[3],
+                "passwordHash": row[4],
+                "iterations": row[5],
+                "active": row[6],
+                "createdAt": row[7],
+                "lastLoginAt": row[8],
+            }))
+        return users
+
+    def save_users(self, users):
+        users = [normalize_user(user) for user in users or [] if normalize_username(user.get("username"))]
+        accounts = self.worksheet(self.USER_ACCOUNTS_TAB, rows=max(20, len(users) + 1), cols=10)
+        rows = [self.USER_ACCOUNTS_HEADER]
+        for user in users:
+            rows.append([
+                user.get("id", ""),
+                user.get("username", ""),
+                user.get("displayName", ""),
+                user.get("passwordSalt", ""),
+                user.get("passwordHash", ""),
+                sheet_int(user.get("iterations"), AUTH_PASSWORD_ITERATIONS),
+                "TRUE" if sheet_bool(user.get("active", True)) else "",
+                user.get("createdAt", ""),
+                user.get("lastLoginAt", ""),
+            ])
+        accounts.clear()
+        accounts.update(values=rows, range_name=f"A1:I{len(rows)}")
+        return users
+
+    def load_sessions(self):
+        sessions_sheet = self.worksheet(self.USER_SESSIONS_TAB, rows=100, cols=8)
+        rows = sessions_sheet.get("A2:G")
+        sessions = []
+        for row in rows:
+            row = row + [""] * 7
+            if not row[0]:
+                continue
+            sessions.append(normalize_session({
+                "tokenHash": row[0],
+                "userId": row[1],
+                "username": row[2],
+                "createdAt": row[3],
+                "expiresAt": row[4],
+                "revokedAt": row[5],
+                "userAgent": row[6],
+            }))
+        return sessions
+
+    def save_sessions(self, sessions):
+        sessions = [normalize_session(session) for session in sessions or [] if session.get("tokenHash")]
+        sessions_sheet = self.worksheet(self.USER_SESSIONS_TAB, rows=max(100, len(sessions) + 1), cols=8)
+        rows = [self.USER_SESSIONS_HEADER]
+        for session in sessions:
+            rows.append([
+                session.get("tokenHash", ""),
+                session.get("userId", ""),
+                session.get("username", ""),
+                session.get("createdAt", ""),
+                session.get("expiresAt", ""),
+                session.get("revokedAt", ""),
+                session.get("userAgent", ""),
+            ])
+        sessions_sheet.clear()
+        sessions_sheet.update(values=rows, range_name=f"A1:G{len(rows)}")
+        return sessions
+
     def load_logs(self):
         logs = self.worksheet(self.LOGS_TAB, rows=1000, cols=14)
         rows = logs.get("A2:N")
@@ -378,6 +591,147 @@ def sheets_store():
 
 def sheets_connected():
     return sheets_store().connected
+
+
+def load_auth_state():
+    local_state = load_json(AUTH_FILE, {"users": [], "sessions": []})
+    if not isinstance(local_state, dict):
+        local_state = {"users": [], "sessions": []}
+
+    store = sheets_store()
+    if store.connected:
+        try:
+            return {
+                "users": store.load_users(),
+                "sessions": store.load_sessions(),
+            }
+        except Exception as exc:
+            print(f"[warn] failed to load auth state from Google Sheets, using local file state: {exc}")
+
+    return {
+        "users": [normalize_user(user) for user in local_state.get("users", [])],
+        "sessions": [normalize_session(session) for session in local_state.get("sessions", [])],
+    }
+
+
+def save_auth_state(users, sessions):
+    users = [normalize_user(user) for user in users or [] if normalize_username(user.get("username"))]
+    sessions = [normalize_session(session) for session in sessions or [] if session.get("tokenHash")]
+
+    store = sheets_store()
+    if store.connected:
+        try:
+            store.save_users(users)
+            store.save_sessions(sessions)
+        except Exception as exc:
+            print(f"[warn] failed to save auth state to Google Sheets: {exc}")
+
+    save_json(AUTH_FILE, {"users": users, "sessions": sessions})
+    return users, sessions
+
+
+def has_users(auth_state=None):
+    state = auth_state or load_auth_state()
+    return bool(active_users(state.get("users", [])))
+
+
+def find_user_by_username(users, username):
+    username = normalize_username(username)
+    return next((user for user in users if user.get("username") == username and sheet_bool(user.get("active", True))), None)
+
+
+def find_user_by_id(users, user_id):
+    return next((user for user in users if user.get("id") == user_id and sheet_bool(user.get("active", True))), None)
+
+
+def create_session_for_user(user):
+    token = secrets.token_urlsafe(32)
+    created_at = now_dt()
+    session = {
+        "tokenHash": session_token_hash(token),
+        "userId": user.get("id"),
+        "username": user.get("username"),
+        "createdAt": created_at.isoformat(timespec="seconds"),
+        "expiresAt": (created_at + timedelta(days=AUTH_SESSION_DAYS)).isoformat(timespec="seconds"),
+        "revokedAt": "",
+        "userAgent": request.headers.get("User-Agent", "")[:200],
+    }
+    _AUTH_SESSION_CACHE[session["tokenHash"]] = (time.time() + AUTH_CACHE_SECONDS, public_user(user))
+    return token, session
+
+
+def secure_cookie_request():
+    return request.is_secure or request.headers.get("X-Forwarded-Proto", "").lower() == "https"
+
+
+def attach_session_cookie(response, token):
+    response.set_cookie(
+        AUTH_COOKIE_NAME,
+        token,
+        max_age=AUTH_SESSION_DAYS * 24 * 60 * 60,
+        httponly=True,
+        secure=secure_cookie_request(),
+        samesite="Lax",
+        path="/",
+    )
+    return response
+
+
+def clear_session_cookie(response):
+    response.delete_cookie(AUTH_COOKIE_NAME, path="/", samesite="Lax")
+    return response
+
+
+def current_user_from_cookie(auth_state=None):
+    token = request.cookies.get(AUTH_COOKIE_NAME)
+    if not token:
+        return None
+
+    token_hash = session_token_hash(token)
+    cached = _AUTH_SESSION_CACHE.get(token_hash)
+    if cached and cached[0] > time.time():
+        return cached[1]
+
+    state = auth_state or load_auth_state()
+    session = next((item for item in state.get("sessions", []) if item.get("tokenHash") == token_hash), None)
+    if not session_is_active(session):
+        _AUTH_SESSION_CACHE.pop(token_hash, None)
+        return None
+
+    user = find_user_by_id(state.get("users", []), session.get("userId"))
+    if not user:
+        _AUTH_SESSION_CACHE.pop(token_hash, None)
+        return None
+
+    safe_user = public_user(user)
+    _AUTH_SESSION_CACHE[token_hash] = (time.time() + AUTH_CACHE_SECONDS, safe_user)
+    return safe_user
+
+
+PUBLIC_AUTH_PATHS = {
+    "/api/auth/status",
+    "/api/auth/register",
+    "/api/auth/login",
+    "/api/auth/logout",
+}
+
+
+@app.before_request
+def require_auth_for_api():
+    if request.method == "OPTIONS":
+        return None
+    if not request.path.startswith("/api/") or request.path in PUBLIC_AUTH_PATHS:
+        return None
+
+    user = current_user_from_cookie()
+    if user:
+        g.current_user = user
+        return None
+
+    return jsonify({
+        "error": "unauthorized",
+        "setupRequired": not has_users(),
+    }), 401
 
 
 def append_workout_logs_to_sheet(logs):
@@ -797,6 +1151,112 @@ def index():
 @app.route("/healthz")
 def healthz():
     return jsonify({"ok": True})
+
+
+@app.route("/api/auth/status")
+def auth_status():
+    auth_state = load_auth_state()
+    user = current_user_from_cookie(auth_state)
+    return jsonify({
+        "authenticated": bool(user),
+        "user": user,
+        "setupRequired": not has_users(auth_state),
+        "sheetsConnected": sheets_connected(),
+    })
+
+
+@app.route("/api/auth/register", methods=["POST"])
+def auth_register():
+    auth_state = load_auth_state()
+    users = auth_state.get("users", [])
+    sessions = auth_state.get("sessions", [])
+
+    if has_users(auth_state):
+        return jsonify({"error": "이미 계정이 있습니다. 로그인해주세요."}), 409
+
+    body = request.get_json(silent=True) or {}
+    username = normalize_username(body.get("username"))
+    password = str(body.get("password") or "")
+    display_name = str(body.get("displayName") or username).strip()
+
+    if len(username) < 2:
+        return jsonify({"error": "아이디는 2글자 이상으로 입력해주세요."}), 400
+    if len(password) < 4:
+        return jsonify({"error": "비밀번호는 4글자 이상으로 입력해주세요."}), 400
+
+    salt, password_hash = hash_password(password)
+    user = normalize_user({
+        "id": f"user_{int(time.time() * 1000)}",
+        "username": username,
+        "displayName": display_name or username,
+        "passwordSalt": salt,
+        "passwordHash": password_hash,
+        "iterations": AUTH_PASSWORD_ITERATIONS,
+        "active": True,
+        "createdAt": now_iso(),
+        "lastLoginAt": now_iso(),
+    })
+    token, session = create_session_for_user(user)
+    users.append(user)
+    sessions.append(session)
+    save_auth_state(users, sessions)
+
+    response = make_response(jsonify({
+        "authenticated": True,
+        "user": public_user(user),
+        "setupRequired": False,
+    }))
+    return attach_session_cookie(response, token)
+
+
+@app.route("/api/auth/login", methods=["POST"])
+def auth_login():
+    auth_state = load_auth_state()
+    users = auth_state.get("users", [])
+    sessions = auth_state.get("sessions", [])
+
+    if not has_users(auth_state):
+        return jsonify({"error": "먼저 계정을 만들어주세요.", "setupRequired": True}), 400
+
+    body = request.get_json(silent=True) or {}
+    username = normalize_username(body.get("username"))
+    password = str(body.get("password") or "")
+    user = find_user_by_username(users, username)
+
+    if not user or not verify_password(password, user.get("passwordSalt"), user.get("passwordHash"), user.get("iterations")):
+        return jsonify({"error": "아이디 또는 비밀번호가 맞지 않습니다."}), 401
+
+    user["lastLoginAt"] = now_iso()
+    token, session = create_session_for_user(user)
+    sessions.append(session)
+    save_auth_state(users, sessions)
+
+    response = make_response(jsonify({
+        "authenticated": True,
+        "user": public_user(user),
+        "setupRequired": False,
+    }))
+    return attach_session_cookie(response, token)
+
+
+@app.route("/api/auth/logout", methods=["POST"])
+def auth_logout():
+    token = request.cookies.get(AUTH_COOKIE_NAME)
+    if token:
+        token_hash = session_token_hash(token)
+        auth_state = load_auth_state()
+        sessions = auth_state.get("sessions", [])
+        changed = False
+        for session in sessions:
+            if session.get("tokenHash") == token_hash and not session.get("revokedAt"):
+                session["revokedAt"] = now_iso()
+                changed = True
+        if changed:
+            save_auth_state(auth_state.get("users", []), sessions)
+        _AUTH_SESSION_CACHE.pop(token_hash, None)
+
+    response = make_response(jsonify({"success": True, "authenticated": False}))
+    return clear_session_cookie(response)
 
 
 @app.route("/<path:path>")
