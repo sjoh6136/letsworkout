@@ -473,20 +473,30 @@ class GoogleSheetsStore:
         accounts = self.worksheet(self.USER_ACCOUNTS_TAB, rows=max(20, len(users) + 1), cols=10)
         rows = [self.USER_ACCOUNTS_HEADER]
         for user in users:
-            rows.append([
-                user.get("id", ""),
-                user.get("username", ""),
-                user.get("displayName", ""),
-                user.get("passwordSalt", ""),
-                user.get("passwordHash", ""),
-                sheet_int(user.get("iterations"), AUTH_PASSWORD_ITERATIONS),
-                "TRUE" if sheet_bool(user.get("active", True)) else "",
-                user.get("createdAt", ""),
-                user.get("lastLoginAt", ""),
-            ])
+            rows.append(self.user_row(user))
         accounts.clear()
         accounts.update(values=rows, range_name=f"A1:I{len(rows)}")
         return users
+
+    def user_row(self, user):
+        user = normalize_user(user)
+        return [
+            user.get("id", ""),
+            user.get("username", ""),
+            user.get("displayName", ""),
+            user.get("passwordSalt", ""),
+            user.get("passwordHash", ""),
+            sheet_int(user.get("iterations"), AUTH_PASSWORD_ITERATIONS),
+            "TRUE" if sheet_bool(user.get("active", True)) else "",
+            user.get("createdAt", ""),
+            user.get("lastLoginAt", ""),
+        ]
+
+    def append_user(self, user):
+        user = normalize_user(user)
+        accounts = self.worksheet(self.USER_ACCOUNTS_TAB, rows=20, cols=10)
+        accounts.append_row(self.user_row(user), value_input_option="RAW", table_range="A1:I1")
+        return user
 
     def load_sessions(self):
         sessions_sheet = self.worksheet(self.USER_SESSIONS_TAB, rows=100, cols=8)
@@ -512,18 +522,37 @@ class GoogleSheetsStore:
         sessions_sheet = self.worksheet(self.USER_SESSIONS_TAB, rows=max(100, len(sessions) + 1), cols=8)
         rows = [self.USER_SESSIONS_HEADER]
         for session in sessions:
-            rows.append([
-                session.get("tokenHash", ""),
-                session.get("userId", ""),
-                session.get("username", ""),
-                session.get("createdAt", ""),
-                session.get("expiresAt", ""),
-                session.get("revokedAt", ""),
-                session.get("userAgent", ""),
-            ])
+            rows.append(self.session_row(session))
         sessions_sheet.clear()
         sessions_sheet.update(values=rows, range_name=f"A1:G{len(rows)}")
         return sessions
+
+    def session_row(self, session):
+        session = normalize_session(session)
+        return [
+            session.get("tokenHash", ""),
+            session.get("userId", ""),
+            session.get("username", ""),
+            session.get("createdAt", ""),
+            session.get("expiresAt", ""),
+            session.get("revokedAt", ""),
+            session.get("userAgent", ""),
+        ]
+
+    def append_session(self, session):
+        session = normalize_session(session)
+        sessions_sheet = self.worksheet(self.USER_SESSIONS_TAB, rows=100, cols=8)
+        sessions_sheet.append_row(self.session_row(session), value_input_option="RAW", table_range="A1:G1")
+        return session
+
+    def revoke_session(self, token_hash, revoked_at):
+        sessions_sheet = self.worksheet(self.USER_SESSIONS_TAB, rows=100, cols=8)
+        rows = sessions_sheet.get("A2:A")
+        for offset, row in enumerate(rows, start=2):
+            if row and str(row[0]).strip() == token_hash:
+                sessions_sheet.update(values=[[revoked_at]], range_name=f"F{offset}:F{offset}")
+                return True
+        return False
 
     def load_logs(self):
         logs = self.worksheet(self.LOGS_TAB, rows=1000, cols=14)
@@ -628,6 +657,60 @@ def save_auth_state(users, sessions):
 
     save_json(AUTH_FILE, {"users": users, "sessions": sessions})
     return users, sessions
+
+
+def save_auth_local(users, sessions):
+    users = [normalize_user(user) for user in users or [] if normalize_username(user.get("username"))]
+    sessions = [normalize_session(session) for session in sessions or [] if session.get("tokenHash")]
+    save_json(AUTH_FILE, {"users": users, "sessions": sessions})
+    return users, sessions
+
+
+def append_auth_user_and_session(auth_state, user, session):
+    users = [normalize_user(item) for item in auth_state.get("users", [])]
+    sessions = [normalize_session(item) for item in auth_state.get("sessions", []) if item.get("tokenHash")]
+    user = normalize_user(user)
+    session = normalize_session(session)
+
+    store = sheets_store()
+    if store.connected:
+        store.append_session(session)
+        store.append_user(user)
+
+    users.append(user)
+    sessions.append(session)
+    return save_auth_local(users, sessions)
+
+
+def append_auth_session(auth_state, session):
+    users = [normalize_user(item) for item in auth_state.get("users", [])]
+    sessions = [normalize_session(item) for item in auth_state.get("sessions", []) if item.get("tokenHash")]
+    session = normalize_session(session)
+
+    store = sheets_store()
+    if store.connected:
+        store.append_session(session)
+
+    sessions.append(session)
+    return save_auth_local(users, sessions)
+
+
+def revoke_auth_session(auth_state, token_hash, revoked_at):
+    users = [normalize_user(item) for item in auth_state.get("users", [])]
+    sessions = [normalize_session(item) for item in auth_state.get("sessions", []) if item.get("tokenHash")]
+    changed = False
+    for session in sessions:
+        if session.get("tokenHash") == token_hash and not session.get("revokedAt"):
+            session["revokedAt"] = revoked_at
+            changed = True
+
+    store = sheets_store()
+    if store.connected:
+        changed = store.revoke_session(token_hash, revoked_at) or changed
+
+    if changed:
+        save_auth_local(users, sessions)
+    return changed
 
 
 def has_users(auth_state=None):
@@ -1168,8 +1251,6 @@ def auth_status():
 @app.route("/api/auth/register", methods=["POST"])
 def auth_register():
     auth_state = load_auth_state()
-    users = auth_state.get("users", [])
-    sessions = auth_state.get("sessions", [])
 
     if has_users(auth_state):
         return jsonify({"error": "이미 계정이 있습니다. 로그인해주세요."}), 409
@@ -1197,9 +1278,11 @@ def auth_register():
         "lastLoginAt": now_iso(),
     })
     token, session = create_session_for_user(user)
-    users.append(user)
-    sessions.append(session)
-    save_auth_state(users, sessions)
+    try:
+        append_auth_user_and_session(auth_state, user, session)
+    except Exception as exc:
+        print(f"[warn] failed to create auth account: {exc}")
+        return jsonify({"error": "계정 저장에 실패했습니다. 잠시 후 다시 시도해주세요."}), 503
 
     response = make_response(jsonify({
         "authenticated": True,
@@ -1213,7 +1296,6 @@ def auth_register():
 def auth_login():
     auth_state = load_auth_state()
     users = auth_state.get("users", [])
-    sessions = auth_state.get("sessions", [])
 
     if not has_users(auth_state):
         return jsonify({"error": "먼저 계정을 만들어주세요.", "setupRequired": True}), 400
@@ -1228,8 +1310,11 @@ def auth_login():
 
     user["lastLoginAt"] = now_iso()
     token, session = create_session_for_user(user)
-    sessions.append(session)
-    save_auth_state(users, sessions)
+    try:
+        append_auth_session(auth_state, session)
+    except Exception as exc:
+        print(f"[warn] failed to create auth session: {exc}")
+        return jsonify({"error": "로그인 세션 저장에 실패했습니다. 잠시 후 다시 시도해주세요."}), 503
 
     response = make_response(jsonify({
         "authenticated": True,
@@ -1245,14 +1330,10 @@ def auth_logout():
     if token:
         token_hash = session_token_hash(token)
         auth_state = load_auth_state()
-        sessions = auth_state.get("sessions", [])
-        changed = False
-        for session in sessions:
-            if session.get("tokenHash") == token_hash and not session.get("revokedAt"):
-                session["revokedAt"] = now_iso()
-                changed = True
-        if changed:
-            save_auth_state(auth_state.get("users", []), sessions)
+        try:
+            revoke_auth_session(auth_state, token_hash, now_iso())
+        except Exception as exc:
+            print(f"[warn] failed to revoke auth session: {exc}")
         _AUTH_SESSION_CACHE.pop(token_hash, None)
 
     response = make_response(jsonify({"success": True, "authenticated": False}))
