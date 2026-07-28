@@ -5,15 +5,15 @@
       "name": "Day 1 - 상체 A",
       "exercises": [
         {
-          "name": "인클라인 덤벨 프레스",
+          "name": "플랫 바벨 벤치프레스",
           "sets": 3,
           "targetReps": 6,
           "repsRange": "6-8",
           "rpeTarget": 8.0,
-          "coreLift": false,
-          "coreLiftType": null,
-          "intensity": 0.0,
-          "defaultWeight": 24.0
+          "coreLift": true,
+          "coreLiftType": "bench",
+          "intensity": 0.75,
+          "defaultWeight": 0.0
         },
         {
           "name": "바벨 로우 (Bent-over Row)",
@@ -27,15 +27,15 @@
           "defaultWeight": 50.0
         },
         {
-          "name": "오버헤드 프레스 (OHP - 바벨)",
+          "name": "인클라인 덤벨 프레스",
           "sets": 3,
-          "targetReps": 6,
-          "repsRange": "6-8",
-          "rpeTarget": 8.0,
-          "coreLift": true,
-          "coreLiftType": "ohp",
-          "intensity": 0.7,
-          "defaultWeight": 0.0
+          "targetReps": 8,
+          "repsRange": "8-10",
+          "rpeTarget": 8.5,
+          "coreLift": false,
+          "coreLiftType": null,
+          "intensity": 0.0,
+          "defaultWeight": 24.0
         },
         {
           "name": "랫 풀 다운",
@@ -49,7 +49,7 @@
           "defaultWeight": 45.0
         },
         {
-          "name": "페이스 풀 (케이블)",
+          "name": "사이드 레터럴 레이즈 (덤벨)",
           "sets": 3,
           "targetReps": 12,
           "repsRange": "12-15",
@@ -160,14 +160,14 @@
       "name": "Day 3 - 상체 B",
       "exercises": [
         {
-          "name": "플랫 바벨 벤치프레스",
+          "name": "오버헤드 프레스 (OHP - 바벨)",
           "sets": 3,
           "targetReps": 6,
           "repsRange": "6-8",
           "rpeTarget": 8.0,
           "coreLift": true,
-          "coreLiftType": "bench",
-          "intensity": 0.75,
+          "coreLiftType": "ohp",
+          "intensity": 0.7,
           "defaultWeight": 0.0
         },
         {
@@ -182,15 +182,15 @@
           "defaultWeight": 45.0
         },
         {
-          "name": "사이드 레터럴 레이즈 (덤벨)",
+          "name": "덤벨 벤치프레스",
           "sets": 3,
-          "targetReps": 12,
-          "repsRange": "12-15",
+          "targetReps": 8,
+          "repsRange": "8-10",
           "rpeTarget": 8.5,
           "coreLift": false,
           "coreLiftType": null,
           "intensity": 0.0,
-          "defaultWeight": 8.0
+          "defaultWeight": 24.0
         },
         {
           "name": "시티드 케이블 로우",
