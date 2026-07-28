@@ -65,6 +65,7 @@ If an exercise name appears in a routine but not in the exercise dictionary, pro
 
 - All routine `rpeTarget` values must be `8.0`.
 - Do not reintroduce `8.5` or `9.0` unless the user explicitly asks.
+- SBD is the only 1RM-based target system. OHP must progress from previous workout history, not from an OHP 1RM input.
 - 2-day split means a 4-day upper/lower rotation:
   - Day 1: upper A
   - Day 2: lower A
@@ -140,6 +141,8 @@ Workout log column order is important. Do not add an empty leading column or shi
 | L | 목표횟수(reps) |
 
 M/N and later columns are not part of the normal log schema.
+
+Gym equipment settings are stored in a separate `Gym_Settings` tab. Keep it separate from `Workout_Logs` so workout log columns never shift.
 
 ## Backend Coding Rules
 

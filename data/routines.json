@@ -165,10 +165,10 @@
           "targetReps": 6,
           "repsRange": "6-8",
           "rpeTarget": 8.0,
-          "coreLift": true,
-          "coreLiftType": "ohp",
-          "intensity": 0.7,
-          "defaultWeight": 0.0
+          "coreLift": false,
+          "coreLiftType": null,
+          "intensity": 0.0,
+          "defaultWeight": 40.0
         },
         {
           "name": "머신 풀업",
@@ -778,10 +778,10 @@
           "targetReps": 6,
           "repsRange": "6-8",
           "rpeTarget": 8.0,
-          "coreLift": true,
-          "coreLiftType": "ohp",
-          "intensity": 0.7,
-          "defaultWeight": 0.0
+          "coreLift": false,
+          "coreLiftType": null,
+          "intensity": 0.0,
+          "defaultWeight": 40.0
         },
         {
           "name": "덤벨 숄더 프레스",
@@ -985,10 +985,10 @@
           "targetReps": 6,
           "repsRange": "6-8",
           "rpeTarget": 8.0,
-          "coreLift": true,
-          "coreLiftType": "ohp",
-          "intensity": 0.7,
-          "defaultWeight": 0.0
+          "coreLift": false,
+          "coreLiftType": null,
+          "intensity": 0.0,
+          "defaultWeight": 40.0
         },
         {
           "name": "덤벨 숄더 프레스",

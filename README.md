@@ -15,11 +15,12 @@ python serve.py
 
 ## Google Sheets 저장소
 
-운동 기록과 1RM 설정은 Google Sheets를 기준 저장소로 사용합니다.
+운동 기록, SBD 1RM 설정, 헬스장 장비 설정은 Google Sheets를 기준 저장소로 사용합니다.
 
 - Spreadsheet ID: `1EZYNSFxd7iuEbKRCNSYyB-rVHz72TkS4TOAJcUxabBA`
 - 1RM/분할 설정 탭: `Setting_1RM`
 - 운동 로그 탭: `Workout_Logs`
+- 헬스장 설정 탭: `Gym_Settings`
 
 로컬에서는 루트의 `credentials.json`을 읽습니다. 이 파일은 GitHub에 올리지 않습니다.
 

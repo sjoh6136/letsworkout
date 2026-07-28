@@ -594,6 +594,516 @@
             margin-bottom: 16px;
         }
 
+        .settings-topbar {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-end;
+            gap: 16px;
+            margin-top: calc(var(--safe-top) + 6px);
+            margin-bottom: 18px;
+        }
+
+        .settings-eyebrow {
+            color: #6f727d;
+            font-size: 11px;
+            font-weight: 800;
+            text-transform: uppercase;
+        }
+
+        .settings-title {
+            margin-top: 3px;
+            color: #FFFFFF;
+            font-size: 28px;
+            font-weight: 900;
+            line-height: 1.05;
+        }
+
+        .settings-sync-state {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            min-height: 28px;
+            padding: 0 10px;
+            border: 1px solid var(--card-border);
+            border-radius: 999px;
+            background: rgba(255, 255, 255, 0.03);
+            color: var(--text-muted);
+            font-size: 11px;
+            font-weight: 800;
+            white-space: nowrap;
+        }
+
+        .settings-sync-state.connected {
+            border-color: rgba(52, 199, 89, 0.2);
+            background: rgba(52, 199, 89, 0.08);
+            color: #8fe3a6;
+        }
+
+        .settings-sync-state.fallback {
+            border-color: rgba(255, 149, 0, 0.24);
+            background: rgba(255, 149, 0, 0.08);
+            color: #ffbd66;
+        }
+
+        .settings-tabs {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 4px;
+            padding: 4px;
+            margin-bottom: 18px;
+            border: 1px solid var(--card-border);
+            border-radius: 8px;
+            background: #0c0d10;
+        }
+
+        .settings-tab {
+            height: 40px;
+            border: 0;
+            border-radius: 6px;
+            background: transparent;
+            color: var(--text-muted);
+            font-size: 13px;
+            font-weight: 800;
+            cursor: pointer;
+        }
+
+        .settings-tab.active {
+            background: rgba(255, 255, 255, 0.08);
+            color: #FFFFFF;
+            box-shadow: inset 0 -2px 0 var(--accent-color);
+        }
+
+        .settings-panel {
+            display: none;
+        }
+
+        .settings-panel.active {
+            display: block;
+        }
+
+        .settings-section {
+            margin-bottom: 22px;
+        }
+
+        .settings-section-heading {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-end;
+            gap: 14px;
+            margin-bottom: 9px;
+            padding: 0 2px;
+        }
+
+        .settings-section-heading h3 {
+            font-size: 15px;
+            font-weight: 900;
+            color: #FFFFFF;
+            line-height: 1.2;
+        }
+
+        .settings-helper {
+            margin-top: 5px;
+            color: var(--text-muted);
+            font-size: 12px;
+            line-height: 1.45;
+        }
+
+        .settings-mini-note {
+            color: #6f727d;
+            font-size: 11px;
+            font-weight: 800;
+            white-space: nowrap;
+        }
+
+        .settings-group {
+            overflow: hidden;
+            border: 1px solid var(--card-border);
+            border-radius: 8px;
+            background: rgba(23, 24, 29, 0.92);
+        }
+
+        .settings-row {
+            display: grid;
+            grid-template-columns: minmax(0, 1fr) auto;
+            align-items: center;
+            gap: 12px;
+            min-height: 64px;
+            padding: 12px 14px;
+            border-bottom: 1px solid var(--card-border);
+        }
+
+        .settings-row:last-child {
+            border-bottom: 0;
+        }
+
+        .settings-name {
+            color: #FFFFFF;
+            font-size: 14px;
+            font-weight: 800;
+            line-height: 1.25;
+        }
+
+        .settings-desc {
+            margin-top: 4px;
+            color: var(--text-muted);
+            font-size: 11px;
+            line-height: 1.35;
+        }
+
+        .settings-value-input {
+            width: 104px;
+            height: 42px;
+            display: grid;
+            grid-template-columns: minmax(0, 1fr) auto;
+            align-items: center;
+            padding: 0 10px 0 8px;
+            border: 1px solid rgba(255, 255, 255, 0.12);
+            border-radius: 7px;
+            background: #0e0f13;
+        }
+
+        .settings-value-input input {
+            width: 100%;
+            min-width: 0;
+            border: 0;
+            outline: 0;
+            background: transparent;
+            color: #FFFFFF;
+            font-size: 17px;
+            font-weight: 900;
+            text-align: right;
+            appearance: textfield;
+        }
+
+        .settings-value-input input::-webkit-inner-spin-button,
+        .settings-value-input input::-webkit-outer-spin-button {
+            appearance: none;
+            margin: 0;
+        }
+
+        .settings-unit {
+            margin-left: 6px;
+            color: var(--text-muted);
+            font-size: 11px;
+            font-weight: 800;
+        }
+
+        .settings-info-strip {
+            display: grid;
+            grid-template-columns: 3px minmax(0, 1fr);
+            gap: 10px;
+            padding: 12px 14px;
+            border: 1px solid var(--card-border);
+            border-radius: 8px;
+            background: rgba(255, 255, 255, 0.025);
+            color: var(--text-muted);
+            font-size: 12px;
+            line-height: 1.5;
+        }
+
+        .settings-info-strip::before {
+            content: "";
+            width: 3px;
+            border-radius: 999px;
+            background: var(--accent-color);
+        }
+
+        .settings-actions {
+            display: grid;
+            grid-template-columns: 1fr;
+            gap: 8px;
+            margin-top: 12px;
+        }
+
+        .settings-primary-btn,
+        .settings-secondary-btn,
+        .settings-square-btn {
+            border-radius: 8px;
+            font-weight: 900;
+            cursor: pointer;
+        }
+
+        .settings-primary-btn {
+            height: 48px;
+            border: 0;
+            background: var(--accent-color);
+            color: #111111;
+            font-size: 14px;
+        }
+
+        .settings-secondary-btn {
+            height: 44px;
+            border: 1px solid rgba(255, 255, 255, 0.12);
+            background: transparent;
+            color: var(--text-muted);
+            font-size: 13px;
+        }
+
+        .settings-delete-btn {
+            color: #ff8f88;
+        }
+
+        .settings-gym-picker {
+            display: grid;
+            grid-template-columns: minmax(0, 1fr) 44px;
+            gap: 8px;
+            margin-bottom: 10px;
+        }
+
+        .settings-select-field,
+        .settings-text-field {
+            height: 44px;
+            border: 1px solid rgba(255, 255, 255, 0.12);
+            border-radius: 8px;
+            background: #0e0f13;
+        }
+
+        .settings-select-field {
+            position: relative;
+        }
+
+        .settings-select-field::after {
+            content: "";
+            position: absolute;
+            right: 14px;
+            top: 50%;
+            width: 7px;
+            height: 7px;
+            border-right: 2px solid var(--text-muted);
+            border-bottom: 2px solid var(--text-muted);
+            transform: translateY(-70%) rotate(45deg);
+            pointer-events: none;
+        }
+
+        .settings-select-field select,
+        .settings-text-field input {
+            width: 100%;
+            height: 100%;
+            border: 0;
+            outline: 0;
+            background: transparent;
+            color: #FFFFFF;
+            font-size: 14px;
+            font-weight: 800;
+        }
+
+        .settings-select-field select {
+            padding: 0 38px 0 12px;
+            appearance: none;
+        }
+
+        .settings-text-field input {
+            padding: 0 12px;
+        }
+
+        .settings-square-btn {
+            width: 44px;
+            height: 44px;
+            border: 1px solid rgba(255, 255, 255, 0.12);
+            background: rgba(255, 255, 255, 0.06);
+            color: #FFFFFF;
+            font-size: 24px;
+            line-height: 1;
+        }
+
+        .settings-field {
+            padding: 14px;
+            border-bottom: 1px solid var(--card-border);
+        }
+
+        .settings-field:last-child {
+            border-bottom: 0;
+        }
+
+        .settings-field-title {
+            display: block;
+            margin-bottom: 8px;
+            color: var(--text-muted);
+            font-size: 11px;
+            font-weight: 900;
+        }
+
+        .settings-chip-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 7px;
+        }
+
+        .settings-chip,
+        .settings-segmented label {
+            position: relative;
+        }
+
+        .settings-chip input,
+        .settings-segmented input {
+            position: absolute;
+            inset: 0;
+            opacity: 0;
+        }
+
+        .settings-chip span {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 40px;
+            border: 1px solid rgba(255, 255, 255, 0.12);
+            border-radius: 7px;
+            background: #0e0f13;
+            color: var(--text-muted);
+            font-size: 13px;
+            font-weight: 900;
+        }
+
+        .settings-chip input:checked + span {
+            border-color: rgba(255, 215, 0, 0.48);
+            background: rgba(255, 215, 0, 0.13);
+            color: var(--accent-color);
+        }
+
+        .settings-segmented {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 4px;
+            padding: 4px;
+            border: 1px solid var(--card-border);
+            border-radius: 8px;
+            background: #0e0f13;
+        }
+
+        .settings-segmented span {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            height: 36px;
+            border-radius: 6px;
+            color: var(--text-muted);
+            font-size: 13px;
+            font-weight: 900;
+        }
+
+        .settings-segmented input:checked + span {
+            background: rgba(255, 255, 255, 0.08);
+            color: #FFFFFF;
+            box-shadow: inset 0 -2px 0 var(--accent-color);
+        }
+
+        .start-check-card {
+            overflow: hidden;
+            border: 1px solid var(--card-border);
+            border-radius: 8px;
+            background: rgba(23, 24, 29, 0.96);
+        }
+
+        .start-check-top {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            gap: 12px;
+            padding: 14px;
+            border-bottom: 1px solid var(--card-border);
+        }
+
+        .start-check-kicker {
+            color: var(--accent-color);
+            font-size: 11px;
+            font-weight: 900;
+        }
+
+        .start-check-title {
+            margin-top: 4px;
+            color: #FFFFFF;
+            font-size: 18px;
+            font-weight: 900;
+            line-height: 1.2;
+        }
+
+        .start-check-change-btn {
+            height: 34px;
+            padding: 0 12px;
+            border: 1px solid rgba(255, 255, 255, 0.12);
+            border-radius: 7px;
+            background: #0e0f13;
+            color: var(--text-muted);
+            font-size: 12px;
+            font-weight: 900;
+            cursor: pointer;
+        }
+
+        .start-check-body {
+            padding: 14px;
+        }
+
+        .start-check-block + .start-check-block {
+            margin-top: 14px;
+        }
+
+        .start-check-label {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 10px;
+            margin-bottom: 8px;
+            color: var(--text-muted);
+            font-size: 11px;
+            font-weight: 900;
+        }
+
+        .start-check-value {
+            color: #FFFFFF;
+            font-size: 12px;
+            font-weight: 800;
+        }
+
+        .start-check-chip-row {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 6px;
+        }
+
+        .start-check-chip {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            min-height: 30px;
+            padding: 0 10px;
+            border: 1px solid rgba(255, 215, 0, 0.26);
+            border-radius: 999px;
+            background: rgba(255, 215, 0, 0.13);
+            color: var(--accent-color);
+            font-size: 12px;
+            font-weight: 900;
+        }
+
+        .start-check-footer {
+            display: grid;
+            grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+            gap: 1px;
+            border-top: 1px solid var(--card-border);
+            background: var(--card-border);
+        }
+
+        .start-check-footer button {
+            min-height: 44px;
+            border: 0;
+            background: rgba(30, 32, 38, 0.98);
+            color: #FFFFFF;
+            font-size: 13px;
+            font-weight: 900;
+            cursor: pointer;
+        }
+
+        .start-check-footer button.primary-action {
+            background: var(--accent-color);
+            color: #111111;
+        }
+
+        .settings-action-pair {
+            display: grid;
+            grid-template-columns: 88px minmax(0, 1fr);
+            gap: 8px;
+            margin-top: 12px;
+        }
+
         /* Tracker View */
         #active-workout-view {
             padding-top: 0;
@@ -947,6 +1457,46 @@
         </div>
     </div>
 
+    <!-- Workout Start Gym Check Modal -->
+    <div id="workout-check-overlay" class="overlay" style="display: none; z-index: 9998;">
+        <div class="modal" style="max-width: 420px; padding: 0; text-align: left;">
+            <div class="start-check-card" style="border: 0;">
+                <div class="start-check-top">
+                    <div>
+                        <div class="start-check-kicker">오늘 운동 세팅</div>
+                        <div class="start-check-title" id="start-check-gym-name">우리동네 헬스장</div>
+                    </div>
+                    <button class="start-check-change-btn" type="button" onclick="openGymSettingsFromCheck()">변경</button>
+                </div>
+
+                <div class="start-check-body">
+                    <div class="start-check-block">
+                        <div class="start-check-label">
+                            <span>보유 원판</span>
+                            <span class="start-check-value" id="start-check-plate-count">6종</span>
+                        </div>
+                        <div class="start-check-chip-row" id="start-check-plates"></div>
+                    </div>
+
+                    <div class="start-check-block">
+                        <div class="start-check-label">
+                            <span>덤벨 증량 간격</span>
+                            <span class="start-check-value" id="start-check-db-summary">2kg 단위로 보정</span>
+                        </div>
+                        <div class="start-check-chip-row">
+                            <span class="start-check-chip" id="start-check-db-chip">덤벨 2kg 간격</span>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="start-check-footer">
+                    <button type="button" onclick="openGymSettingsFromCheck()">헬스장 변경</button>
+                    <button class="primary-action" type="button" onclick="confirmWorkoutStart()">확인</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <!-- Workout Sticky Header -->
     <header id="active-workout-header" style="display: none;">
         <div class="header-left">
@@ -1036,31 +1586,179 @@
 
     <!-- 3. SETTINGS VIEW SECTION -->
     <section class="view-section" id="settings-view">
-        <h2 class="settings-header">⚙️ SBD 1RM 및 기본 설정</h2>
-        
-        <div class="conn-status" id="settings-conn-status">
-            <div class="status-dot" id="settings-status-dot"></div>
-            <span id="settings-conn-text">로딩 중...</span>
+        <div class="settings-topbar">
+            <div>
+                <div class="settings-eyebrow">LET'S WORKOUT</div>
+                <h2 class="settings-title">설정</h2>
+            </div>
+            <div class="settings-sync-state" id="settings-conn-status">
+                <div class="status-dot" id="settings-status-dot"></div>
+                <span id="settings-conn-text">로딩 중...</span>
+            </div>
         </div>
 
-        <div class="form-group">
-            <label>스쿼트 (Squat) 1RM (kg)</label>
-            <input type="number" id="input-squat" step="2.5" min="0" inputmode="decimal">
-        </div>
-        <div class="form-group">
-            <label>벤치프레스 (Bench Press) 1RM (kg)</label>
-            <input type="number" id="input-bench" step="2.5" min="0" inputmode="decimal">
-        </div>
-        <div class="form-group">
-            <label>데드리프트 (Deadlift) 1RM (kg)</label>
-            <input type="number" id="input-deadlift" step="2.5" min="0" inputmode="decimal">
-        </div>
-        <div class="form-group">
-            <label>오버헤드 프레스 (OHP) 1RM (kg)</label>
-            <input type="number" id="input-ohp" step="2.5" min="0" inputmode="decimal">
+        <div class="settings-tabs" role="tablist" aria-label="설정 메뉴">
+            <button class="settings-tab active" id="settings-tab-sbd" type="button" onclick="switchSettingsPanel('sbd')">SBD 1RM</button>
+            <button class="settings-tab" id="settings-tab-gym" type="button" onclick="switchSettingsPanel('gym')">내 헬스장</button>
         </div>
 
-        <button class="save-btn" onclick="saveSettings()">⚙️ 설정값 저장 및 동기화</button>
+        <div class="settings-panel active" id="settings-panel-sbd">
+            <div class="settings-section">
+                <div class="settings-section-heading">
+                    <div>
+                        <h3>SBD 기준중량</h3>
+                        <p class="settings-helper">첫 목표 중량을 계산할 때만 쓰고, 이후에는 수행 기록 기반으로 진행합니다.</p>
+                    </div>
+                    <span class="settings-mini-note">OHP 제외</span>
+                </div>
+
+                <div class="settings-group">
+                    <label class="settings-row">
+                        <span>
+                            <span class="settings-name">스쿼트</span>
+                            <span class="settings-desc" id="squat-preview">목표 예시 75% = -</span>
+                        </span>
+                        <span class="settings-value-input">
+                            <input type="number" id="input-squat" step="2.5" min="0" inputmode="decimal" oninput="updateSbdPreview()">
+                            <span class="settings-unit">kg</span>
+                        </span>
+                    </label>
+
+                    <label class="settings-row">
+                        <span>
+                            <span class="settings-name">벤치프레스</span>
+                            <span class="settings-desc" id="bench-preview">목표 예시 75% = -</span>
+                        </span>
+                        <span class="settings-value-input">
+                            <input type="number" id="input-bench" step="2.5" min="0" inputmode="decimal" oninput="updateSbdPreview()">
+                            <span class="settings-unit">kg</span>
+                        </span>
+                    </label>
+
+                    <label class="settings-row">
+                        <span>
+                            <span class="settings-name">데드리프트</span>
+                            <span class="settings-desc" id="deadlift-preview">목표 예시 75% = -</span>
+                        </span>
+                        <span class="settings-value-input">
+                            <input type="number" id="input-deadlift" step="2.5" min="0" inputmode="decimal" oninput="updateSbdPreview()">
+                            <span class="settings-unit">kg</span>
+                        </span>
+                    </label>
+                </div>
+            </div>
+
+            <div class="settings-section">
+                <div class="settings-info-strip">
+                    <span>오버헤드 프레스는 1RM을 따로 입력하지 않고, 이전 세션의 무게와 반복수를 기준으로 점진적 과부하를 적용합니다.</span>
+                </div>
+            </div>
+
+            <div class="settings-actions">
+                <button class="settings-primary-btn" type="button" onclick="saveSettings()">기준중량 저장</button>
+            </div>
+        </div>
+
+        <div class="settings-panel" id="settings-panel-gym">
+            <div class="settings-section">
+                <div class="settings-section-heading">
+                    <div>
+                        <h3>헬스장 선택</h3>
+                        <p class="settings-helper">운동할 헬스장을 바꾸면 목표 중량 반올림 기준도 같이 바뀝니다.</p>
+                    </div>
+                </div>
+
+                <div class="settings-gym-picker">
+                    <label class="settings-select-field">
+                        <select id="gym-select" aria-label="헬스장 선택" onchange="selectGymSetting(this.value)"></select>
+                    </label>
+                    <button class="settings-square-btn" type="button" onclick="addGymSetting()" aria-label="헬스장 추가">+</button>
+                </div>
+            </div>
+
+            <div class="settings-section">
+                <div class="settings-section-heading">
+                    <div>
+                        <h3>무게 세팅</h3>
+                        <p class="settings-helper">운동 목표 중량을 실제 보유 장비 기준으로 맞추는 값입니다.</p>
+                    </div>
+                </div>
+
+                <div class="settings-group">
+                    <div class="settings-field">
+                        <label class="settings-field-title" for="gym-name-input">헬스장 이름</label>
+                        <div class="settings-text-field">
+                            <input id="gym-name-input" type="text" oninput="renderGymEquipmentPreview()">
+                        </div>
+                    </div>
+
+                    <div class="settings-field">
+                        <span class="settings-field-title">보유 원판</span>
+                        <div class="settings-chip-grid">
+                            <label class="settings-chip"><input type="checkbox" class="gym-plate-check" value="20.0" onchange="renderGymEquipmentPreview()"><span>20kg</span></label>
+                            <label class="settings-chip"><input type="checkbox" class="gym-plate-check" value="15.0" onchange="renderGymEquipmentPreview()"><span>15kg</span></label>
+                            <label class="settings-chip"><input type="checkbox" class="gym-plate-check" value="10.0" onchange="renderGymEquipmentPreview()"><span>10kg</span></label>
+                            <label class="settings-chip"><input type="checkbox" class="gym-plate-check" value="5.0" onchange="renderGymEquipmentPreview()"><span>5kg</span></label>
+                            <label class="settings-chip"><input type="checkbox" class="gym-plate-check" value="2.5" onchange="renderGymEquipmentPreview()"><span>2.5kg</span></label>
+                            <label class="settings-chip"><input type="checkbox" class="gym-plate-check" value="1.25" onchange="renderGymEquipmentPreview()"><span>1.25kg</span></label>
+                        </div>
+                    </div>
+
+                    <div class="settings-field">
+                        <span class="settings-field-title">덤벨 증량 간격</span>
+                        <div class="settings-segmented">
+                            <label><input type="radio" name="gym-db-interval" value="1.0" onchange="renderGymEquipmentPreview()"><span>1kg</span></label>
+                            <label><input type="radio" name="gym-db-interval" value="2.0" onchange="renderGymEquipmentPreview()"><span>2kg</span></label>
+                            <label><input type="radio" name="gym-db-interval" value="2.5" onchange="renderGymEquipmentPreview()"><span>2.5kg</span></label>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="settings-section">
+                <div class="settings-section-heading">
+                    <div>
+                        <h3>운동 시작 전 체크 화면</h3>
+                        <p class="settings-helper">운동을 시작하기 전에 오늘 적용될 장비 세팅만 빠르게 확인합니다.</p>
+                    </div>
+                </div>
+
+                <div class="start-check-card">
+                    <div class="start-check-top">
+                        <div>
+                            <div class="start-check-kicker">오늘 운동 세팅</div>
+                            <div class="start-check-title" id="gym-preview-name">우리동네 헬스장</div>
+                        </div>
+                        <button class="start-check-change-btn" type="button" onclick="switchSettingsPanel('gym')">변경</button>
+                    </div>
+
+                    <div class="start-check-body">
+                        <div class="start-check-block">
+                            <div class="start-check-label">
+                                <span>보유 원판</span>
+                                <span class="start-check-value" id="gym-preview-plate-count">6종</span>
+                            </div>
+                            <div class="start-check-chip-row" id="gym-preview-plates"></div>
+                        </div>
+
+                        <div class="start-check-block">
+                            <div class="start-check-label">
+                                <span>덤벨 증량 간격</span>
+                                <span class="start-check-value" id="gym-preview-db-summary">2kg 단위로 보정</span>
+                            </div>
+                            <div class="start-check-chip-row">
+                                <span class="start-check-chip" id="gym-preview-db-chip">덤벨 2kg 간격</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="settings-action-pair">
+                    <button class="settings-secondary-btn settings-delete-btn" type="button" onclick="deleteActiveGym()">삭제</button>
+                    <button class="settings-primary-btn" type="button" onclick="saveGymSettings()">헬스장 저장</button>
+                </div>
+            </div>
+        </div>
     </section>
 
     <!-- 4. ACTIVE WORKOUT VIEW SECTION (Bottom nav hidden) -->
@@ -1151,8 +1849,12 @@
         let routineData = {}; // Keyed by split ("2", "3", "4", "5")
         let completedLogs = [];
         let currentDayId = "Day 1";
+        let pendingWorkoutDayId = null;
         let nextRecommendedDayId = "Day 1";
         let settingsSaveVersion = 0;
+        const standardPlates = [20.0, 15.0, 10.0, 5.0, 2.5, 1.25];
+        let gyms = [];
+        let activeGymId = null;
 
         // Stopwatch state
         let stopwatchSeconds = 0;
@@ -1171,6 +1873,7 @@
 
             await Promise.all([
                 fetchSettings(),
+                fetchGyms(),
                 fetchRoutine(),
                 fetchStatus(),
                 fetchLogs()
@@ -1263,11 +1966,25 @@
             }
         }
 
+        async function fetchGyms() {
+            try {
+                const res = await apiFetch("/api/workout/gyms");
+                const data = await res.json();
+                gyms = data.gyms || [];
+                activeGymId = data.activeGymId || (gyms[0] && gyms[0].id) || null;
+                renderGymSettingsUI();
+            } catch (err) {
+                console.error("헬스장 설정 로드 실패", err);
+            }
+        }
+
         function updateSettingsUI() {
-            document.getElementById("input-squat").value = oneRms.squat;
-            document.getElementById("input-bench").value = oneRms.bench;
-            document.getElementById("input-deadlift").value = oneRms.deadlift;
-            document.getElementById("input-ohp").value = oneRms.ohp;
+            const squatInput = document.getElementById("input-squat");
+            const benchInput = document.getElementById("input-bench");
+            const deadliftInput = document.getElementById("input-deadlift");
+            if (squatInput) squatInput.value = oneRms.squat;
+            if (benchInput) benchInput.value = oneRms.bench;
+            if (deadliftInput) deadliftInput.value = oneRms.deadlift;
 
             const dotClass = sheetsConnected ? "status-dot connected" : "status-dot fallback";
             const statusText = sheetsConnected ? "구글 시트 연동 완료 (실시간 동기화)" : "구글 시트 미연동 (로컬 임시 저장 모드)";
@@ -1276,8 +1993,228 @@
             document.getElementById("home-conn-text").innerText = statusText;
             document.getElementById("settings-status-dot").className = dotClass;
             document.getElementById("settings-conn-text").innerText = statusText;
+            document.getElementById("settings-conn-status").className = `settings-sync-state ${sheetsConnected ? "connected" : "fallback"}`;
 
+            updateSbdPreview();
+            renderGymSettingsUI();
             setActiveSplitSegmentUI();
+        }
+
+        function formatKg(value) {
+            const num = parseFloat(value) || 0;
+            return Number.isInteger(num) ? String(num) : String(num).replace(/\.0$/, "");
+        }
+
+        function roundToHalf(value) {
+            return Math.round((parseFloat(value) || 0) / 2.5) * 2.5;
+        }
+
+        function updateSbdPreview() {
+            const squat = parseFloat(document.getElementById("input-squat")?.value) || 0;
+            const bench = parseFloat(document.getElementById("input-bench")?.value) || 0;
+            const deadlift = parseFloat(document.getElementById("input-deadlift")?.value) || 0;
+
+            const squatPreview = document.getElementById("squat-preview");
+            const benchPreview = document.getElementById("bench-preview");
+            const deadliftPreview = document.getElementById("deadlift-preview");
+            if (squatPreview) squatPreview.innerText = `목표 예시 75% = ${formatKg(roundToHalf(squat * 0.75))}kg`;
+            if (benchPreview) benchPreview.innerText = `목표 예시 75% = ${formatKg(roundToHalf(bench * 0.75))}kg`;
+            if (deadliftPreview) deadliftPreview.innerText = `목표 예시 75% = ${formatKg(roundToHalf(deadlift * 0.75))}kg`;
+        }
+
+        function switchSettingsPanel(panelName) {
+            document.querySelectorAll(".settings-tab").forEach(btn => btn.classList.remove("active"));
+            document.querySelectorAll(".settings-panel").forEach(panel => panel.classList.remove("active"));
+
+            const tab = document.getElementById(`settings-tab-${panelName}`);
+            const panel = document.getElementById(`settings-panel-${panelName}`);
+            if (tab) tab.classList.add("active");
+            if (panel) panel.classList.add("active");
+        }
+
+        function getActiveGym() {
+            return gyms.find(gym => gym.id === activeGymId) || gyms[0] || {
+                id: "gym_default",
+                name: "우리동네 헬스장",
+                availablePlates: standardPlates,
+                dumbbellInterval: 2.0
+            };
+        }
+
+        function collectGymForm() {
+            const name = (document.getElementById("gym-name-input")?.value || "우리동네 헬스장").trim();
+            const plates = Array.from(document.querySelectorAll(".gym-plate-check:checked"))
+                .map(input => parseFloat(input.value))
+                .filter(value => value > 0);
+            const intervalInput = document.querySelector("input[name='gym-db-interval']:checked");
+
+            return {
+                name: name || "우리동네 헬스장",
+                barbellWeight: 20.0,
+                availablePlates: plates.length ? plates : standardPlates,
+                dumbbellInterval: parseFloat(intervalInput?.value) || 2.0
+            };
+        }
+
+        function setGymForm(gym) {
+            const nameInput = document.getElementById("gym-name-input");
+            const selectedPlates = new Set((gym.availablePlates || standardPlates).map(value => String(parseFloat(value))));
+            const interval = String(parseFloat(gym.dumbbellInterval || 2.0));
+
+            if (nameInput) nameInput.value = gym.name || "우리동네 헬스장";
+            document.querySelectorAll(".gym-plate-check").forEach(input => {
+                input.checked = selectedPlates.has(String(parseFloat(input.value)));
+            });
+            document.querySelectorAll("input[name='gym-db-interval']").forEach(input => {
+                input.checked = String(parseFloat(input.value)) === interval;
+            });
+            if (!document.querySelector("input[name='gym-db-interval']:checked")) {
+                const defaultInterval = document.querySelector("input[name='gym-db-interval'][value='2.0']");
+                if (defaultInterval) defaultInterval.checked = true;
+            }
+        }
+
+        function renderPlateChips(containerId, plates) {
+            const container = document.getElementById(containerId);
+            if (!container) return;
+            container.innerHTML = "";
+            (plates && plates.length ? plates : standardPlates).forEach(plate => {
+                const chip = document.createElement("span");
+                chip.className = "start-check-chip";
+                chip.innerText = `${formatKg(plate)}kg`;
+                container.appendChild(chip);
+            });
+        }
+
+        function renderGymEquipmentPreview(sourceGym = null) {
+            const gym = sourceGym || { ...getActiveGym(), ...collectGymForm() };
+            const plates = gym.availablePlates && gym.availablePlates.length ? gym.availablePlates : standardPlates;
+            const interval = parseFloat(gym.dumbbellInterval) || 2.0;
+            const gymName = gym.name || "우리동네 헬스장";
+
+            const previewName = document.getElementById("gym-preview-name");
+            const previewPlateCount = document.getElementById("gym-preview-plate-count");
+            const previewDbSummary = document.getElementById("gym-preview-db-summary");
+            const previewDbChip = document.getElementById("gym-preview-db-chip");
+            if (previewName) previewName.innerText = gymName;
+            if (previewPlateCount) previewPlateCount.innerText = `${plates.length}종`;
+            if (previewDbSummary) previewDbSummary.innerText = `${formatKg(interval)}kg 단위로 보정`;
+            if (previewDbChip) previewDbChip.innerText = `덤벨 ${formatKg(interval)}kg 간격`;
+            renderPlateChips("gym-preview-plates", plates);
+        }
+
+        function renderStartCheck(gym = getActiveGym()) {
+            const plates = gym.availablePlates && gym.availablePlates.length ? gym.availablePlates : standardPlates;
+            const interval = parseFloat(gym.dumbbellInterval) || 2.0;
+            document.getElementById("start-check-gym-name").innerText = gym.name || "우리동네 헬스장";
+            document.getElementById("start-check-plate-count").innerText = `${plates.length}종`;
+            document.getElementById("start-check-db-summary").innerText = `${formatKg(interval)}kg 단위로 보정`;
+            document.getElementById("start-check-db-chip").innerText = `덤벨 ${formatKg(interval)}kg 간격`;
+            renderPlateChips("start-check-plates", plates);
+        }
+
+        function renderGymSettingsUI() {
+            const select = document.getElementById("gym-select");
+            if (!select) return;
+
+            if (!gyms.length) {
+                gyms = [getActiveGym()];
+                activeGymId = gyms[0].id;
+            }
+
+            select.innerHTML = "";
+            gyms.forEach(gym => {
+                const option = document.createElement("option");
+                option.value = gym.id;
+                option.textContent = gym.name || "우리동네 헬스장";
+                option.selected = gym.id === activeGymId;
+                select.appendChild(option);
+            });
+
+            const activeGym = getActiveGym();
+            setGymForm(activeGym);
+            renderGymEquipmentPreview(activeGym);
+            renderStartCheck(activeGym);
+        }
+
+        async function selectGymSetting(gymId) {
+            if (!gymId) return;
+            activeGymId = gymId;
+            renderGymSettingsUI();
+
+            try {
+                await apiFetch(`/api/workout/gyms/select/${encodeURIComponent(gymId)}`, { method: "POST" });
+                await fetchGyms();
+                await fetchRoutine();
+                updateRecommendationUI();
+                renderSplitSelectorGrid();
+            } catch (err) {
+                console.error("헬스장 선택 실패", err);
+            }
+        }
+
+        async function addGymSetting() {
+            try {
+                const res = await apiFetch("/api/workout/gyms", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({
+                        name: "새 헬스장",
+                        barbellWeight: 20.0,
+                        availablePlates: standardPlates,
+                        dumbbellInterval: 2.0
+                    })
+                });
+                const gym = await res.json();
+                activeGymId = gym.id;
+                await fetchGyms();
+                switchSettingsPanel("gym");
+            } catch (err) {
+                console.error("헬스장 추가 실패", err);
+            }
+        }
+
+        async function saveGymSettings() {
+            const gym = getActiveGym();
+            const body = collectGymForm();
+
+            try {
+                const res = await apiFetch(`/api/workout/gyms/${encodeURIComponent(gym.id)}`, {
+                    method: "PUT",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify(body)
+                });
+                if (res.ok) {
+                    await fetchGyms();
+                    await fetchRoutine();
+                    alert("헬스장 설정이 저장되었습니다.");
+                    updateRecommendationUI();
+                    renderSplitSelectorGrid();
+                }
+            } catch (err) {
+                console.error("헬스장 저장 실패", err);
+            }
+        }
+
+        async function deleteActiveGym() {
+            const gym = getActiveGym();
+            if (!gym || gyms.length <= 1) {
+                alert("헬스장은 최소 1개가 필요합니다.");
+                return;
+            }
+            if (!confirm(`${gym.name} 설정을 삭제할까요?`)) return;
+
+            try {
+                const res = await apiFetch(`/api/workout/gyms/${encodeURIComponent(gym.id)}`, { method: "DELETE" });
+                if (res.ok) {
+                    await fetchGyms();
+                    await fetchRoutine();
+                    updateRecommendationUI();
+                    renderSplitSelectorGrid();
+                }
+            } catch (err) {
+                console.error("헬스장 삭제 실패", err);
+            }
         }
 
         function setActiveSplitSegmentUI() {
@@ -1446,8 +2383,37 @@
             startWorkout(dayId);
         }
 
-        // Start active workout tracking
         function startWorkout(dayId) {
+            pendingWorkoutDayId = dayId;
+            renderStartCheck(getActiveGym());
+            const overlay = document.getElementById("workout-check-overlay");
+            overlay.style.display = "flex";
+            requestAnimationFrame(() => overlay.classList.add("active"));
+        }
+
+        function hideWorkoutCheck() {
+            const overlay = document.getElementById("workout-check-overlay");
+            overlay.classList.remove("active");
+            overlay.style.display = "none";
+        }
+
+        function openGymSettingsFromCheck() {
+            pendingWorkoutDayId = null;
+            hideWorkoutCheck();
+            switchTab("settings-view");
+            switchSettingsPanel("gym");
+        }
+
+        function confirmWorkoutStart() {
+            const dayId = pendingWorkoutDayId;
+            pendingWorkoutDayId = null;
+            hideWorkoutCheck();
+            beginWorkout(dayId);
+        }
+
+        // Start active workout tracking
+        function beginWorkout(dayId) {
+            if (!dayId) return;
             currentDayId = dayId;
             const currentSplitStr = String(oneRms.activeSplit);
             const activeRoutine = routineData[currentSplitStr];
@@ -1615,6 +2581,8 @@
                         dumbbellInterval: interval
                     })
                 });
+                await fetchGyms();
+                await fetchRoutine();
                 localStorage.setItem("gym_onboarded", "true");
                 document.getElementById("onboarding-overlay").style.display = "none";
             } catch (e) {
@@ -1879,7 +2847,6 @@
                 squat: parseFloat(document.getElementById("input-squat").value) || 150.0,
                 bench: parseFloat(document.getElementById("input-bench").value) || 100.0,
                 deadlift: parseFloat(document.getElementById("input-deadlift").value) || 160.0,
-                ohp: parseFloat(document.getElementById("input-ohp").value) || 60.0,
                 activeSplit: oneRms.activeSplit
             };
 
@@ -1891,11 +2858,10 @@
                 });
                 if (res.ok) {
                     oneRms = await res.json();
-                    alert("설정 수치가 정상 업데이트 되었습니다!");
+                    alert("SBD 기준중량이 저장되었습니다.");
                     updateSettingsUI();
                     updateRecommendationUI();
                     renderSplitSelectorGrid();
-                    switchTab("home-view");
                 }
             } catch (err) {
                 console.error("1RM 저장 실패", err);
@@ -1908,7 +2874,6 @@
                 squat: oneRms.squat,
                 bench: oneRms.bench,
                 deadlift: oneRms.deadlift,
-                ohp: oneRms.ohp,
                 activeSplit: oneRms.activeSplit
             };
 

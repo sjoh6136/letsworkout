@@ -88,10 +88,72 @@ def sheet_int(value, default=0):
         return default
 
 
+def sheet_json(value, default):
+    if value in (None, ""):
+        return copy.deepcopy(default)
+    try:
+        return json.loads(str(value))
+    except (TypeError, ValueError, json.JSONDecodeError):
+        return copy.deepcopy(default)
+
+
+def sheet_bool(value):
+    return str(value).strip().lower() in {"1", "true", "yes", "y", "active", "활성"}
+
+
+def clean_plates(plates):
+    values = []
+    for plate in plates or []:
+        value = as_float(plate)
+        if value > 0 and value not in values:
+            values.append(value)
+    values.sort(reverse=True)
+    return values or copy.deepcopy(DEFAULT_GYM["availablePlates"])
+
+
+def normalize_gym(gym):
+    source = gym if isinstance(gym, dict) else {}
+    gym_id = str(source.get("id") or f"gym_{int(time.time() * 1000)}").strip()
+    name = str(source.get("name") or DEFAULT_GYM["name"]).strip() or DEFAULT_GYM["name"]
+    machine_map = source.get("machineProgressionMap")
+    if not isinstance(machine_map, dict):
+        machine_map = {}
+
+    return {
+        "id": gym_id,
+        "name": name,
+        "barbellWeight": as_float(source.get("barbellWeight"), DEFAULT_GYM["barbellWeight"]),
+        "availablePlates": clean_plates(source.get("availablePlates", DEFAULT_GYM["availablePlates"])),
+        "dumbbellInterval": as_float(source.get("dumbbellInterval"), DEFAULT_GYM["dumbbellInterval"]) or DEFAULT_GYM["dumbbellInterval"],
+        "machineProgressionMap": machine_map,
+    }
+
+
+def normalize_gym_state(active_gym_id, gyms):
+    normalized = [normalize_gym(gym) for gym in gyms or []]
+    if not normalized:
+        normalized = [copy.deepcopy(DEFAULT_GYM)]
+
+    active_id = str(active_gym_id or "").strip()
+    if not any(gym.get("id") == active_id for gym in normalized):
+        active_id = normalized[0]["id"]
+    return active_id, normalized
+
+
 class GoogleSheetsStore:
     SETTINGS_TAB = "Setting_1RM"
     LOGS_TAB = "Workout_Logs"
+    GYM_SETTINGS_TAB = "Gym_Settings"
     SETTINGS_HEADER = ["Squat", "Bench", "Deadlift", "OHP", "ActiveSplit"]
+    GYM_SETTINGS_HEADER = [
+        "Active",
+        "GymId",
+        "Name",
+        "BarbellWeight",
+        "AvailablePlates",
+        "DumbbellInterval",
+        "MachineProgressionMap",
+    ]
     LOG_HEADER = [
         "날짜",
         "분할",
@@ -153,6 +215,7 @@ class GoogleSheetsStore:
     def ensure_tabs(self):
         settings = self.worksheet(self.SETTINGS_TAB, rows=2, cols=10)
         logs = self.worksheet(self.LOGS_TAB, rows=1000, cols=14)
+        gym_settings = self.worksheet(self.GYM_SETTINGS_TAB, rows=50, cols=8)
 
         values = settings.get("A1:E2")
         if not values:
@@ -179,6 +242,7 @@ class GoogleSheetsStore:
                 ]], range_name="A2:E2")
 
         logs.update(values=[self.LOG_HEADER + ["", ""]], range_name="A1:N1")
+        gym_settings.update(values=[self.GYM_SETTINGS_HEADER], range_name="A1:G1")
 
     def load_one_rms(self):
         settings = self.worksheet(self.SETTINGS_TAB, rows=2, cols=10)
@@ -202,6 +266,51 @@ class GoogleSheetsStore:
             sheet_float(one_rms.get("ohp"), DEFAULT_ONE_RMS["ohp"]),
             sheet_int(one_rms.get("activeSplit"), DEFAULT_ONE_RMS["activeSplit"]),
         ]], range_name="A2:E2")
+
+    def load_gyms(self):
+        gym_settings = self.worksheet(self.GYM_SETTINGS_TAB, rows=50, cols=8)
+        rows = gym_settings.get("A2:G")
+        gyms = []
+        active_gym_id = None
+
+        for row in rows:
+            row = row + [""] * 7
+            if not row[1] and not row[2]:
+                continue
+
+            gym = normalize_gym({
+                "id": row[1],
+                "name": row[2],
+                "barbellWeight": sheet_float(row[3], DEFAULT_GYM["barbellWeight"]),
+                "availablePlates": sheet_json(row[4], DEFAULT_GYM["availablePlates"]),
+                "dumbbellInterval": sheet_float(row[5], DEFAULT_GYM["dumbbellInterval"]),
+                "machineProgressionMap": sheet_json(row[6], {}),
+            })
+            gyms.append(gym)
+            if sheet_bool(row[0]):
+                active_gym_id = gym["id"]
+
+        if not gyms:
+            return None, []
+        return normalize_gym_state(active_gym_id, gyms)
+
+    def save_gyms(self, active_gym_id, gyms):
+        active_gym_id, gyms = normalize_gym_state(active_gym_id, gyms)
+        gym_settings = self.worksheet(self.GYM_SETTINGS_TAB, rows=max(50, len(gyms) + 1), cols=8)
+        rows = [self.GYM_SETTINGS_HEADER]
+        for gym in gyms:
+            rows.append([
+                "TRUE" if gym.get("id") == active_gym_id else "",
+                gym.get("id", ""),
+                gym.get("name", ""),
+                as_float(gym.get("barbellWeight"), DEFAULT_GYM["barbellWeight"]),
+                json.dumps(clean_plates(gym.get("availablePlates")), ensure_ascii=False),
+                as_float(gym.get("dumbbellInterval"), DEFAULT_GYM["dumbbellInterval"]),
+                json.dumps(gym.get("machineProgressionMap") or {}, ensure_ascii=False),
+            ])
+        gym_settings.clear()
+        gym_settings.update(values=rows, range_name=f"A1:G{len(rows)}")
+        return active_gym_id, gyms
 
     def load_logs(self):
         logs = self.worksheet(self.LOGS_TAB, rows=1000, cols=14)
@@ -321,6 +430,7 @@ def load_file_state():
         state["gyms"].append(copy.deepcopy(DEFAULT_GYM))
         state["activeGymId"] = DEFAULT_GYM["id"]
 
+    state["activeGymId"], state["gyms"] = normalize_gym_state(state.get("activeGymId"), state.get("gyms"))
     return state
 
 
@@ -333,16 +443,30 @@ def load_state():
             state["logs"] = store.load_logs()
         except Exception as exc:
             print(f"[warn] failed to load Google Sheets state, using local file state: {exc}")
+        try:
+            active_gym_id, gyms = store.load_gyms()
+            if gyms:
+                state["activeGymId"], state["gyms"] = active_gym_id, gyms
+            else:
+                state["activeGymId"], state["gyms"] = normalize_gym_state(DEFAULT_GYM["id"], [copy.deepcopy(DEFAULT_GYM)])
+                store.save_gyms(state.get("activeGymId"), state.get("gyms", []))
+        except Exception as exc:
+            print(f"[warn] failed to load gym settings from Google Sheets, using local file state: {exc}")
     return state
 
 
 def save_state(state) -> None:
+    state["activeGymId"], state["gyms"] = normalize_gym_state(state.get("activeGymId"), state.get("gyms"))
     store = sheets_store()
     if store.connected:
         try:
             store.save_one_rms(state.get("oneRms", {}))
         except Exception as exc:
             print(f"[warn] failed to save 1RM to Google Sheets: {exc}")
+        try:
+            store.save_gyms(state.get("activeGymId"), state.get("gyms", []))
+        except Exception as exc:
+            print(f"[warn] failed to save gym settings to Google Sheets: {exc}")
     save_json(STATE_FILE, state)
 
 
@@ -450,7 +574,7 @@ def get_increment(exercise_name):
 
 
 def one_rm_for(one_rms, lift_type):
-    if lift_type in {"squat", "bench", "deadlift", "ohp"}:
+    if lift_type in {"squat", "bench", "deadlift"}:
         return as_float(one_rms.get(lift_type), DEFAULT_ONE_RMS[lift_type])
     return 100.0
 
@@ -623,7 +747,7 @@ def evaluate_and_update(state, logs, split, week, day_id):
                 progress_report.append(f"⚡ {exercise_name}: 다음 목표 +{get_increment(exercise_name)}kg, {min_reps}회")
 
             core_type = ex_def.get("coreLiftType") if ex_def.get("coreLift") else None
-            if core_type in {"squat", "bench", "deadlift", "ohp"}:
+            if core_type in {"squat", "bench", "deadlift"}:
                 lifted_core_types.add(core_type)
         else:
             progress_report.append(f"❄️ {exercise_name}: 유지")
@@ -766,16 +890,17 @@ def workout_gyms():
     state = load_state()
     if request.method == "POST":
         body = request.get_json(silent=True) or {}
-        gym = {
+        gym = normalize_gym({
             "id": f"gym_{int(time.time() * 1000)}",
             "name": (body.get("name") or "우리동네 헬스장").strip(),
             "barbellWeight": as_float(body.get("barbellWeight"), 20.0),
-            "availablePlates": [as_float(p) for p in body.get("availablePlates", DEFAULT_GYM["availablePlates"])],
+            "availablePlates": body.get("availablePlates", DEFAULT_GYM["availablePlates"]),
             "dumbbellInterval": as_float(body.get("dumbbellInterval"), 2.0),
             "machineProgressionMap": {},
-        }
+        })
         state["gyms"].append(gym)
         state["activeGymId"] = gym["id"]
+        state["activeGymId"], state["gyms"] = normalize_gym_state(state["activeGymId"], state["gyms"])
         save_state(state)
         return jsonify(gym)
 
@@ -794,6 +919,7 @@ def workout_gym_detail(gym_id):
         state["gyms"] = [item for item in gyms if item.get("id") != gym_id]
         if state.get("activeGymId") == gym_id:
             state["activeGymId"] = state["gyms"][0]["id"]
+        state["activeGymId"], state["gyms"] = normalize_gym_state(state["activeGymId"], state["gyms"])
         save_state(state)
         return jsonify({"success": True, "gyms": state["gyms"]})
 
@@ -804,8 +930,9 @@ def workout_gym_detail(gym_id):
     gym["name"] = (body.get("name") or gym["name"]).strip()
     gym["barbellWeight"] = as_float(body.get("barbellWeight"), gym.get("barbellWeight", 20.0))
     if "availablePlates" in body:
-        gym["availablePlates"] = [as_float(p) for p in body["availablePlates"]]
+        gym["availablePlates"] = clean_plates(body["availablePlates"])
     gym["dumbbellInterval"] = as_float(body.get("dumbbellInterval"), gym.get("dumbbellInterval", 2.0))
+    state["activeGymId"], state["gyms"] = normalize_gym_state(state["activeGymId"], state["gyms"])
     save_state(state)
     return jsonify(gym)
 
