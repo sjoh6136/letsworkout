@@ -171,7 +171,7 @@
           "defaultWeight": 0.0
         },
         {
-          "name": "풀업 또는 랫 풀 다운",
+          "name": "머신 풀업",
           "sets": 3,
           "targetReps": 6,
           "repsRange": "6-10",
@@ -204,7 +204,7 @@
           "defaultWeight": 40.0
         },
         {
-          "name": "케이블 크로스오버",
+          "name": "머신 딥스",
           "sets": 3,
           "targetReps": 10,
           "repsRange": "10-12",
@@ -590,7 +590,7 @@
           "defaultWeight": 15.0
         },
         {
-          "name": "딥스 (Dips)",
+          "name": "머신 딥스",
           "sets": 3,
           "targetReps": 8,
           "repsRange": "8-10",
@@ -902,7 +902,7 @@
           "defaultWeight": 15.0
         },
         {
-          "name": "딥스 (Dips)",
+          "name": "머신 딥스",
           "sets": 3,
           "targetReps": 8,
           "repsRange": "8-10",
