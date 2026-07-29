@@ -33,7 +33,7 @@ SHEETS_ENABLED = os.environ.get("GOOGLE_SHEETS_ENABLED", "true").lower() not in 
 AUTH_COOKIE_NAME = "lw_session"
 AUTH_SESSION_DAYS = max(1, int(os.environ.get("AUTH_SESSION_DAYS", "180")))
 AUTH_PASSWORD_ITERATIONS = 200_000
-AUTH_CACHE_SECONDS = 60
+AUTH_CACHE_SECONDS = max(60, int(os.environ.get("AUTH_CACHE_SECONDS", str(12 * 60 * 60))))
 _SHEETS_STORE = None
 _AUTH_SESSION_CACHE = {}
 
@@ -630,10 +630,12 @@ def load_auth_state():
     store = sheets_store()
     if store.connected:
         try:
-            return {
+            state = {
                 "users": store.load_users(),
                 "sessions": store.load_sessions(),
             }
+            save_json(AUTH_FILE, state)
+            return state
         except Exception as exc:
             print(f"[warn] failed to load auth state from Google Sheets, using local file state: {exc}")
 

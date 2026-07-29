@@ -6,7 +6,7 @@
       "exercises": [
         {
           "name": "인클라인 덤벨 프레스",
-          "sets": 4,
+          "sets": 3,
           "targetReps": 6,
           "repsRange": "6-8",
           "rpeTarget": 8.0,
@@ -17,7 +17,7 @@
         },
         {
           "name": "바벨 로우 (Bent-over Row)",
-          "sets": 4,
+          "sets": 3,
           "targetReps": 6,
           "repsRange": "6-8",
           "rpeTarget": 8.0,
@@ -50,7 +50,7 @@
         },
         {
           "name": "페이스 풀 (케이블)",
-          "sets": 4,
+          "sets": 3,
           "targetReps": 12,
           "repsRange": "12-15",
           "rpeTarget": 8.0,
@@ -89,7 +89,7 @@
       "exercises": [
         {
           "name": "백 스쿼트 (바벨)",
-          "sets": 4,
+          "sets": 3,
           "targetReps": 6,
           "repsRange": "6-8",
           "rpeTarget": 8.0,
@@ -133,7 +133,7 @@
         },
         {
           "name": "카프 레이즈",
-          "sets": 4,
+          "sets": 3,
           "targetReps": 12,
           "repsRange": "12-15",
           "rpeTarget": 8.0,
@@ -161,7 +161,7 @@
       "exercises": [
         {
           "name": "플랫 바벨 벤치프레스",
-          "sets": 4,
+          "sets": 3,
           "targetReps": 6,
           "repsRange": "6-8",
           "rpeTarget": 8.0,
@@ -172,7 +172,7 @@
         },
         {
           "name": "머신 풀업",
-          "sets": 4,
+          "sets": 3,
           "targetReps": 6,
           "repsRange": "6-10",
           "rpeTarget": 8.0,
@@ -183,7 +183,7 @@
         },
         {
           "name": "사이드 레터럴 레이즈 (덤벨)",
-          "sets": 4,
+          "sets": 3,
           "targetReps": 12,
           "repsRange": "12-15",
           "rpeTarget": 8.0,
@@ -244,7 +244,7 @@
       "exercises": [
         {
           "name": "컨벤셔널 데드리프트",
-          "sets": 4,
+          "sets": 3,
           "targetReps": 5,
           "repsRange": "5-8",
           "rpeTarget": 8.0,

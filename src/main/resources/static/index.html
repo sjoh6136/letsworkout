@@ -1270,10 +1270,33 @@
             padding-left: 8px;
         }
 
+        .exercise-title-main {
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+            min-width: 0;
+        }
+
         .exercise-meta {
             font-size: 11px;
             color: var(--text-muted);
             font-weight: 600;
+        }
+
+        .add-set-btn {
+            border: 1px solid rgba(255, 215, 0, 0.35);
+            background: rgba(255, 215, 0, 0.1);
+            color: var(--accent-color);
+            border-radius: 8px;
+            padding: 6px 8px;
+            font-size: 11px;
+            font-weight: 800;
+            cursor: pointer;
+            white-space: nowrap;
+        }
+
+        .add-set-btn:active {
+            transform: scale(0.96);
         }
 
         .set-row {
@@ -1975,6 +1998,7 @@
         let routineData = {}; // Keyed by split ("2", "3", "4", "5")
         let completedLogs = [];
         let currentDayId = "Day 1";
+        let activeWorkoutDay = null;
         let nextRecommendedDayId = "Day 1";
         let settingsSaveVersion = 0;
         const standardPlates = [20.0, 15.0, 10.0, 5.0, 2.5, 1.25];
@@ -2127,12 +2151,20 @@
         }
 
         async function handleUnauthorized() {
+            const status = await fetchAuthStatus();
+            if (status.authenticated) {
+                authUser = status.user || authUser;
+                hideAuthOverlay();
+                return true;
+            }
+
             authUser = null;
             appInitialized = false;
             stopStopwatch();
             document.getElementById("active-workout-header").style.display = "none";
             document.getElementById("bottom-nav").style.display = "flex";
-            showAuthOverlay(false, "로그인이 필요합니다.");
+            showAuthOverlay(status.setupRequired, "로그인이 필요합니다.");
+            return false;
         }
 
         async function logout() {
@@ -2161,7 +2193,11 @@
                 try {
                     const res = await fetch(url, { cache: "no-store", credentials: "same-origin", ...options });
                     if (res.status === 401 && !url.startsWith("/api/auth/")) {
-                        await handleUnauthorized();
+                        const stillAuthenticated = await handleUnauthorized();
+                        if (stillAuthenticated && attempt < retries) {
+                            await delay(350 * (attempt + 1));
+                            continue;
+                        }
                         throw new Error("Unauthorized");
                     }
                     if (!RETRYABLE_STATUS_CODES.has(res.status) || attempt === retries) {
@@ -2652,6 +2688,7 @@
 
             const dayObj = activeRoutine.find(d => d.id === dayId);
             if (!dayObj) return;
+            activeWorkoutDay = JSON.parse(JSON.stringify(dayObj));
 
             // Hide tabbar and show workout header
             document.getElementById("bottom-nav").style.display = "none";
@@ -2669,7 +2706,7 @@
             activeTitle = activeTitle.replace(/Day\s*\d+/i, `Week ${currentWeek} ${dayObj.id}`);
             document.getElementById("active-day-title").innerText = activeTitle;
             
-            renderExercises(dayObj);
+            renderExercises(activeWorkoutDay);
             
             // Start Timer
             startStopwatch();
@@ -2689,19 +2726,13 @@
                 let badge = "";
                 if (isSuper) badge = '<span class="super-set-badge">SuperSet</span>';
 
-                // Target weight calculation
-                let targetWeight = (ex.targetWeight !== undefined) ? ex.targetWeight : ex.defaultWeight;
-
-                // 2.5kg Rounding
-                targetWeight = Math.round(targetWeight / 2.5) * 2.5;
-
-                // Target reps calculation
-                let targetReps = ex.targetReps;
-
                 card.innerHTML = `
                     <div class="exercise-title">
-                        <span>${ex.name} ${badge}</span>
-                        <span class="exercise-meta">${ex.sets}세트 × ${ex.repsRange}회 (RPE ${ex.rpeTarget})</span>
+                        <div class="exercise-title-main">
+                            <span>${ex.name} ${badge}</span>
+                            <span class="exercise-meta" id="exercise-meta-${exIdx}">${ex.sets}세트 × ${ex.repsRange}회 (RPE ${ex.rpeTarget})</span>
+                        </div>
+                        <button class="add-set-btn" type="button" onclick="addSet(${exIdx})">+ 세트</button>
                     </div>
                     <div class="sets-table" id="ex-${exIdx}">
                         <div class="set-row" style="font-weight:700; color:var(--text-main); border-bottom: 1px solid rgba(255, 255, 255, 0.08);">
@@ -2719,38 +2750,82 @@
 
                 const table = card.querySelector(".sets-table");
                 for (let s = 1; s <= ex.sets; s++) {
-                    const row = document.createElement("div");
-                    row.className = "set-row";
-                    row.id = `row-${exIdx}-${s}`;
-                    row.innerHTML = `
-                        <div class="set-no">${s}</div>
-                        <div class="set-prev-info">${formatPreviousCell(ex, s)}</div>
-                        <div class="set-target-info set-intensity-info">
-                            <div style="font-weight:700; color:var(--text-muted); font-size:12.5px;">${formatIntensityCell(ex)}</div>
-                        </div>
-                        <div class="input-group">
-                            <input type="number" class="weight-input" value="${targetWeight}" step="2.5" min="0" inputmode="decimal" onchange="calculateVolume()">
-                            <span>kg</span>
-                        </div>
-                        <div class="input-group">
-                            <input type="number" class="reps-input" value="${targetReps}" min="0" inputmode="numeric" onchange="calculateVolume()">
-                            <span>회</span>
-                        </div>
-                        <div class="input-group">
-                            <input type="number" class="rpe-input-field" value="${ex.rpeTarget}" min="5" max="10" step="0.5" inputmode="decimal" onchange="calculateVolume()">
-                            <span>RPE</span>
-                        </div>
-                        <button class="check-btn" onclick="toggleSet(${exIdx}, ${s})">
-                            <svg viewBox="0 0 24 24">
-                                <polyline points="20 6 9 17 4 12"></polyline>
-                            </svg>
-                        </button>
-                    `;
-                    table.appendChild(row);
+                    table.appendChild(createSetRow(ex, exIdx, s));
                 }
 
                 container.appendChild(card);
             });
+        }
+
+        function getTargetWeightForExercise(ex) {
+            let targetWeight = (ex.targetWeight !== undefined) ? ex.targetWeight : ex.defaultWeight;
+            return Math.round(targetWeight / 2.5) * 2.5;
+        }
+
+        function createSetRow(ex, exIdx, setNo, copiedValues = {}) {
+            const row = document.createElement("div");
+            row.className = "set-row";
+            row.id = `row-${exIdx}-${setNo}`;
+
+            const targetWeight = copiedValues.weight ?? getTargetWeightForExercise(ex);
+            const targetReps = copiedValues.reps ?? ex.targetReps;
+            const targetRpe = copiedValues.rpe ?? ex.rpeTarget;
+
+            row.innerHTML = `
+                <div class="set-no">${setNo}</div>
+                <div class="set-prev-info">${formatPreviousCell(ex, setNo)}</div>
+                <div class="set-target-info set-intensity-info">
+                    <div style="font-weight:700; color:var(--text-muted); font-size:12.5px;">${formatIntensityCell(ex)}</div>
+                </div>
+                <div class="input-group">
+                    <input type="number" class="weight-input" value="${targetWeight}" step="2.5" min="0" inputmode="decimal" onchange="calculateVolume()">
+                    <span>kg</span>
+                </div>
+                <div class="input-group">
+                    <input type="number" class="reps-input" value="${targetReps}" min="0" inputmode="numeric" onchange="calculateVolume()">
+                    <span>회</span>
+                </div>
+                <div class="input-group">
+                    <input type="number" class="rpe-input-field" value="${targetRpe}" min="5" max="10" step="0.5" inputmode="decimal" onchange="calculateVolume()">
+                    <span>RPE</span>
+                </div>
+                <button class="check-btn" onclick="toggleSet(${exIdx}, ${setNo})">
+                    <svg viewBox="0 0 24 24">
+                        <polyline points="20 6 9 17 4 12"></polyline>
+                    </svg>
+                </button>
+            `;
+            return row;
+        }
+
+        function addSet(exIdx) {
+            const currentSplitStr = String(oneRms.activeSplit);
+            const activeRoutine = routineData[currentSplitStr];
+            if (!activeRoutine) return;
+
+            const dayObj = activeWorkoutDay || activeRoutine.find(d => d.id === currentDayId);
+            if (!dayObj) return;
+
+            const ex = dayObj.exercises[exIdx];
+            const table = document.getElementById(`ex-${exIdx}`);
+            if (!ex || !table) return;
+
+            const lastSetNo = ex.sets;
+            const lastRow = document.getElementById(`row-${exIdx}-${lastSetNo}`);
+            const copiedValues = {
+                weight: lastRow ? (parseFloat(lastRow.querySelector(".weight-input")?.value) || getTargetWeightForExercise(ex)) : getTargetWeightForExercise(ex),
+                reps: lastRow ? (parseInt(lastRow.querySelector(".reps-input")?.value) || ex.targetReps) : ex.targetReps,
+                rpe: lastRow ? (parseFloat(lastRow.querySelector(".rpe-input-field")?.value) || ex.rpeTarget) : ex.rpeTarget,
+            };
+
+            ex.sets += 1;
+            table.appendChild(createSetRow(ex, exIdx, ex.sets, copiedValues));
+
+            const meta = document.getElementById(`exercise-meta-${exIdx}`);
+            if (meta) {
+                meta.innerText = `${ex.sets}세트 × ${ex.repsRange}회 (RPE ${ex.rpeTarget})`;
+            }
+            calculateVolume();
         }
 
         // Recalculate targets based on checkbox changes
@@ -2759,7 +2834,7 @@
             const activeRoutine = routineData[currentSplitStr];
             if (!activeRoutine) return;
 
-            const dayObj = activeRoutine.find(d => d.id === currentDayId);
+            const dayObj = activeWorkoutDay || activeRoutine.find(d => d.id === currentDayId);
             if (!dayObj) return;
 
             renderExercises(dayObj);
@@ -2924,6 +2999,7 @@
         function abortWorkout() {
             if (confirm("훈련 기록 작성을 취소하시겠습니까? 현재까지의 기록은 저장되지 않습니다.")) {
                 stopStopwatch();
+                activeWorkoutDay = null;
                 document.getElementById("active-workout-header").style.display = "none";
                 document.getElementById("bottom-nav").style.display = "flex";
                 switchTab("home-view");
@@ -2936,7 +3012,7 @@
             const activeRoutine = routineData[currentSplitStr];
             if (!activeRoutine) return;
 
-            const dayObj = activeRoutine.find(d => d.id === currentDayId);
+            const dayObj = activeWorkoutDay || activeRoutine.find(d => d.id === currentDayId);
             if (!dayObj) return;
 
             const logs = [];
@@ -2995,6 +3071,7 @@
 
                 if (res.ok) {
                     const data = await res.json();
+                    activeWorkoutDay = null;
                     showFeedbackModal(data);
                 } else {
                     alert("서버 통신 오류가 발생했습니다.");
