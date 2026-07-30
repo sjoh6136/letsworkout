@@ -1170,6 +1170,11 @@ def load_exercise_definitions():
     return {
         "large": set(definitions.get("large_muscles") or []),
         "small": set(definitions.get("small_muscles") or []),
+        "muscleGroups": {
+            str(name).strip(): str(muscle).strip()
+            for name, muscle in (definitions.get("muscle_groups") or {}).items()
+            if str(name).strip() and str(muscle).strip()
+        },
     }
 
 
@@ -1359,12 +1364,18 @@ def apply_progression(routines, state):
 
 
 def target_muscle(exercise_name):
-    name = (exercise_name or "").lower()
-    if any(token in name for token in ["벤치프레스", "bench", "플라이", "fly", "딥스", "dips"]):
+    raw_name = (exercise_name or "").strip()
+    definitions = load_exercise_definitions()
+    explicit = definitions["muscleGroups"].get(raw_name)
+    if explicit:
+        return explicit
+
+    name = raw_name.lower()
+    if any(token in name for token in ["벤치프레스", "bench", "체스트", "chest", "플라이", "fly", "크로스오버", "딥스", "dips"]):
         return "가슴"
-    if any(token in name for token in ["로우", "row", "풀다운", "pulldown", "풀업", "pull-up", "pull up", "랫 풀"]):
+    if any(token in name for token in ["로우", "row", "풀다운", "pulldown", "풀업", "pull-up", "pull up", "랫 풀", "암 풀"]):
         return "등"
-    if any(token in name for token in ["스쿼트", "squat", "데드리프트", "deadlift", "루마니안", "런지", "레그", "leg", "카프", "calf", "복근", "크런치"]):
+    if any(token in name for token in ["스쿼트", "squat", "데드리프트", "deadlift", "루마니안", "런지", "레그", "leg", "카프", "calf"]):
         return "하체"
     if any(token in name for token in ["오버헤드 프레스", "ohp", "숄더", "shoulder", "레터럴", "lateral", "페이스 풀", "face pull"]):
         return "어깨"

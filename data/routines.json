@@ -141,17 +141,6 @@
           "coreLiftType": null,
           "intensity": 0.0,
           "defaultWeight": 40.0
-        },
-        {
-          "name": "행잉 레그 레이즈",
-          "sets": 3,
-          "targetReps": 12,
-          "repsRange": "12-15",
-          "rpeTarget": 8.0,
-          "coreLift": false,
-          "coreLiftType": null,
-          "intensity": 0.0,
-          "defaultWeight": 0.0
         }
       ]
     },
@@ -296,17 +285,6 @@
           "coreLiftType": null,
           "intensity": 0.0,
           "defaultWeight": 40.0
-        },
-        {
-          "name": "케이블 크런치",
-          "sets": 3,
-          "targetReps": 12,
-          "repsRange": "12-15",
-          "rpeTarget": 8.0,
-          "coreLift": false,
-          "coreLiftType": null,
-          "intensity": 0.0,
-          "defaultWeight": 30.0
         }
       ]
     }
@@ -525,17 +503,6 @@
           "coreLiftType": null,
           "intensity": 0.0,
           "defaultWeight": 40.0
-        },
-        {
-          "name": "케이블 크런치",
-          "sets": 3,
-          "targetReps": 12,
-          "repsRange": "12-15",
-          "rpeTarget": 8.0,
-          "coreLift": false,
-          "coreLiftType": null,
-          "intensity": 0.0,
-          "defaultWeight": 30.0
         }
       ]
     }
@@ -754,17 +721,6 @@
           "coreLiftType": null,
           "intensity": 0.0,
           "defaultWeight": 40.0
-        },
-        {
-          "name": "행잉 레그 레이즈",
-          "sets": 3,
-          "targetReps": 12,
-          "repsRange": "12-15",
-          "rpeTarget": 8.0,
-          "coreLift": false,
-          "coreLiftType": null,
-          "intensity": 0.0,
-          "defaultWeight": 0.0
         }
       ]
     },
@@ -1099,7 +1055,7 @@
     },
     {
       "id": "Day 5",
-      "name": "Day 5 - 팔/복근",
+      "name": "Day 5 - 팔",
       "exercises": [
         {
           "name": "이두 바벨 컬",
@@ -1155,28 +1111,6 @@
           "coreLiftType": null,
           "intensity": 0.0,
           "defaultWeight": 12.0
-        },
-        {
-          "name": "행잉 레그 레이즈",
-          "sets": 3,
-          "targetReps": 12,
-          "repsRange": "12-15",
-          "rpeTarget": 8.0,
-          "coreLift": false,
-          "coreLiftType": null,
-          "intensity": 0.0,
-          "defaultWeight": 0.0
-        },
-        {
-          "name": "케이블 크런치",
-          "sets": 3,
-          "targetReps": 12,
-          "repsRange": "12-15",
-          "rpeTarget": 8.0,
-          "coreLift": false,
-          "coreLiftType": null,
-          "intensity": 0.0,
-          "defaultWeight": 30.0
         }
       ]
     }

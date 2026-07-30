@@ -209,6 +209,7 @@ When editing `data/routines.json`:
 - Keep valid JSON.
 - Keep `rpeTarget` as `8.0`.
 - Make sure each exercise name exists in both exercise definition JSON files.
+- Make sure each routine exercise has a `muscle_groups` entry, except exercises intentionally excluded from routines.
 - Update `data/routines.md` so the user can review routines easily.
 - Keep Korean exercise names consistent.
 - Keep machine replacements consistent.
@@ -219,7 +220,8 @@ When adding a new exercise:
 2. Classify it as compound or isolation.
 3. Add it to `data/exercise_definitions.json`.
 4. Add it to `src/main/resources/exercise_definitions.json`.
-5. Use the exact same string in routines.
+5. Add its exact `muscle_groups` value in both exercise definition files.
+6. Use the exact same string in routines.
 
 ## Validation Checklist
 
@@ -253,16 +255,21 @@ $known = @{}
 foreach ($n in $defs.large_muscles) { $known[$n] = $true }
 foreach ($n in $defs.small_muscles) { $known[$n] = $true }
 $missing = @()
+$missingMuscle = @()
 foreach ($split in $r.PSObject.Properties.Name) {
   foreach ($day in $r.$split) {
     foreach ($ex in $day.exercises) {
       if (-not $known.ContainsKey($ex.name)) {
         $missing += "$split $($day.id) $($ex.name)"
       }
+      if (-not $defs.muscle_groups.PSObject.Properties.Name.Contains($ex.name)) {
+        $missingMuscle += "$split $($day.id) $($ex.name)"
+      }
     }
   }
 }
 if ($missing.Count) { $missing; exit 1 } else { 'routine/exercise dictionary ok' }
+if ($missingMuscle.Count) { $missingMuscle; exit 1 } else { 'routine/muscle groups ok' }
 ```
 
 Live deploy check:

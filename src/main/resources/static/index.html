@@ -428,6 +428,12 @@
             color: #FFFFFF;
         }
 
+        .calendar-nav-actions {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+        }
+
         .calendar-nav-btn {
             background: rgba(255, 255, 255, 0.06);
             border: 1px solid var(--card-border);
@@ -441,6 +447,16 @@
             cursor: pointer;
             outline: none;
             transition: all 0.2s ease;
+        }
+
+        .calendar-today-btn {
+            width: auto;
+            min-width: 48px;
+            padding: 0 12px;
+            border-radius: 999px;
+            color: var(--accent-color);
+            font-size: 12px;
+            font-weight: 900;
         }
 
         .calendar-nav-btn:active {
@@ -2051,7 +2067,10 @@
         <div class="calendar-header-row">
             <button class="calendar-nav-btn" onclick="prevMonth()">◀</button>
             <div class="calendar-title" id="calendar-month-year">2026년 7월</div>
-            <button class="calendar-nav-btn" onclick="nextMonth()">▶</button>
+            <div class="calendar-nav-actions">
+                <button class="calendar-nav-btn" onclick="nextMonth()">▶</button>
+                <button class="calendar-nav-btn calendar-today-btn" onclick="goToday()">오늘</button>
+            </div>
         </div>
 
         <!-- Month calendar grid -->
@@ -2355,7 +2374,7 @@
         let oneRms = { squat: 150.0, bench: 100.0, deadlift: 160.0, ohp: 60.0, activeSplit: 5 };
         let sheetsConnected = false;
         let routineData = {}; // Keyed by split ("2", "3", "4", "5")
-        let exerciseDefinitions = { large_muscles: [], small_muscles: [] };
+        let exerciseDefinitions = { large_muscles: [], small_muscles: [], muscle_groups: {} };
         let completedLogs = [];
         let replacementLogs = [];
         let currentDayId = "Day 1";
@@ -2731,11 +2750,12 @@
                 const data = await res.json();
                 exerciseDefinitions = {
                     large_muscles: data.large_muscles || data.large || [],
-                    small_muscles: data.small_muscles || data.small || []
+                    small_muscles: data.small_muscles || data.small || [],
+                    muscle_groups: data.muscle_groups || data.muscleGroups || {}
                 };
             } catch (err) {
                 console.error("운동 사전 로드 실패", err);
-                exerciseDefinitions = { large_muscles: [], small_muscles: [] };
+                exerciseDefinitions = { large_muscles: [], small_muscles: [], muscle_groups: {} };
             }
         }
 
@@ -3159,7 +3179,7 @@
                         "Day 2": "등: 로우와 풀다운으로 두께와 너비를 같이 가져갑니다.",
                         "Day 3": "어깨: OHP와 레터럴, 후면 어깨를 분리해서 진행합니다.",
                         "Day 4": "하체: 스쿼트, RDL, 프레스와 고립 운동을 순서대로 진행합니다.",
-                        "Day 5": "팔/복근: 이두, 삼두, 복근을 짧고 집중적으로 정리합니다."
+                        "Day 5": "팔: 이두와 삼두를 짧고 집중적으로 정리합니다."
                     }
                 };
                 const desc = descriptions[oneRms.activeSplit]?.[nextRecommendedDayId] || "";
@@ -3755,6 +3775,9 @@
         }
 
         function getExerciseMuscleGroup(name) {
+            const explicit = exerciseDefinitions.muscle_groups?.[name];
+            if (explicit) return explicit;
+
             const lower = normalizeExerciseText(name);
             if (["크런치", "레그 레이즈", "플랭크", "crunch", "raise", "plank", "abs"].some(token => lower.includes(token))) return "복근";
             if (["벤치프레스", "bench", "체스트", "chest", "플라이", "fly", "크로스오버", "딥스", "dips"].some(token => lower.includes(token))) return "가슴";
@@ -4536,6 +4559,23 @@
             renderCalendar();
         }
 
+        function getLocalDateString(date = new Date()) {
+            return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
+        }
+
+        function logsForDate(dateStr) {
+            return (completedLogs || []).filter(log => log.date === dateStr);
+        }
+
+        function goToday() {
+            const today = new Date();
+            const todayStr = getLocalDateString(today);
+            currentYear = today.getFullYear();
+            currentMonth = today.getMonth();
+            renderCalendar();
+            selectCalendarDay(todayStr, logsForDate(todayStr));
+        }
+
         function renderCalendar() {
             document.getElementById("calendar-month-year").innerText = `${currentYear}년 ${monthNames[currentMonth]}`;
             
@@ -4570,8 +4610,7 @@
                 }
             });
 
-            const today = new Date();
-            const todayStr = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
+            const todayStr = getLocalDateString();
 
             for (let d = 1; d <= totalDays; d++) {
                 const dayEl = document.createElement("div");
