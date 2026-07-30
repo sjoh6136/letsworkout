@@ -423,15 +423,13 @@
         }
 
         .calendar-title {
+            display: inline-flex;
+            align-items: baseline;
+            justify-content: center;
+            gap: 6px;
             font-size: 18px;
             font-weight: 800;
             color: #FFFFFF;
-        }
-
-        .calendar-nav-actions {
-            display: inline-flex;
-            align-items: center;
-            gap: 8px;
         }
 
         .calendar-nav-btn {
@@ -450,13 +448,13 @@
         }
 
         .calendar-today-btn {
-            width: auto;
-            min-width: 48px;
-            padding: 0 12px;
-            border-radius: 999px;
+            border: 0;
+            background: transparent;
             color: var(--accent-color);
             font-size: 12px;
             font-weight: 900;
+            cursor: pointer;
+            padding: 0;
         }
 
         .calendar-nav-btn:active {
@@ -2066,11 +2064,11 @@
     <section class="view-section" id="calendar-view">
         <div class="calendar-header-row">
             <button class="calendar-nav-btn" onclick="prevMonth()">◀</button>
-            <div class="calendar-title" id="calendar-month-year">2026년 7월</div>
-            <div class="calendar-nav-actions">
-                <button class="calendar-nav-btn" onclick="nextMonth()">▶</button>
-                <button class="calendar-nav-btn calendar-today-btn" onclick="goToday()">오늘</button>
+            <div class="calendar-title">
+                <span id="calendar-month-year">2026년 7월</span>
+                <button class="calendar-today-btn" onclick="goToday()">(오늘)</button>
             </div>
+            <button class="calendar-nav-btn" onclick="nextMonth()">▶</button>
         </div>
 
         <!-- Month calendar grid -->
