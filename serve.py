@@ -238,12 +238,35 @@ def normalize_gym(gym):
     }
 
 
+def gym_signature(gym):
+    normalized = normalize_gym(gym)
+    return (
+        normalized["name"].strip().lower(),
+        round(normalized["barbellWeight"], 3),
+        tuple(normalized["availablePlates"]),
+        round(normalized["dumbbellInterval"], 3),
+        json.dumps(normalized.get("machineProgressionMap") or {}, ensure_ascii=False, sort_keys=True),
+    )
+
+
 def normalize_gym_state(active_gym_id, gyms):
-    normalized = [normalize_gym(gym) for gym in gyms or []]
+    active_id = str(active_gym_id or "").strip()
+    normalized = []
+    seen = {}
+
+    for gym in gyms or []:
+        clean_gym = normalize_gym(gym)
+        key = gym_signature(clean_gym)
+        if key in seen:
+            if clean_gym.get("id") == active_id:
+                normalized[seen[key]] = clean_gym
+            continue
+        seen[key] = len(normalized)
+        normalized.append(clean_gym)
+
     if not normalized:
         normalized = [copy.deepcopy(DEFAULT_GYM)]
 
-    active_id = str(active_gym_id or "").strip()
     if not any(gym.get("id") == active_id for gym in normalized):
         active_id = normalized[0]["id"]
     return active_id, normalized
@@ -1474,7 +1497,7 @@ def workout_gyms():
         state["activeGymId"] = gym["id"]
         state["activeGymId"], state["gyms"] = normalize_gym_state(state["activeGymId"], state["gyms"])
         save_gym_state(state)
-        return jsonify(gym)
+        return jsonify({"success": True, "activeGymId": state["activeGymId"], "gyms": state["gyms"], "activeGym": active_gym(state)})
 
     return jsonify({"activeGymId": state.get("activeGymId"), "gyms": state.get("gyms", [])})
 

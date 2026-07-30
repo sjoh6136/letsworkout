@@ -913,13 +913,21 @@
         }
 
         .settings-square-btn {
+            display: flex;
+            align-items: center;
+            justify-content: center;
             width: 44px;
             height: 44px;
-            border: 1px solid rgba(255, 255, 255, 0.12);
-            background: rgba(255, 255, 255, 0.06);
-            color: #FFFFFF;
+            border: 1px solid rgba(255, 215, 0, 0.48);
+            background: rgba(255, 215, 0, 0.13);
+            color: var(--accent-color);
             font-size: 24px;
             line-height: 1;
+            box-shadow: inset 0 -1px 0 rgba(255, 215, 0, 0.22);
+        }
+
+        .settings-square-btn:active {
+            transform: scale(0.96);
         }
 
         .settings-field {
@@ -2545,8 +2553,7 @@
             try {
                 const res = await apiFetch("/api/workout/gyms");
                 const data = await res.json();
-                gyms = data.gyms || [];
-                activeGymId = data.activeGymId || (gyms[0] && gyms[0].id) || null;
+                setGymState(data.gyms || [], data.activeGymId);
                 renderGymSettingsUI();
             } catch (err) {
                 console.error("헬스장 설정 로드 실패", err);
@@ -2635,13 +2642,85 @@
             }, 250);
         }
 
-        function getActiveGym() {
-            return gyms.find(gym => gym.id === activeGymId) || gyms[0] || {
+        function getDefaultGymState() {
+            return {
                 id: "gym_default",
                 name: "우리동네 헬스장",
+                barbellWeight: 20.0,
                 availablePlates: standardPlates,
-                dumbbellInterval: 2.0
+                dumbbellInterval: 2.0,
+                machineProgressionMap: {}
             };
+        }
+
+        function getGymSignature(gym) {
+            const source = gym || {};
+            const name = String(source.name || "우리동네 헬스장").trim().toLowerCase();
+            const plates = (source.availablePlates || standardPlates)
+                .map(value => parseFloat(value))
+                .filter(value => value > 0)
+                .sort((a, b) => b - a)
+                .join(",");
+            const machineMap = source.machineProgressionMap && typeof source.machineProgressionMap === "object"
+                ? source.machineProgressionMap
+                : {};
+            const machineMapText = JSON.stringify(Object.keys(machineMap).sort().reduce((acc, key) => {
+                acc[key] = machineMap[key];
+                return acc;
+            }, {}));
+
+            return [
+                name,
+                parseFloat(source.barbellWeight || 20.0).toFixed(3),
+                plates,
+                parseFloat(source.dumbbellInterval || 2.0).toFixed(3),
+                machineMapText
+            ].join("|");
+        }
+
+        function normalizeGymList(nextGyms, preferredActiveId = null) {
+            const preferredId = String(preferredActiveId || "").trim();
+            const clean = [];
+            const seen = new Map();
+
+            (Array.isArray(nextGyms) ? nextGyms : []).forEach(gym => {
+                const normalized = { ...getDefaultGymState(), ...gym };
+                const key = getGymSignature(normalized);
+                if (seen.has(key)) {
+                    if (normalized.id === preferredId) {
+                        clean[seen.get(key)] = normalized;
+                    }
+                    return;
+                }
+                seen.set(key, clean.length);
+                clean.push(normalized);
+            });
+
+            if (!clean.length) clean.push(getDefaultGymState());
+            const normalizedActiveId = clean.some(gym => gym.id === preferredId) ? preferredId : clean[0].id;
+            return { gyms: clean, activeGymId: normalizedActiveId };
+        }
+
+        function setGymState(nextGyms, preferredActiveId = null) {
+            const normalized = normalizeGymList(nextGyms, preferredActiveId);
+            gyms = normalized.gyms;
+            activeGymId = normalized.activeGymId;
+        }
+
+        function getNextGymName() {
+            const baseName = "새 헬스장";
+            const existingNames = new Set(gyms.map(gym => String(gym.name || "").trim()));
+            if (!existingNames.has(baseName)) return baseName;
+
+            let suffix = 2;
+            while (existingNames.has(`${baseName} ${suffix}`)) {
+                suffix += 1;
+            }
+            return `${baseName} ${suffix}`;
+        }
+
+        function getActiveGym() {
+            return gyms.find(gym => gym.id === activeGymId) || gyms[0] || getDefaultGymState();
         }
 
         function collectGymForm() {
@@ -2711,8 +2790,9 @@
             if (!select) return;
 
             if (!gyms.length) {
-                gyms = [getActiveGym()];
-                activeGymId = gyms[0].id;
+                setGymState([getDefaultGymState()], activeGymId);
+            } else {
+                setGymState(gyms, activeGymId);
             }
 
             select.innerHTML = "";
@@ -2737,8 +2817,11 @@
             try {
                 const res = await apiFetch(`/api/workout/gyms/select/${encodeURIComponent(gymId)}`, { method: "POST" });
                 const data = await res.json().catch(() => ({}));
-                if (data.activeGymId) activeGymId = data.activeGymId;
-                if (Array.isArray(data.gyms)) gyms = data.gyms;
+                if (Array.isArray(data.gyms)) {
+                    setGymState(data.gyms, data.activeGymId || gymId);
+                } else if (data.activeGymId) {
+                    activeGymId = data.activeGymId;
+                }
                 renderGymSettingsUI();
                 updateRecommendationUI();
                 renderSplitSelectorGrid();
@@ -2754,20 +2837,26 @@
         }
 
         async function addGymSetting() {
+            const nextName = getNextGymName();
+            if (!confirm(`${nextName}을 추가할까요?`)) return;
+
             try {
                 const res = await apiFetch("/api/workout/gyms", {
                     method: "POST",
                     headers: { "Content-Type": "application/json" },
                     body: JSON.stringify({
-                        name: "새 헬스장",
+                        name: nextName,
                         barbellWeight: 20.0,
                         availablePlates: standardPlates,
                         dumbbellInterval: 2.0
                     })
                 });
-                const gym = await res.json();
-                activeGymId = gym.id;
-                gyms.push(gym);
+                const data = await res.json();
+                if (Array.isArray(data.gyms)) {
+                    setGymState(data.gyms, data.activeGymId || data.activeGym?.id);
+                } else {
+                    setGymState([...gyms, data], data.id);
+                }
                 renderGymSettingsUI();
                 switchSettingsPanel("gym");
             } catch (err) {
@@ -2788,12 +2877,12 @@
                 if (res.ok) {
                     const saved = await res.json().catch(() => ({}));
                     if (Array.isArray(saved.gyms)) {
-                        gyms = saved.gyms;
-                        activeGymId = saved.activeGymId || activeGymId;
+                        setGymState(saved.gyms, saved.activeGymId || activeGymId);
                     } else {
                         const idx = gyms.findIndex(item => item.id === gym.id);
                         const updatedGym = { ...gym, ...body, ...(saved.id ? saved : {}) };
                         if (idx >= 0) gyms[idx] = updatedGym;
+                        setGymState(gyms, activeGymId);
                     }
                     renderGymSettingsUI();
                     updateRecommendationUI();
