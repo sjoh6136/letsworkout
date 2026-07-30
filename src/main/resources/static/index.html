@@ -1407,42 +1407,6 @@
             transform: scale(0.96);
         }
 
-        .plate-toggle-wrap {
-            margin: -2px 0 10px 11px;
-        }
-
-        .plate-toggle-btn {
-            border: 1px solid rgba(255, 255, 255, 0.12);
-            background: rgba(255, 255, 255, 0.04);
-            color: var(--text-muted);
-            border-radius: 7px;
-            min-height: 30px;
-            padding: 0 10px;
-            font-size: 11px;
-            font-weight: 900;
-            cursor: pointer;
-            white-space: nowrap;
-        }
-
-        .plate-drawer {
-            display: none;
-            width: fit-content;
-            max-width: calc(100% - 12px);
-            margin-top: 8px;
-            padding: 8px 10px;
-            border: 1px solid rgba(255, 255, 255, 0.08);
-            border-radius: 8px;
-            background: rgba(0, 0, 0, 0.18);
-            color: #FFFFFF;
-            font-size: 12px;
-            font-weight: 900;
-            line-height: 1.35;
-        }
-
-        .plate-drawer.open {
-            display: block;
-        }
-
         .set-row {
             display: grid;
             grid-template-columns: 24px 1.3fr 1.3fr 0.9fr 0.9fr 0.8fr 34px;
@@ -3374,13 +3338,9 @@
                         <span class="exercise-meta" id="exercise-meta-${exIdx}">${ex.sets}세트 × ${ex.repsRange}회 (RPE ${ex.rpeTarget})</span>
                     </div>
                     <div class="exercise-actions">
-                        <button class="plate-toggle-btn" type="button" onclick="togglePlateDrawer(${exIdx})">원판</button>
                         <button class="replace-exercise-btn" type="button" onclick="openExerciseReplacement(${exIdx})">↔ 교체</button>
                         <button class="add-set-btn" type="button" onclick="addSet(${exIdx})">+ 세트</button>
                     </div>
-                </div>
-                <div class="plate-toggle-wrap">
-                    <div class="plate-drawer" id="plate-drawer-${exIdx}">${formatPlateLoadout(ex)}</div>
                 </div>
                 <div class="sets-table" id="ex-${exIdx}">
                     <div class="set-row" style="font-weight:700; color:var(--text-main); border-bottom: 1px solid rgba(255, 255, 255, 0.08);">
@@ -3450,53 +3410,6 @@
             const bar = 20.0;
             const minPlate = Math.min(...plates);
             return weight <= bar ? bar : bar + roundToStep((weight - bar) / 2.0, minPlate) * 2.0;
-        }
-
-        function buildPlateStackText(sideWeight) {
-            let remaining = Math.max(0, parseFloat(sideWeight) || 0);
-            const gym = getActiveGym();
-            const plates = (gym.availablePlates || standardPlates)
-                .map(value => parseFloat(value))
-                .filter(value => value > 0)
-                .sort((a, b) => b - a);
-            const stack = [];
-
-            plates.forEach(plate => {
-                while (remaining + 0.001 >= plate) {
-                    stack.push(`${formatKg(plate)}kg`);
-                    remaining = Math.round((remaining - plate) * 1000) / 1000;
-                }
-            });
-
-            if (remaining > 0.001) {
-                stack.push(`${formatKg(remaining)}kg`);
-            }
-            return stack.length ? stack.join(" + ") : "바만";
-        }
-
-        function formatPlateLoadout(ex) {
-            const targetWeight = getTargetWeightForExercise(ex);
-            if (targetWeight <= 0) return "-";
-
-            if (isDumbbellExerciseName(ex.name)) {
-                return `덤벨 ${formatKg(targetWeight)}kg`;
-            }
-
-            if (!isBarbellExerciseName(ex.name)) {
-                return `${formatKg(targetWeight)}kg`;
-            }
-
-            const bar = 20.0;
-            if (targetWeight <= bar) return "바만";
-            return buildPlateStackText((targetWeight - bar) / 2.0);
-        }
-
-        function togglePlateDrawer(exIdx) {
-            const drawer = document.getElementById(`plate-drawer-${exIdx}`);
-            const button = drawer?.closest(".exercise-card")?.querySelector(".plate-toggle-btn");
-            if (!drawer || !button) return;
-            drawer.classList.toggle("open");
-            button.innerText = drawer.classList.contains("open") ? "원판 접기" : "원판";
         }
 
         function createSetRow(ex, exIdx, setNo, copiedValues = {}) {

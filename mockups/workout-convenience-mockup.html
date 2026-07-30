@@ -228,38 +228,6 @@
             color: var(--text-main);
         }
 
-        .plate-toggle-wrap {
-            padding: 0 16px 12px;
-        }
-
-        .plate-toggle {
-            border: 1px solid rgba(255, 255, 255, 0.12);
-            background: rgba(255, 255, 255, 0.04);
-            color: var(--text-muted);
-            border-radius: 7px;
-            min-height: 30px;
-            padding: 0 10px;
-            font-size: 11px;
-            font-weight: 900;
-            cursor: pointer;
-        }
-
-        .plate-drawer {
-            display: none;
-            margin-top: 8px;
-            padding: 9px 10px;
-            border: 1px solid rgba(255, 255, 255, 0.08);
-            border-radius: 8px;
-            background: rgba(0, 0, 0, 0.18);
-            color: #FFFFFF;
-            font-size: 12px;
-            font-weight: 900;
-        }
-
-        .plate-drawer.open {
-            display: block;
-        }
-
         .sets-table {
             width: 100%;
         }
@@ -616,11 +584,6 @@
                     </div>
                 </div>
 
-                <div class="plate-toggle-wrap">
-                    <button class="plate-toggle" type="button" onclick="togglePlates(this)">원판 보기</button>
-                    <div class="plate-drawer" id="plate-drawer">20kg + 20kg + 5kg + 1.25kg</div>
-                </div>
-
                 <div class="sets-table" id="sets-table">
                     <div class="set-row header">
                         <div>#</div>
@@ -671,11 +634,6 @@
                         <button class="replace-btn" type="button" onclick="openSheet('replace-sheet')">↔ 교체</button>
                         <button class="add-set-btn" type="button">+ 세트</button>
                     </div>
-                </div>
-
-                <div class="plate-toggle-wrap">
-                    <button class="plate-toggle" type="button" onclick="togglePlates(this)">원판 보기</button>
-                    <div class="plate-drawer">20kg + 15kg</div>
                 </div>
 
                 <div class="sets-table">
@@ -793,8 +751,7 @@
                 intensity: "-",
                 kg: "185",
                 reps: "10",
-                rpe: "8",
-                plates: "머신 핀 185kg"
+                rpe: "8"
             },
             bss: {
                 name: "불가리안 스플릿 스쿼트 (BSS)",
@@ -803,8 +760,7 @@
                 intensity: "-",
                 kg: "26",
                 reps: "8",
-                rpe: "8",
-                plates: "덤벨 26kg"
+                rpe: "8"
             },
             lunge: {
                 name: "덤벨 런지",
@@ -813,8 +769,7 @@
                 intensity: "-",
                 kg: "20",
                 reps: "10",
-                rpe: "8",
-                plates: "덤벨 20kg"
+                rpe: "8"
             }
         };
 
@@ -824,12 +779,6 @@
             toast.classList.add("show");
             clearTimeout(window.toastTimer);
             window.toastTimer = setTimeout(() => toast.classList.remove("show"), 1800);
-        }
-
-        function togglePlates(button) {
-            const drawer = button.nextElementSibling;
-            drawer.classList.toggle("open");
-            button.innerText = drawer.classList.contains("open") ? "원판 접기" : "원판 보기";
         }
 
         function toggleCheck(button) {
@@ -866,7 +815,6 @@
 
             document.querySelector(".exercise-name-btn").innerText = preset.name;
             document.getElementById("primary-meta").innerText = preset.meta;
-            document.getElementById("plate-drawer").innerText = preset.plates;
 
             const table = document.getElementById("sets-table");
             Array.from(table.querySelectorAll(".set-row:not(.header)")).forEach(row => row.remove());
