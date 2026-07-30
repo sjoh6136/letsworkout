@@ -1370,6 +1370,35 @@ header {
     font-variant-numeric: tabular-nums;
 }
 
+@media (max-width: 600px) {
+    #active-workout-header .header-right {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) 118px;
+        align-items: center;
+        justify-content: stretch;
+        width: 100%;
+        gap: 8px;
+    }
+
+    #active-workout-header .stopwatch {
+        width: 100%;
+        min-height: 64px;
+        justify-content: center;
+        padding: 8px 10px;
+        font-size: 16px;
+    }
+
+    #active-workout-header .finish-btn {
+        width: 118px;
+        min-height: 42px;
+        justify-self: end;
+        padding: 6px 10px;
+        border-radius: 16px;
+        font-size: 13px;
+        flex: 0 0 118px;
+    }
+}
+
 /* Make repeated mobile taps feel immediate. */
 button,
 input,

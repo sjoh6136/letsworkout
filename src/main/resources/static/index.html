@@ -1816,7 +1816,7 @@
         }
 
     </style>
-    <link rel="stylesheet" href="/styles.css?v=20260728-1">
+    <link rel="stylesheet" href="/styles.css?v=20260730-3">
 </head>
 <body>
     <!-- Login / First Account Setup -->
@@ -2098,43 +2098,6 @@
             </div>
 
             <div class="settings-section">
-                <div class="settings-section-heading">
-                    <div>
-                        <h3>운동 시작 전 체크 화면</h3>
-                        <p class="settings-helper">운동을 시작하기 전에 오늘 적용될 장비 세팅만 빠르게 확인합니다.</p>
-                    </div>
-                </div>
-
-                <div class="start-check-card">
-                    <div class="start-check-top">
-                        <div>
-                            <div class="start-check-kicker">오늘 운동 세팅</div>
-                            <div class="start-check-title" id="gym-preview-name">우리동네 헬스장</div>
-                        </div>
-                        <button class="start-check-change-btn" type="button" onclick="focusGymSettingsEditor()">변경</button>
-                    </div>
-
-                    <div class="start-check-body">
-                        <div class="start-check-block">
-                            <div class="start-check-label">
-                                <span>보유 원판</span>
-                                <span class="start-check-value" id="gym-preview-plate-count">6종</span>
-                            </div>
-                            <div class="start-check-chip-row" id="gym-preview-plates"></div>
-                        </div>
-
-                        <div class="start-check-block">
-                            <div class="start-check-label">
-                                <span>덤벨 증량 간격</span>
-                                <span class="start-check-value" id="gym-preview-db-summary">2kg 단위로 보정</span>
-                            </div>
-                            <div class="start-check-chip-row">
-                                <span class="start-check-chip" id="gym-preview-db-chip">덤벨 2kg 간격</span>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-
                 <div class="settings-action-pair">
                     <button class="settings-secondary-btn settings-delete-btn" type="button" onclick="deleteActiveGym()">삭제</button>
                     <button class="settings-primary-btn" type="button" onclick="saveGymSettings()">헬스장 저장</button>
@@ -3091,6 +3054,18 @@
             beginWorkout(dayId);
         }
 
+        function resetWorkoutScroll() {
+            const scrollTop = () => {
+                document.documentElement.scrollTop = 0;
+                document.body.scrollTop = 0;
+                window.scrollTo({ top: 0, left: 0, behavior: "auto" });
+            };
+
+            scrollTop();
+            requestAnimationFrame(scrollTop);
+            setTimeout(scrollTop, 0);
+        }
+
         // Start active workout tracking
         function beginWorkout(dayId) {
             if (!dayId) return;
@@ -3112,6 +3087,7 @@
                 sec.classList.remove("active");
             });
             document.getElementById("active-workout-view").classList.add("active");
+            resetWorkoutScroll();
 
             // Setup active details
             const currentWeek = getActiveWeekNum();
@@ -3124,6 +3100,7 @@
             // Start Timer
             startStopwatch();
             calculateVolume();
+            resetWorkoutScroll();
         }
 
         // Render exercise list in workout mode
