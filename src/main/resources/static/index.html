@@ -416,22 +416,27 @@
         /* Calendar View CSS Updates */
         .calendar-header-row {
             display: flex;
-            justify-content: space-between;
             align-items: center;
+            justify-content: center;
+            position: relative;
+            min-height: 38px;
             margin-top: calc(var(--safe-top) + 12px);
             margin-bottom: 16px;
+        }
+
+        .calendar-nav-main {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 10px;
         }
 
         .calendar-title {
             font-size: 18px;
             font-weight: 800;
             color: #FFFFFF;
-        }
-
-        .calendar-nav-actions {
-            display: inline-flex;
-            align-items: center;
-            gap: 8px;
+            min-width: 104px;
+            text-align: center;
         }
 
         .calendar-nav-btn {
@@ -450,6 +455,10 @@
         }
 
         .calendar-today-btn {
+            position: absolute;
+            right: 0;
+            top: 50%;
+            transform: translateY(-50%);
             border: 1px solid rgba(255, 215, 0, 0.35);
             background: rgba(255, 215, 0, 0.1);
             color: var(--accent-color);
@@ -2071,12 +2080,12 @@
     <!-- 2. CALENDAR VIEW SECTION -->
     <section class="view-section" id="calendar-view">
         <div class="calendar-header-row">
-            <button class="calendar-nav-btn" onclick="prevMonth()">◀</button>
-            <div class="calendar-title" id="calendar-month-year">2026년 7월</div>
-            <div class="calendar-nav-actions">
-                <button class="calendar-today-btn" onclick="goToday()">오늘</button>
+            <div class="calendar-nav-main">
+                <button class="calendar-nav-btn" onclick="prevMonth()">◀</button>
+                <div class="calendar-title" id="calendar-month-year">2026년 7월</div>
                 <button class="calendar-nav-btn" onclick="nextMonth()">▶</button>
             </div>
+            <button class="calendar-today-btn" onclick="goToday()">오늘</button>
         </div>
 
         <!-- Month calendar grid -->
