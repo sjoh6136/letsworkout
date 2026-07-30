@@ -1816,7 +1816,7 @@
         }
 
     </style>
-    <link rel="stylesheet" href="/styles.css?v=20260730-3">
+    <link rel="stylesheet" href="/styles.css?v=20260730-4">
 </head>
 <body>
     <!-- Login / First Account Setup -->
@@ -1891,7 +1891,7 @@
         </div>
         <div class="header-right">
             <div class="stopwatch">
-                <span class="stopwatch-time" id="stopwatch-display">00:00</span>
+                <span class="stopwatch-time" id="stopwatch-display">00:00:000</span>
                 <button class="stopwatch-toggle" id="stopwatch-toggle" type="button" onclick="toggleStopwatchPause()" aria-label="초시계 일시정지">
                     <svg viewBox="0 0 24 24" aria-hidden="true">
                         <rect x="7" y="5" width="3.5" height="14" rx="1"></rect>
@@ -2252,7 +2252,8 @@
         let appInitialized = false;
 
         // Stopwatch state
-        let stopwatchSeconds = 0;
+        let stopwatchElapsedMs = 0;
+        let stopwatchStartedAt = 0;
         let stopwatchInterval = null;
         let stopwatchPaused = false;
 
@@ -3394,15 +3395,14 @@
 
         function startStopwatch() {
             if (stopwatchInterval) clearInterval(stopwatchInterval);
-            stopwatchSeconds = 0;
+            stopwatchElapsedMs = 0;
+            stopwatchStartedAt = performance.now();
             stopwatchPaused = false;
             updateStopwatchDisplay();
             updateStopwatchToggle();
             stopwatchInterval = setInterval(() => {
-                if (stopwatchPaused) return;
-                stopwatchSeconds++;
                 updateStopwatchDisplay();
-            }, 1000);
+            }, 31);
         }
 
         function stopStopwatch() {
@@ -3413,9 +3413,16 @@
         }
 
         function updateStopwatchDisplay() {
-            const mm = String(Math.floor(stopwatchSeconds / 60)).padStart(2, '0');
-            const ss = String(stopwatchSeconds % 60).padStart(2, '0');
-            document.getElementById("stopwatch-display").innerText = `${mm}:${ss}`;
+            const elapsedMs = stopwatchPaused
+                ? stopwatchElapsedMs
+                : Math.max(0, performance.now() - stopwatchStartedAt);
+            const minutes = Math.floor(elapsedMs / 60000);
+            const seconds = Math.floor((elapsedMs % 60000) / 1000);
+            const milliseconds = Math.floor(elapsedMs % 1000);
+            const mm = String(minutes).padStart(2, '0');
+            const ss = String(seconds).padStart(2, '0');
+            const ms = String(milliseconds).padStart(3, '0');
+            document.getElementById("stopwatch-display").innerText = `${mm}:${ss}:${ms}`;
         }
 
         function updateStopwatchToggle() {
@@ -3444,7 +3451,14 @@
 
         function toggleStopwatchPause() {
             if (!stopwatchInterval) return;
-            stopwatchPaused = !stopwatchPaused;
+            if (stopwatchPaused) {
+                stopwatchStartedAt = performance.now() - stopwatchElapsedMs;
+                stopwatchPaused = false;
+            } else {
+                stopwatchElapsedMs = Math.max(0, performance.now() - stopwatchStartedAt);
+                stopwatchPaused = true;
+            }
+            updateStopwatchDisplay();
             updateStopwatchToggle();
         }
 
