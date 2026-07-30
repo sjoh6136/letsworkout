@@ -3484,10 +3484,10 @@
 
         function togglePlateDrawer(exIdx) {
             const drawer = document.getElementById(`plate-drawer-${exIdx}`);
-            const button = drawer?.previousElementSibling;
+            const button = drawer?.closest(".exercise-card")?.querySelector(".plate-toggle-btn");
             if (!drawer || !button) return;
             drawer.classList.toggle("open");
-            button.innerText = drawer.classList.contains("open") ? "원판 접기" : "원판 보기";
+            button.innerText = drawer.classList.contains("open") ? "원판 접기" : "원판";
         }
 
         function createSetRow(ex, exIdx, setNo, copiedValues = {}) {
