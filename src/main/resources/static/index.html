@@ -1828,7 +1828,7 @@
         }
 
     </style>
-    <link rel="stylesheet" href="/styles.css?v=20260730-5">
+    <link rel="stylesheet" href="/styles.css?v=20260730-6">
 </head>
 <body>
     <!-- Login / First Account Setup -->
@@ -3417,7 +3417,7 @@
             updateStopwatchToggle();
             stopwatchInterval = setInterval(() => {
                 updateStopwatchDisplay();
-            }, 250);
+            }, 17);
         }
 
         function stopStopwatch() {
@@ -3431,14 +3431,26 @@
             const elapsedMs = stopwatchPaused
                 ? stopwatchElapsedMs
                 : Math.max(0, performance.now() - stopwatchStartedAt);
-            const totalSeconds = Math.floor(elapsedMs / 1000);
-            const hours = Math.floor(totalSeconds / 3600);
-            const minutes = Math.floor((totalSeconds % 3600) / 60);
+            const totalCentiseconds = Math.floor(elapsedMs / 10);
+            const centiseconds = totalCentiseconds % 100;
+            const totalSeconds = Math.floor(totalCentiseconds / 100);
             const seconds = totalSeconds % 60;
-            const hh = String(hours).padStart(2, '0');
+            const totalMinutes = Math.floor(totalSeconds / 60);
+            const hours = Math.floor(totalMinutes / 60);
+            const minutes = totalMinutes % 60;
             const mm = String(minutes).padStart(2, '0');
             const ss = String(seconds).padStart(2, '0');
-            document.getElementById("stopwatch-display").innerText = `${hh}:${mm}:${ss}`;
+            const cs = String(centiseconds).padStart(2, '0');
+            const display = document.getElementById("stopwatch-display");
+            if (!display) return;
+
+            if (hours > 0) {
+                display.classList.add("long-time");
+                display.innerText = `${String(hours).padStart(2, '0')}:${mm}:${ss}:${cs}`;
+            } else {
+                display.classList.remove("long-time");
+                display.innerText = `${mm}:${ss}:${cs}`;
+            }
         }
 
         function updateStopwatchToggle() {

@@ -1372,6 +1372,12 @@ header {
     font-weight: 900;
     font-variant-numeric: tabular-nums;
     line-height: 1;
+    white-space: nowrap;
+}
+
+#active-workout-header .stopwatch-time.long-time {
+    min-width: 142px;
+    font-size: 18px;
 }
 
 #active-workout-header .stopwatch-toggle {
@@ -1407,6 +1413,11 @@ header {
     #active-workout-header .stopwatch-time {
         min-width: 132px;
         font-size: 30px;
+    }
+
+    #active-workout-header .stopwatch-time.long-time {
+        min-width: 184px;
+        font-size: 24px;
     }
 
     #active-workout-header .stopwatch-toggle {
