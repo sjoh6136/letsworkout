@@ -645,6 +645,10 @@ def sheets_connected():
     return sheets_store().connected
 
 
+def sheets_connected_cached():
+    return bool(_SHEETS_STORE and _SHEETS_STORE.connected)
+
+
 def load_auth_state():
     local_state = load_json(AUTH_FILE, {"users": [], "sessions": []})
     if not isinstance(local_state, dict):
@@ -1292,6 +1296,15 @@ def healthz():
 
 @app.route("/api/auth/status")
 def auth_status():
+    user = current_user_from_cookie()
+    if user:
+        return jsonify({
+            "authenticated": True,
+            "user": user,
+            "setupRequired": False,
+            "sheetsConnected": sheets_connected_cached(),
+        })
+
     auth_state = load_auth_state()
     user = current_user_from_cookie(auth_state)
     return jsonify({

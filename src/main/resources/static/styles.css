@@ -1366,9 +1366,9 @@ header {
 }
 
 #active-workout-header .stopwatch-time {
-    min-width: 100px;
+    min-width: 108px;
     font-family: 'Outfit', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
-    font-size: 20px;
+    font-size: 22px;
     font-weight: 900;
     font-variant-numeric: tabular-nums;
     line-height: 1;
@@ -1405,20 +1405,20 @@ header {
     }
 
     #active-workout-header .stopwatch-time {
-        min-width: 136px;
-        font-size: 25px;
+        min-width: 132px;
+        font-size: 30px;
     }
 
     #active-workout-header .stopwatch-toggle {
-        width: 44px;
-        height: 44px;
-        flex-basis: 44px;
+        width: 46px;
+        height: 46px;
+        flex-basis: 46px;
         border-radius: 12px;
     }
 
     #active-workout-header .stopwatch-toggle svg {
-        width: 24px;
-        height: 24px;
+        width: 26px;
+        height: 26px;
     }
 
     #active-workout-header .finish-btn {

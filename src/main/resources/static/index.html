@@ -1144,6 +1144,18 @@
             display: none;
         }
 
+        .auth-overlay.auth-checking .auth-card {
+            display: none;
+        }
+
+        .auth-overlay.auth-checking::after {
+            content: "LET'S WORKOUT";
+            color: var(--accent-color);
+            font-size: 18px;
+            font-weight: 900;
+            letter-spacing: 0;
+        }
+
         .auth-card {
             width: 100%;
             max-width: 390px;
@@ -1816,11 +1828,11 @@
         }
 
     </style>
-    <link rel="stylesheet" href="/styles.css?v=20260730-4">
+    <link rel="stylesheet" href="/styles.css?v=20260730-5">
 </head>
 <body>
     <!-- Login / First Account Setup -->
-    <div id="auth-overlay" class="auth-overlay">
+    <div id="auth-overlay" class="auth-overlay auth-checking">
         <div class="auth-card">
             <div class="auth-brand">LET'S WORKOUT</div>
             <h1 class="auth-title" id="auth-title">로그인</h1>
@@ -1891,7 +1903,7 @@
         </div>
         <div class="header-right">
             <div class="stopwatch">
-                <span class="stopwatch-time" id="stopwatch-display">00:00:000</span>
+                <span class="stopwatch-time" id="stopwatch-display">00:00:00</span>
                 <button class="stopwatch-toggle" id="stopwatch-toggle" type="button" onclick="toggleStopwatchPause()" aria-label="초시계 일시정지">
                     <svg viewBox="0 0 24 24" aria-hidden="true">
                         <rect x="7" y="5" width="3.5" height="14" rx="1"></rect>
@@ -2346,12 +2358,15 @@
             passwordInput.autocomplete = authSetupRequired ? "new-password" : "current-password";
 
             setAuthError(message);
+            overlay.classList.remove("auth-checking");
             overlay.classList.remove("hidden");
             setTimeout(() => document.getElementById("auth-username").focus(), 50);
         }
 
         function hideAuthOverlay() {
-            document.getElementById("auth-overlay").classList.add("hidden");
+            const overlay = document.getElementById("auth-overlay");
+            overlay.classList.remove("auth-checking");
+            overlay.classList.add("hidden");
             setAuthError("");
         }
 
@@ -3402,7 +3417,7 @@
             updateStopwatchToggle();
             stopwatchInterval = setInterval(() => {
                 updateStopwatchDisplay();
-            }, 31);
+            }, 250);
         }
 
         function stopStopwatch() {
@@ -3416,13 +3431,14 @@
             const elapsedMs = stopwatchPaused
                 ? stopwatchElapsedMs
                 : Math.max(0, performance.now() - stopwatchStartedAt);
-            const minutes = Math.floor(elapsedMs / 60000);
-            const seconds = Math.floor((elapsedMs % 60000) / 1000);
-            const milliseconds = Math.floor(elapsedMs % 1000);
+            const totalSeconds = Math.floor(elapsedMs / 1000);
+            const hours = Math.floor(totalSeconds / 3600);
+            const minutes = Math.floor((totalSeconds % 3600) / 60);
+            const seconds = totalSeconds % 60;
+            const hh = String(hours).padStart(2, '0');
             const mm = String(minutes).padStart(2, '0');
             const ss = String(seconds).padStart(2, '0');
-            const ms = String(milliseconds).padStart(3, '0');
-            document.getElementById("stopwatch-display").innerText = `${mm}:${ss}:${ms}`;
+            document.getElementById("stopwatch-display").innerText = `${hh}:${mm}:${ss}`;
         }
 
         function updateStopwatchToggle() {
