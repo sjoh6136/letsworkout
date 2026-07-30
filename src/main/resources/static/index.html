@@ -1357,6 +1357,8 @@
             align-items: flex-start;
             gap: 6px;
             flex-shrink: 0;
+            flex-wrap: wrap;
+            justify-content: flex-end;
         }
 
         .add-set-btn {
@@ -1405,6 +1407,7 @@
             font-size: 11px;
             font-weight: 900;
             cursor: pointer;
+            white-space: nowrap;
         }
 
         .plate-drawer {
@@ -3357,12 +3360,12 @@
                         <span class="exercise-meta" id="exercise-meta-${exIdx}">${ex.sets}세트 × ${ex.repsRange}회 (RPE ${ex.rpeTarget})</span>
                     </div>
                     <div class="exercise-actions">
+                        <button class="plate-toggle-btn" type="button" onclick="togglePlateDrawer(${exIdx})">원판</button>
                         <button class="replace-exercise-btn" type="button" onclick="openExerciseReplacement(${exIdx})">↔ 교체</button>
                         <button class="add-set-btn" type="button" onclick="addSet(${exIdx})">+ 세트</button>
                     </div>
                 </div>
                 <div class="plate-toggle-wrap">
-                    <button class="plate-toggle-btn" type="button" onclick="togglePlateDrawer(${exIdx})">원판 보기</button>
                     <div class="plate-drawer" id="plate-drawer-${exIdx}">${formatPlateLoadout(ex)}</div>
                 </div>
                 <div class="sets-table" id="ex-${exIdx}">
