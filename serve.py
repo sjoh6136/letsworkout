@@ -276,6 +276,8 @@ class GoogleSheetsStore:
     SETTINGS_TAB = "Setting_1RM"
     LOGS_TAB = "Workout_Logs"
     GYM_SETTINGS_TAB = "Gym_Settings"
+    REPLACEMENTS_TAB = "Workout_Replacements"
+    SUBMISSIONS_TAB = "Workout_Submissions"
     USER_ACCOUNTS_TAB = "User_Accounts"
     USER_SESSIONS_TAB = "User_Sessions"
     SETTINGS_HEADER = ["Squat", "Bench", "Deadlift", "OHP", "ActiveSplit"]
@@ -307,6 +309,31 @@ class GoogleSheetsStore:
         "ExpiresAt",
         "RevokedAt",
         "UserAgent",
+    ]
+    REPLACEMENTS_HEADER = [
+        "Date",
+        "Split",
+        "Week",
+        "Day",
+        "OriginalExercise",
+        "Exercise",
+        "SetCount",
+        "BestWeight",
+        "BestReps",
+        "EstimatedOneRm",
+        "Volume",
+        "Summary",
+        "SubmissionId",
+        "CreatedAt",
+    ]
+    SUBMISSIONS_HEADER = [
+        "SubmissionId",
+        "Date",
+        "Split",
+        "Week",
+        "Day",
+        "LogCount",
+        "CreatedAt",
     ]
     LOG_HEADER = [
         "날짜",
@@ -370,6 +397,8 @@ class GoogleSheetsStore:
         settings = self.worksheet(self.SETTINGS_TAB, rows=2, cols=10)
         logs = self.worksheet(self.LOGS_TAB, rows=1000, cols=14)
         gym_settings = self.worksheet(self.GYM_SETTINGS_TAB, rows=50, cols=8)
+        replacements = self.worksheet(self.REPLACEMENTS_TAB, rows=500, cols=14)
+        submissions = self.worksheet(self.SUBMISSIONS_TAB, rows=500, cols=7)
         user_accounts = self.worksheet(self.USER_ACCOUNTS_TAB, rows=20, cols=10)
         user_sessions = self.worksheet(self.USER_SESSIONS_TAB, rows=100, cols=8)
 
@@ -399,6 +428,8 @@ class GoogleSheetsStore:
 
         logs.update(values=[self.LOG_HEADER + ["", ""]], range_name="A1:N1")
         gym_settings.update(values=[self.GYM_SETTINGS_HEADER], range_name="A1:G1")
+        replacements.update(values=[self.REPLACEMENTS_HEADER], range_name="A1:N1")
+        submissions.update(values=[self.SUBMISSIONS_HEADER], range_name="A1:G1")
         user_accounts.update(values=[self.USER_ACCOUNTS_HEADER], range_name="A1:I1")
         user_sessions.update(values=[self.USER_SESSIONS_HEADER], range_name="A1:G1")
 
@@ -633,6 +664,78 @@ class GoogleSheetsStore:
         worksheet.append_rows(rows, value_input_option="RAW", table_range="A1:L1")
         return True
 
+    def load_replacements(self):
+        worksheet = self.worksheet(self.REPLACEMENTS_TAB, rows=500, cols=14)
+        rows = worksheet.get("A2:N")
+        parsed = []
+        for row in rows:
+            row = [str(value).strip() for value in row] + [""] * 14
+            if not row[0] or not row[4] or not row[5]:
+                continue
+            parsed.append({
+                "date": row[0],
+                "split": sheet_int(row[1]),
+                "week": sheet_int(row[2], 1),
+                "day": row[3],
+                "originalExercise": row[4],
+                "exercise": row[5],
+                "setCount": sheet_int(row[6]),
+                "bestWeight": sheet_float(row[7]),
+                "bestReps": sheet_int(row[8]),
+                "estimatedOneRm": sheet_float(row[9]),
+                "volume": sheet_float(row[10]),
+                "summary": row[11],
+                "submissionId": row[12],
+                "createdAt": row[13],
+            })
+        return parsed
+
+    def append_replacements(self, replacements):
+        if not replacements:
+            return True
+        worksheet = self.worksheet(self.REPLACEMENTS_TAB, rows=500, cols=14)
+        rows = []
+        for item in replacements:
+            rows.append([
+                item.get("date", ""),
+                item.get("split", ""),
+                item.get("week", ""),
+                item.get("day", ""),
+                item.get("originalExercise", ""),
+                item.get("exercise", ""),
+                item.get("setCount", ""),
+                item.get("bestWeight", ""),
+                item.get("bestReps", ""),
+                item.get("estimatedOneRm", ""),
+                item.get("volume", ""),
+                item.get("summary", ""),
+                item.get("submissionId", ""),
+                item.get("createdAt", ""),
+            ])
+        worksheet.append_rows(rows, value_input_option="RAW", table_range="A1:N1")
+        return True
+
+    def load_submission_ids(self):
+        worksheet = self.worksheet(self.SUBMISSIONS_TAB, rows=500, cols=7)
+        rows = worksheet.get("A2:A")
+        return {str(row[0]).strip() for row in rows if row and str(row[0]).strip()}
+
+    def append_submission(self, submission):
+        submission_id = str(submission.get("id") or "").strip()
+        if not submission_id:
+            return True
+        worksheet = self.worksheet(self.SUBMISSIONS_TAB, rows=500, cols=7)
+        worksheet.append_row([
+            submission_id,
+            submission.get("date", ""),
+            submission.get("split", ""),
+            submission.get("week", ""),
+            submission.get("day", ""),
+            submission.get("logCount", ""),
+            submission.get("createdAt", ""),
+        ], value_input_option="RAW", table_range="A1:G1")
+        return True
+
 
 def sheets_store():
     global _SHEETS_STORE
@@ -857,6 +960,94 @@ def append_workout_logs_to_sheet(logs):
         return False
 
 
+def append_workout_replacements_to_sheet(replacements):
+    store = sheets_store()
+    if not store.connected:
+        return False
+    try:
+        return store.append_replacements(replacements)
+    except Exception as exc:
+        print(f"[warn] failed to append workout replacements to Google Sheets: {exc}")
+        return False
+
+
+def append_workout_submission_to_sheet(submission):
+    store = sheets_store()
+    if not store.connected:
+        return False
+    try:
+        return store.append_submission(submission)
+    except Exception as exc:
+        print(f"[warn] failed to append workout submission marker to Google Sheets: {exc}")
+        return False
+
+
+def replacement_key(item):
+    return "|".join([
+        str(item.get("submissionId") or ""),
+        str(item.get("date") or ""),
+        str(item.get("split") or ""),
+        str(item.get("week") or ""),
+        str(item.get("day") or ""),
+        str(item.get("originalExercise") or ""),
+        str(item.get("exercise") or ""),
+    ])
+
+
+def merge_replacements(*groups):
+    merged = {}
+    for group in groups:
+        for item in group or []:
+            normalized = normalize_replacement_item(item)
+            if normalized:
+                merged[replacement_key(normalized)] = normalized
+    return list(merged.values())
+
+
+def state_has_submission(state, submission_id):
+    if not submission_id:
+        return False
+    for item in state.get("submissions", []):
+        if isinstance(item, dict) and str(item.get("id") or "").strip() == submission_id:
+            return True
+        if str(item or "").strip() == submission_id:
+            return True
+    return False
+
+
+def sheet_has_submission(submission_id):
+    if not submission_id:
+        return False
+    store = sheets_store()
+    if not store.connected:
+        return False
+    try:
+        return submission_id in store.load_submission_ids()
+    except Exception as exc:
+        print(f"[warn] failed to load workout submission markers: {exc}")
+        return False
+
+
+def make_submission_record(submission_id, date, split, week, day_id, log_count):
+    return {
+        "id": str(submission_id or "").strip(),
+        "date": date,
+        "split": split,
+        "week": week,
+        "day": day_id,
+        "logCount": log_count,
+        "createdAt": now_iso(),
+    }
+
+
+def remember_submission(state, submission):
+    submission_id = str(submission.get("id") or "").strip()
+    if not submission_id or state_has_submission(state, submission_id):
+        return
+    state.setdefault("submissions", []).append(submission)
+    state["submissions"] = state["submissions"][-250:]
+
+
 def today_iso():
     try:
         tz = ZoneInfo(APP_TIMEZONE)
@@ -886,6 +1077,8 @@ def load_file_state():
 
     state.setdefault("oneRms", copy.deepcopy(DEFAULT_ONE_RMS))
     state.setdefault("logs", [])
+    state.setdefault("replacements", [])
+    state.setdefault("submissions", [])
     state.setdefault("gyms", [copy.deepcopy(DEFAULT_GYM)])
     state.setdefault("activeGymId", state["gyms"][0]["id"] if state["gyms"] else DEFAULT_GYM["id"])
 
@@ -909,6 +1102,10 @@ def load_state():
             state["logs"] = store.load_logs()
         except Exception as exc:
             print(f"[warn] failed to load Google Sheets state, using local file state: {exc}")
+        try:
+            state["replacements"] = merge_replacements(state.get("replacements", []), store.load_replacements())
+        except Exception as exc:
+            print(f"[warn] failed to load replacement history from Google Sheets, using local file state: {exc}")
         try:
             active_gym_id, gyms = store.load_gyms()
             if gyms:
@@ -1197,6 +1394,65 @@ def normalize_logs(raw_logs, split, week, day_id):
     return normalized
 
 
+def normalize_replacement_item(raw):
+    source = raw if isinstance(raw, dict) else {}
+    original = str(source.get("originalExercise") or "").strip()
+    exercise = str(source.get("exercise") or "").strip()
+    if not original or not exercise or original == exercise:
+        return None
+    best_weight = as_float(source.get("bestWeight"))
+    best_reps = as_int(source.get("bestReps"))
+    estimated = as_float(source.get("estimatedOneRm"))
+    if not estimated and best_weight > 0 and best_reps > 0:
+        estimated = best_weight * (1 + best_reps / 30)
+    return {
+        "date": str(source.get("date") or today_iso()),
+        "split": as_int(source.get("split")),
+        "week": as_int(source.get("week"), 1),
+        "day": str(source.get("day") or ""),
+        "originalExercise": original,
+        "exercise": exercise,
+        "setCount": as_int(source.get("setCount")),
+        "bestWeight": best_weight,
+        "bestReps": best_reps,
+        "estimatedOneRm": round(estimated, 2) if estimated else 0.0,
+        "volume": as_float(source.get("volume")),
+        "summary": str(source.get("summary") or "").strip(),
+        "submissionId": str(source.get("submissionId") or "").strip(),
+        "createdAt": str(source.get("createdAt") or now_iso()),
+    }
+
+
+def normalize_replacements(raw_replacements, split, week, day_id, date, submission_id):
+    normalized = []
+    for raw in raw_replacements or []:
+        item = normalize_replacement_item({
+            **(raw if isinstance(raw, dict) else {}),
+            "date": date,
+            "split": split,
+            "week": week,
+            "day": day_id,
+            "submissionId": submission_id,
+        })
+        if item:
+            normalized.append(item)
+    return normalized
+
+
+def duplicate_finish_response(logs):
+    return {
+        "status": "SUCCESS",
+        "feedback": "이미 저장된 운동입니다. 중복 저장 없이 처리했습니다.",
+        "sheetsConnected": sheets_connected(),
+        "totalVolume": sum(log["weight"] * log["reps"] for log in logs if log["status"] == "SUCCESS"),
+        "completedSets": sum(1 for log in logs if log["status"] == "SUCCESS"),
+        "totalSets": len(logs),
+        "progressReport": ["중복 제출이라 같은 운동을 다시 저장하지 않았습니다."],
+        "weeklyMuscleSets": {"가슴": 0, "등": 0, "하체": 0, "어깨": 0, "팔": 0},
+        "duplicate": True,
+    }
+
+
 def day_number(day_id):
     match = re.search(r"\d+", day_id or "")
     return int(match.group(0)) if match else 1
@@ -1476,6 +1732,11 @@ def workout_logs():
     return jsonify(load_state().get("logs", []))
 
 
+@app.route("/api/workout/replacements")
+def workout_replacements():
+    return jsonify(load_state().get("replacements", []))
+
+
 @app.route("/api/workout/finish", methods=["POST"])
 def workout_finish():
     state = load_state()
@@ -1483,13 +1744,46 @@ def workout_finish():
     split = as_int(body.get("split"), as_int(state["oneRms"].get("activeSplit"), 5))
     week = as_int(body.get("week"), 1)
     day_id = body.get("day") or "Day 1"
+    submission_id = str(body.get("submissionId") or "").strip()
+    date = today_iso()
     logs = normalize_logs(body.get("logs", []), split, week, day_id)
+    for log in logs:
+        log["date"] = date
+    replacements = normalize_replacements(body.get("replacements", []), split, week, day_id, date, submission_id)
+
+    if submission_id and (state_has_submission(state, submission_id) or sheet_has_submission(submission_id)):
+        known_keys = {replacement_key(item) for item in state.get("replacements", [])}
+        missing_replacements = [item for item in replacements if replacement_key(item) not in known_keys]
+        if missing_replacements:
+            append_workout_replacements_to_sheet(missing_replacements)
+            state["replacements"] = merge_replacements(state.get("replacements", []), missing_replacements)
+            save_state(state)
+        return jsonify(duplicate_finish_response(logs))
+
+    store = sheets_store()
+    logs_saved_to_sheet = False
+    replacements_saved_to_sheet = False
+    if store.connected:
+        logs_saved_to_sheet = append_workout_logs_to_sheet(logs)
+        if not logs_saved_to_sheet:
+            return jsonify({
+                "error": "sheet_save_failed",
+                "message": "운동 기록을 Google Sheets에 저장하지 못했습니다.",
+                "retryable": True,
+            }), 503
+        replacements_saved_to_sheet = append_workout_replacements_to_sheet(replacements)
 
     feedback = evaluate_and_update(state, logs, split, week, day_id)
     state["logs"].extend(logs)
-    logs_saved_to_sheet = append_workout_logs_to_sheet(logs)
+    state["replacements"] = merge_replacements(state.get("replacements", []), replacements)
+    if submission_id:
+        submission = make_submission_record(submission_id, date, split, week, day_id, len(logs))
+        remember_submission(state, submission)
+        append_workout_submission_to_sheet(submission)
     save_state(state)
-    feedback["sheetsConnected"] = logs_saved_to_sheet
+    feedback["sheetsConnected"] = logs_saved_to_sheet if store.connected else sheets_connected()
+    feedback["replacementHistorySaved"] = replacements_saved_to_sheet if replacements else True
+    feedback["submissionId"] = submission_id
     return jsonify(feedback)
 
 

@@ -144,12 +144,28 @@ M/N and later columns are not part of the normal log schema.
 
 Gym equipment settings are stored in a separate `Gym_Settings` tab. Keep it separate from `Workout_Logs` so workout log columns never shift.
 
+Workout replacement history is stored separately:
+
+- `Workout_Replacements`: one row per replaced exercise in a completed workout
+- `Workout_Submissions`: idempotency markers for completed workout submissions
+
+Do not add replacement metadata to `Workout_Logs`. A replaced workout still writes set logs under the actual exercise performed, while `Workout_Replacements` links `originalExercise` to the actual `exercise`.
+
 Login data is stored separately:
 
 - `User_Accounts`: username, display name, password salt/hash, account metadata
 - `User_Sessions`: hashed session tokens and expiry/revocation metadata
 
 Never store plaintext passwords. Do not place auth/session columns in `Workout_Logs`.
+
+## Exercise Replacement History Rules
+
+- Replacing an exercise during an active workout is a one-session change only. Do not rewrite `data/routines.json` from that action.
+- Preserve the planned exercise name as `originalExercise` and the performed exercise as `exercise`.
+- Exercise history bottom sheets must show direct history plus replacement history linked by `originalExercise`.
+- When a user replaces bench press with dumbbell press, the next bench press history view should still surface that dumbbell press session as a replacement record.
+- Keep replacement metadata in `Workout_Replacements` or local state fallback. Keep all set-by-set lifting logs in `Workout_Logs` A-L.
+- Do not automatically carry target weights across clearly different equipment types. Build the replacement exercise from the selected exercise definition and current progression data.
 
 ## Backend Coding Rules
 

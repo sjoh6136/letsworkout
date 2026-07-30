@@ -1,0 +1,689 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+    <title>Exercise History Graph Mockup</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;700;900&family=Noto+Sans+KR:wght@400;700;900&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --bg-color: #0B0B0D;
+            --bg-gradient: radial-gradient(circle at top left, rgba(88, 86, 214, 0.14), transparent 35%), linear-gradient(180deg, #15151c 0%, #0B0B0D 100%);
+            --card-bg: rgba(31, 31, 40, 0.82);
+            --card-border: rgba(255, 255, 255, 0.1);
+            --accent-color: #FFD700;
+            --text-main: #F8F8FA;
+            --text-muted: #A3A3B5;
+            --shadow-premium: 0 12px 44px rgba(0, 0, 0, 0.45);
+            --safe-top: env(safe-area-inset-top, 0px);
+            --safe-bottom: env(safe-area-inset-bottom, 0px);
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            -webkit-tap-highlight-color: transparent;
+        }
+
+        body {
+            min-height: 100vh;
+            background: var(--bg-color);
+            background-image: var(--bg-gradient);
+            color: var(--text-main);
+            font-family: 'Noto Sans KR', -apple-system, BlinkMacSystemFont, sans-serif;
+            letter-spacing: 0;
+        }
+
+        .app {
+            width: 100%;
+            max-width: 500px;
+            min-height: 100vh;
+            margin: 0 auto;
+            padding-bottom: calc(var(--safe-bottom) + 20px);
+        }
+
+        header {
+            position: sticky;
+            top: 0;
+            z-index: 20;
+            display: grid;
+            gap: 10px;
+            padding: calc(var(--safe-top) + 12px) 16px 12px;
+            background: rgba(11, 11, 13, 0.9);
+            border-bottom: 1px solid var(--card-border);
+            backdrop-filter: blur(18px);
+        }
+
+        .header-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .header-btn,
+        .vol-badge {
+            min-height: 36px;
+            padding: 0 14px;
+            border: 1px solid rgba(255, 255, 255, 0.12);
+            border-radius: 999px;
+            background: rgba(255, 255, 255, 0.07);
+            color: var(--text-main);
+            font-size: 13px;
+            font-weight: 900;
+        }
+
+        .vol-badge {
+            color: var(--accent-color);
+            border-color: rgba(255, 215, 0, 0.28);
+            background: rgba(255, 215, 0, 0.06);
+        }
+
+        .timer-row {
+            display: grid;
+            grid-template-columns: minmax(0, 1fr) 118px;
+            gap: 8px;
+            align-items: center;
+        }
+
+        .stopwatch {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 14px;
+            min-height: 64px;
+            padding: 8px 12px;
+            border: 1px solid var(--card-border);
+            border-radius: 16px;
+            background: rgba(0, 0, 0, 0.42);
+        }
+
+        .stopwatch-time {
+            min-width: 132px;
+            font-family: 'Outfit', -apple-system, BlinkMacSystemFont, sans-serif;
+            font-size: 30px;
+            font-weight: 900;
+            line-height: 1;
+            font-variant-numeric: tabular-nums;
+            text-align: center;
+        }
+
+        .pause-btn {
+            width: 46px;
+            height: 46px;
+            border: 1px solid rgba(255, 255, 255, 0.12);
+            border-radius: 12px;
+            background: rgba(255, 255, 255, 0.08);
+            color: #FFFFFF;
+            font-size: 20px;
+            font-weight: 900;
+        }
+
+        .finish-btn {
+            min-height: 42px;
+            border: 0;
+            border-radius: 16px;
+            background: linear-gradient(135deg, #FFD700 0%, #FF9F0A 100%);
+            color: #111111;
+            font-size: 13px;
+            font-weight: 900;
+        }
+
+        main {
+            padding: 16px;
+        }
+
+        .workout-title {
+            margin: 6px 0 18px;
+        }
+
+        .workout-title h1 {
+            color: #FFFFFF;
+            font-size: 24px;
+            font-weight: 900;
+            line-height: 1.15;
+        }
+
+        .workout-title p {
+            margin-top: 6px;
+            color: var(--text-muted);
+            font-size: 13px;
+            font-weight: 700;
+        }
+
+        .exercise-card {
+            margin-bottom: 16px;
+            padding: 16px;
+            border: 1px solid var(--card-border);
+            border-radius: 18px;
+            background: var(--card-bg);
+            box-shadow: var(--shadow-premium);
+        }
+
+        .exercise-title {
+            display: flex;
+            justify-content: space-between;
+            gap: 10px;
+            border-left: 3px solid var(--accent-color);
+            padding-left: 10px;
+        }
+
+        .exercise-title h2 {
+            color: #FFFFFF;
+            font-size: 18px;
+            font-weight: 900;
+            line-height: 1.25;
+        }
+
+        .exercise-title span {
+            display: block;
+            margin-top: 4px;
+            color: var(--text-muted);
+            font-size: 12px;
+            font-weight: 800;
+        }
+
+        .action-row {
+            display: flex;
+            gap: 8px;
+        }
+
+        .small-btn {
+            height: 40px;
+            padding: 0 12px;
+            border: 1px solid rgba(255, 255, 255, 0.12);
+            border-radius: 9px;
+            background: rgba(255, 255, 255, 0.07);
+            color: #FFFFFF;
+            font-size: 12px;
+            font-weight: 900;
+            white-space: nowrap;
+        }
+
+        .small-btn.accent {
+            color: var(--accent-color);
+            border-color: rgba(255, 215, 0, 0.45);
+            background: rgba(255, 215, 0, 0.12);
+        }
+
+        .sets-table {
+            margin-top: 20px;
+        }
+
+        .set-row {
+            display: grid;
+            grid-template-columns: 30px 1fr 1fr 1fr 1fr 44px;
+            gap: 6px;
+            align-items: center;
+            min-height: 54px;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+            color: var(--text-muted);
+            font-size: 12px;
+            font-weight: 900;
+        }
+
+        .set-row.header {
+            min-height: 34px;
+            color: var(--text-main);
+        }
+
+        .set-row strong {
+            color: var(--accent-color);
+            font-size: 16px;
+        }
+
+        .input-pill {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            min-height: 40px;
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            border-radius: 9px;
+            background: #0E0F15;
+            color: #FFFFFF;
+            font-size: 15px;
+            font-weight: 900;
+        }
+
+        .check {
+            width: 40px;
+            height: 40px;
+            border: 0;
+            border-radius: 50%;
+            background: rgba(255, 255, 255, 0.08);
+            color: var(--text-muted);
+            font-size: 18px;
+        }
+
+        .sheet-backdrop {
+            position: fixed;
+            inset: 0;
+            z-index: 50;
+            display: flex;
+            align-items: flex-end;
+            justify-content: center;
+            padding: 0 12px;
+            background: rgba(0, 0, 0, 0.64);
+        }
+
+        .bottom-sheet {
+            width: 100%;
+            max-width: 500px;
+            max-height: 82vh;
+            overflow: auto;
+            padding: 12px 16px calc(var(--safe-bottom) + 18px);
+            border: 1px solid var(--card-border);
+            border-bottom: 0;
+            border-radius: 18px 18px 0 0;
+            background: rgba(24, 24, 30, 0.99);
+            box-shadow: 0 -20px 70px rgba(0, 0, 0, 0.55);
+        }
+
+        .handle {
+            width: 42px;
+            height: 4px;
+            margin: 0 auto 14px;
+            border-radius: 999px;
+            background: rgba(255, 255, 255, 0.22);
+        }
+
+        .sheet-title-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            gap: 12px;
+            margin-bottom: 12px;
+        }
+
+        .sheet-title-row h3 {
+            color: #FFFFFF;
+            font-size: 19px;
+            font-weight: 900;
+            line-height: 1.25;
+        }
+
+        .sheet-title-row p {
+            margin-top: 4px;
+            color: var(--text-muted);
+            font-size: 12px;
+            font-weight: 800;
+        }
+
+        .close-btn {
+            width: 36px;
+            height: 36px;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 10px;
+            background: rgba(255, 255, 255, 0.06);
+            color: var(--text-muted);
+            font-size: 22px;
+            font-weight: 900;
+        }
+
+        .record-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 8px;
+            margin-bottom: 12px;
+        }
+
+        .record-box {
+            padding: 10px 8px;
+            border: 1px solid var(--card-border);
+            border-radius: 8px;
+            background: rgba(255, 255, 255, 0.04);
+        }
+
+        .record-box span {
+            display: block;
+            color: var(--text-muted);
+            font-size: 10.5px;
+            font-weight: 900;
+        }
+
+        .record-box strong {
+            display: block;
+            margin-top: 5px;
+            color: #FFFFFF;
+            font-family: 'Outfit', sans-serif;
+            font-size: 19px;
+            font-weight: 900;
+        }
+
+        .chart-panel {
+            margin-bottom: 12px;
+            padding: 12px;
+            border: 1px solid var(--card-border);
+            border-radius: 10px;
+            background: rgba(255, 255, 255, 0.035);
+        }
+
+        .metric-tabs {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 4px;
+            padding: 4px;
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            border-radius: 8px;
+            background: #0E0F15;
+        }
+
+        .metric-tab {
+            height: 34px;
+            border: 0;
+            border-radius: 7px;
+            background: transparent;
+            color: var(--text-muted);
+            font-size: 11px;
+            font-weight: 900;
+        }
+
+        .metric-tab.active {
+            background: rgba(255, 215, 0, 0.14);
+            color: var(--accent-color);
+            box-shadow: inset 0 -2px 0 var(--accent-color);
+        }
+
+        .chart-head {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-end;
+            gap: 8px;
+            margin: 12px 0 4px;
+        }
+
+        .chart-head strong {
+            color: #FFFFFF;
+            font-size: 14px;
+            font-weight: 900;
+        }
+
+        .chart-head span {
+            color: var(--accent-color);
+            font-size: 12px;
+            font-weight: 900;
+        }
+
+        .chart-wrap {
+            position: relative;
+            height: 150px;
+            margin-top: 6px;
+        }
+
+        .chart-wrap svg {
+            width: 100%;
+            height: 100%;
+            overflow: visible;
+        }
+
+        .axis-labels {
+            display: grid;
+            grid-template-columns: repeat(5, 1fr);
+            margin-top: 6px;
+            color: var(--text-muted);
+            font-size: 10px;
+            font-weight: 800;
+            text-align: center;
+        }
+
+        .history-list {
+            display: grid;
+            gap: 8px;
+        }
+
+        .history-item {
+            display: grid;
+            grid-template-columns: 78px minmax(0, 1fr);
+            gap: 10px;
+            align-items: center;
+            padding: 10px 11px;
+            border: 1px solid var(--card-border);
+            border-radius: 8px;
+            background: rgba(255, 255, 255, 0.04);
+        }
+
+        .history-item time {
+            color: var(--text-muted);
+            font-size: 11px;
+            font-weight: 900;
+        }
+
+        .history-item strong {
+            display: block;
+            color: #FFFFFF;
+            font-size: 13px;
+            font-weight: 900;
+        }
+
+        .history-item span {
+            display: block;
+            margin-top: 3px;
+            color: var(--text-muted);
+            font-size: 11px;
+            font-weight: 800;
+        }
+
+        .replacement-note {
+            color: var(--accent-color) !important;
+        }
+    </style>
+</head>
+<body>
+    <div class="app">
+        <header>
+            <div class="header-row">
+                <button class="header-btn">✖ 중단</button>
+                <button class="vol-badge">💪 Vol: 7,425 kg</button>
+            </div>
+            <div class="timer-row">
+                <div class="stopwatch">
+                    <span class="stopwatch-time">34:12:41</span>
+                    <button class="pause-btn">Ⅱ</button>
+                </div>
+                <button class="finish-btn">완료</button>
+            </div>
+        </header>
+
+        <main>
+            <div class="workout-title">
+                <h1>Week 4 Day 1 - 가슴</h1>
+                <p>설명</p>
+            </div>
+
+            <section class="exercise-card">
+                <div class="exercise-title">
+                    <div>
+                        <h2>플랫 바벨 벤치프레스</h2>
+                        <span>3세트 × 6-8회 (RPE 8)</span>
+                    </div>
+                    <div class="action-row">
+                        <button class="small-btn">↔ 교체</button>
+                        <button class="small-btn accent">+ 세트</button>
+                    </div>
+                </div>
+
+                <div class="sets-table">
+                    <div class="set-row header">
+                        <div>#</div>
+                        <div>Previous</div>
+                        <div>Kg</div>
+                        <div>Reps</div>
+                        <div>RPE</div>
+                        <div></div>
+                    </div>
+                    <div class="set-row">
+                        <strong>1</strong>
+                        <div>77.5×8</div>
+                        <div class="input-pill">80kg</div>
+                        <div class="input-pill">6</div>
+                        <div class="input-pill">8</div>
+                        <button class="check">✓</button>
+                    </div>
+                    <div class="set-row">
+                        <strong>2</strong>
+                        <div>77.5×7</div>
+                        <div class="input-pill">80kg</div>
+                        <div class="input-pill">6</div>
+                        <div class="input-pill">8</div>
+                        <button class="check">✓</button>
+                    </div>
+                    <div class="set-row">
+                        <strong>3</strong>
+                        <div>77.5×6</div>
+                        <div class="input-pill">80kg</div>
+                        <div class="input-pill">6</div>
+                        <div class="input-pill">8</div>
+                        <button class="check">✓</button>
+                    </div>
+                </div>
+            </section>
+        </main>
+    </div>
+
+    <div class="sheet-backdrop">
+        <section class="bottom-sheet">
+            <div class="handle"></div>
+            <div class="sheet-title-row">
+                <div>
+                    <h3>플랫 바벨 벤치프레스</h3>
+                    <p>최근 기록과 다음 목표</p>
+                </div>
+                <button class="close-btn">×</button>
+            </div>
+
+            <div class="record-grid">
+                <div class="record-box">
+                    <span>최고 중량</span>
+                    <strong>80kg</strong>
+                </div>
+                <div class="record-box">
+                    <span>최고 반복</span>
+                    <strong>77.5×8</strong>
+                </div>
+                <div class="record-box">
+                    <span>추정 1RM</span>
+                    <strong>98kg</strong>
+                </div>
+            </div>
+
+            <div class="chart-panel">
+                <div class="metric-tabs">
+                    <button class="metric-tab active" type="button" data-metric="weight">최고 중량</button>
+                    <button class="metric-tab" type="button" data-metric="oneRm">예상 1RM</button>
+                    <button class="metric-tab" type="button" data-metric="volume">총 볼륨</button>
+                </div>
+
+                <div class="chart-head">
+                    <strong id="chart-title">최근 5회 최고 중량</strong>
+                    <span id="chart-delta">+5kg</span>
+                </div>
+
+                <div class="chart-wrap">
+                    <svg id="history-chart" viewBox="0 0 320 140" role="img" aria-label="최근 5회 운동 진행 그래프"></svg>
+                </div>
+
+                <div class="axis-labels">
+                    <span>7/02</span>
+                    <span>7/09</span>
+                    <span>7/16</span>
+                    <span>7/23</span>
+                    <span>7/30</span>
+                </div>
+            </div>
+
+            <div class="history-list">
+                <div class="history-item">
+                    <time>7/30</time>
+                    <div>
+                        <strong>80kg × 6 / 6 / 6</strong>
+                        <span>성공 3/3 · 평균 RPE 8.0</span>
+                    </div>
+                </div>
+                <div class="history-item">
+                    <time>7/23</time>
+                    <div>
+                        <strong>77.5kg × 8 / 7 / 6</strong>
+                        <span>성공 2/3 · 평균 RPE 8.2</span>
+                    </div>
+                </div>
+                <div class="history-item">
+                    <time>7/16</time>
+                    <div>
+                        <strong>덤벨 벤치프레스 32kg × 10 / 9 / 8</strong>
+                        <span class="replacement-note">대체 수행 · 원래 종목 기준 히스토리에 함께 표시</span>
+                    </div>
+                </div>
+            </div>
+        </section>
+    </div>
+
+    <script>
+        const metrics = {
+            weight: {
+                title: "최근 5회 최고 중량",
+                delta: "+5kg",
+                suffix: "kg",
+                values: [75, 75, 77.5, 77.5, 80]
+            },
+            oneRm: {
+                title: "최근 5회 예상 1RM",
+                delta: "+6kg",
+                suffix: "kg",
+                values: [92, 94, 95, 96, 98]
+            },
+            volume: {
+                title: "최근 5회 총 볼륨",
+                delta: "+645kg",
+                suffix: "kg",
+                values: [6100, 6325, 6580, 6780, 7425]
+            }
+        };
+
+        function renderChart(metricKey) {
+            const metric = metrics[metricKey];
+            const svg = document.getElementById("history-chart");
+            const min = Math.min(...metric.values);
+            const max = Math.max(...metric.values);
+            const range = Math.max(1, max - min);
+            const points = metric.values.map((value, index) => {
+                const x = 18 + index * 71;
+                const y = 116 - ((value - min) / range) * 82;
+                return { x, y, value };
+            });
+            const line = points.map(point => `${point.x},${point.y}`).join(" ");
+
+            svg.innerHTML = `
+                <line x1="18" y1="118" x2="302" y2="118" stroke="rgba(255,255,255,0.11)" stroke-width="1" />
+                <line x1="18" y1="78" x2="302" y2="78" stroke="rgba(255,255,255,0.07)" stroke-width="1" />
+                <line x1="18" y1="38" x2="302" y2="38" stroke="rgba(255,255,255,0.07)" stroke-width="1" />
+                <polyline points="${line}" fill="none" stroke="#FFD700" stroke-width="4" stroke-linecap="round" stroke-linejoin="round" />
+                ${points.map(point => `
+                    <circle cx="${point.x}" cy="${point.y}" r="5" fill="#FFD700" stroke="#15151c" stroke-width="3" />
+                    <text x="${point.x}" y="${point.y - 12}" text-anchor="middle" fill="#FFFFFF" font-size="11" font-weight="900">${formatValue(point.value, metric.suffix)}</text>
+                `).join("")}
+            `;
+
+            document.getElementById("chart-title").innerText = metric.title;
+            document.getElementById("chart-delta").innerText = metric.delta;
+        }
+
+        function formatValue(value, suffix) {
+            const text = Number.isInteger(value) ? value : value.toFixed(1);
+            return `${text}${suffix}`;
+        }
+
+        document.querySelectorAll(".metric-tab").forEach(button => {
+            button.addEventListener("click", () => {
+                document.querySelectorAll(".metric-tab").forEach(tab => tab.classList.remove("active"));
+                button.classList.add("active");
+                renderChart(button.dataset.metric);
+            });
+        });
+
+        renderChart("weight");
+    </script>
+</body>
+</html>

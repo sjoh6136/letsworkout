@@ -155,6 +155,13 @@
             transform: scale(0.95);
         }
 
+        .finish-btn:disabled {
+            cursor: wait;
+            opacity: 0.72;
+            transform: none;
+            box-shadow: none;
+        }
+
         /* Bottom Sticky Tabbar */
         .bottom-nav {
             position: fixed;
@@ -1615,6 +1622,10 @@
             gap: 8px;
         }
 
+        .history-chart-panel + .sheet-list {
+            margin-top: 12px;
+        }
+
         .history-item,
         .replacement-item {
             border: 1px solid var(--card-border);
@@ -1681,6 +1692,86 @@
             color: #FFFFFF;
             font-size: 14px;
             font-weight: 900;
+        }
+
+        .history-chart-panel {
+            margin-top: 12px;
+            border: 1px solid var(--card-border);
+            border-radius: 10px;
+            background: rgba(255, 255, 255, 0.035);
+            padding: 12px;
+        }
+
+        .history-metric-tabs {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 4px;
+            padding: 4px;
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            border-radius: 8px;
+            background: #0E0F15;
+        }
+
+        .history-metric-tab {
+            height: 34px;
+            border: 0;
+            border-radius: 7px;
+            background: transparent;
+            color: var(--text-muted);
+            font-size: 11px;
+            font-weight: 900;
+            cursor: pointer;
+        }
+
+        .history-metric-tab.active {
+            background: rgba(255, 215, 0, 0.14);
+            color: var(--accent-color);
+            box-shadow: inset 0 -2px 0 var(--accent-color);
+        }
+
+        .history-chart-head {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-end;
+            gap: 8px;
+            margin: 12px 0 4px;
+        }
+
+        .history-chart-head strong {
+            color: #FFFFFF;
+            font-size: 14px;
+            font-weight: 900;
+        }
+
+        .history-chart-head span {
+            color: var(--accent-color);
+            font-size: 12px;
+            font-weight: 900;
+        }
+
+        .history-chart-wrap {
+            height: 150px;
+            margin-top: 6px;
+        }
+
+        .history-chart-wrap svg {
+            width: 100%;
+            height: 100%;
+            overflow: visible;
+        }
+
+        .history-chart-axis {
+            display: grid;
+            gap: 4px;
+            margin-top: 6px;
+            color: var(--text-muted);
+            font-size: 10px;
+            font-weight: 800;
+            text-align: center;
+        }
+
+        .replacement-note {
+            color: var(--accent-color) !important;
         }
 
         .replacement-item {
@@ -1911,7 +2002,7 @@
                     </svg>
                 </button>
             </div>
-            <button class="finish-btn" onclick="finishWorkout()">완료</button>
+            <button class="finish-btn" id="finish-workout-btn" onclick="finishWorkout()">완료</button>
         </div>
     </header>
 
@@ -2156,9 +2247,6 @@
                 </div>
                 <button class="close-btn" type="button" onclick="closeExerciseHistory()">×</button>
             </div>
-
-            <div class="sheet-list" id="history-session-list"></div>
-
             <div class="history-record-grid">
                 <div class="history-record-box">
                     <span>최고 중량</span>
@@ -2173,6 +2261,24 @@
                     <strong id="history-estimated-1rm">-</strong>
                 </div>
             </div>
+
+            <div class="history-chart-panel">
+                <div class="history-metric-tabs">
+                    <button class="history-metric-tab active" type="button" data-metric="weight" onclick="setHistoryMetric('weight')">최고 중량</button>
+                    <button class="history-metric-tab" type="button" data-metric="oneRm" onclick="setHistoryMetric('oneRm')">예상 1RM</button>
+                    <button class="history-metric-tab" type="button" data-metric="volume" onclick="setHistoryMetric('volume')">총 볼륨</button>
+                </div>
+                <div class="history-chart-head">
+                    <strong id="history-chart-title">최근 기록</strong>
+                    <span id="history-chart-delta">-</span>
+                </div>
+                <div class="history-chart-wrap">
+                    <svg id="history-chart-svg" viewBox="0 0 320 140" role="img" aria-label="운동별 진행 그래프"></svg>
+                </div>
+                <div class="history-chart-axis" id="history-chart-axis"></div>
+            </div>
+
+            <div class="sheet-list" id="history-session-list"></div>
         </div>
     </div>
 
@@ -2251,11 +2357,16 @@
         let routineData = {}; // Keyed by split ("2", "3", "4", "5")
         let exerciseDefinitions = { large_muscles: [], small_muscles: [] };
         let completedLogs = [];
+        let replacementLogs = [];
         let currentDayId = "Day 1";
         let activeWorkoutDay = null;
         let replacementExerciseIdx = null;
         let nextRecommendedDayId = "Day 1";
         let settingsSaveVersion = 0;
+        let isFinishingWorkout = false;
+        let activeHistoryExerciseName = "";
+        let historyChartMetric = "weight";
+        let activeHistoryPoints = [];
         const standardPlates = [20.0, 15.0, 10.0, 5.0, 2.5, 1.25];
         let gyms = [];
         let activeGymId = null;
@@ -2302,8 +2413,10 @@
                 fetchExerciseDefinitions(),
                 fetchRoutine(),
                 fetchStatus(),
-                fetchLogs()
+                fetchLogs(),
+                fetchReplacementLogs()
             ]);
+            await retryPendingWorkoutSubmissions();
             
             // Check first-time onboarding
             checkOnboarding();
@@ -2475,6 +2588,79 @@
                 await delay(350 * (attempt + 1));
             }
             throw lastError || new Error("Request failed");
+        }
+
+        const PENDING_WORKOUT_SUBMISSIONS_KEY = "lw_pending_workout_submissions_v1";
+
+        function generateSubmissionId() {
+            if (window.crypto && typeof window.crypto.randomUUID === "function") {
+                return window.crypto.randomUUID();
+            }
+            return `submission_${Date.now()}_${Math.random().toString(16).slice(2)}`;
+        }
+
+        function loadPendingWorkoutSubmissions() {
+            try {
+                const raw = localStorage.getItem(PENDING_WORKOUT_SUBMISSIONS_KEY);
+                const parsed = raw ? JSON.parse(raw) : [];
+                return Array.isArray(parsed) ? parsed : [];
+            } catch (err) {
+                console.error("pending 운동 기록 로드 실패", err);
+                return [];
+            }
+        }
+
+        function savePendingWorkoutSubmissions(items) {
+            if (!items.length) {
+                localStorage.removeItem(PENDING_WORKOUT_SUBMISSIONS_KEY);
+                return;
+            }
+            localStorage.setItem(PENDING_WORKOUT_SUBMISSIONS_KEY, JSON.stringify(items.slice(-5)));
+        }
+
+        function queuePendingWorkoutSubmission(payload) {
+            const pending = loadPendingWorkoutSubmissions();
+            const next = pending.filter(item => item.submissionId !== payload.submissionId);
+            next.push(payload);
+            savePendingWorkoutSubmissions(next);
+        }
+
+        async function retryPendingWorkoutSubmissions() {
+            if (isFinishingWorkout) return;
+            const pending = loadPendingWorkoutSubmissions();
+            if (!pending.length) return;
+
+            const remaining = [];
+            let savedAny = false;
+            for (const payload of pending) {
+                try {
+                    const res = await apiFetch("/api/workout/finish", {
+                        method: "POST",
+                        headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify(payload)
+                    }, 1);
+                    if (res.ok) {
+                        savedAny = true;
+                    } else {
+                        remaining.push(payload);
+                    }
+                } catch (err) {
+                    console.warn("pending 운동 기록 재전송 실패", err);
+                    remaining.push(payload);
+                }
+            }
+
+            savePendingWorkoutSubmissions(remaining);
+            if (savedAny) {
+                await Promise.all([fetchLogs(), fetchReplacementLogs(), fetchStatus()]);
+            }
+        }
+
+        function setFinishButtonSaving(isSaving) {
+            const button = document.getElementById("finish-workout-btn");
+            if (!button) return;
+            button.disabled = isSaving;
+            button.innerText = isSaving ? "저장 중..." : "완료";
         }
 
         function getActiveRoutineDayCount() {
@@ -3034,6 +3220,15 @@
                 renderCalendar();
             } catch (err) {
                 console.error("로그 리스트 조회 실패", err);
+            }
+        }
+
+        async function fetchReplacementLogs() {
+            try {
+                const res = await apiFetch("/api/workout/replacements");
+                replacementLogs = await res.json();
+            } catch (err) {
+                console.error("대체 운동 히스토리 조회 실패", err);
             }
         }
 
@@ -3684,7 +3879,7 @@
                 if (parseInt(log.split) !== split || log.exercise !== name || !log.date) return;
                 const key = `${log.date}|${log.week || ""}|${log.day || ""}`;
                 if (!groups[key]) {
-                    groups[key] = { date: log.date, week: log.week, day: log.day, logs: [] };
+                    groups[key] = { date: log.date, week: log.week, day: log.day, logs: [], exercise: name, replacement: false };
                 }
                 groups[key].logs.push(log);
             });
@@ -3697,6 +3892,40 @@
                 .sort((a, b) => String(b.date).localeCompare(String(a.date)));
         }
 
+        function groupReplacementLogsByOriginal(name) {
+            const split = parseInt(oneRms.activeSplit);
+            const groups = {};
+            (replacementLogs || []).forEach(item => {
+                if (parseInt(item.split) !== split || item.originalExercise !== name || !item.date) return;
+                const key = item.submissionId || `${item.date}|${item.week || ""}|${item.day || ""}|${item.originalExercise}|${item.exercise}`;
+                if (groups[key]) return;
+                groups[key] = {
+                    date: item.date,
+                    week: item.week,
+                    day: item.day,
+                    exercise: item.exercise,
+                    originalExercise: item.originalExercise,
+                    replacement: true,
+                    setCount: parseInt(item.setCount) || 0,
+                    bestWeight: parseFloat(item.bestWeight) || 0,
+                    bestReps: parseInt(item.bestReps) || 0,
+                    estimatedOneRm: parseFloat(item.estimatedOneRm) || 0,
+                    volume: parseFloat(item.volume) || 0,
+                    summary: item.summary || ""
+                };
+            });
+
+            return Object.values(groups)
+                .sort((a, b) => String(b.date).localeCompare(String(a.date)));
+        }
+
+        function getHistoryGroupsForExercise(name) {
+            return [
+                ...groupExerciseLogsBySession(name),
+                ...groupReplacementLogsByOriginal(name)
+            ].sort((a, b) => String(b.date).localeCompare(String(a.date)));
+        }
+
         function summarizeSessionLogs(logs) {
             if (!logs.length) return "-";
             const weights = logs.map(log => formatKg(log.weight));
@@ -3707,7 +3936,18 @@
             return logs.map(log => `${formatKg(log.weight)}kg×${log.reps}`).join(" · ");
         }
 
+        function summarizeHistoryGroup(group) {
+            if (group.replacement) {
+                const summary = group.summary || `${formatKg(group.bestWeight)}kg × ${group.bestReps}`;
+                return `${group.exercise} ${summary}`;
+            }
+            return summarizeSessionLogs(group.logs || []);
+        }
+
         function summarizeSessionMeta(group) {
+            if (group.replacement) {
+                return "대체 수행 · 원래 종목 기준 히스토리에 함께 표시";
+            }
             const logs = group.logs || [];
             const successCount = logs.filter(log => String(log.status || "").toUpperCase() === "SUCCESS").length;
             const rpes = logs.map(log => parseFloat(log.rpe)).filter(value => value > 0);
@@ -3735,6 +3975,146 @@
             };
         }
 
+        function formatHistoryDateLabel(dateValue) {
+            const parts = String(dateValue || "").split("-");
+            if (parts.length >= 3) {
+                return `${parseInt(parts[1])}/${parseInt(parts[2])}`;
+            }
+            return String(dateValue || "-");
+        }
+
+        function buildHistoryPointFromGroup(group) {
+            if (group.replacement) {
+                return {
+                    date: group.date,
+                    label: formatHistoryDateLabel(group.date),
+                    weight: parseFloat(group.bestWeight) || 0,
+                    oneRm: parseFloat(group.estimatedOneRm) || 0,
+                    volume: parseFloat(group.volume) || 0,
+                    replacement: true
+                };
+            }
+
+            const logs = (group.logs || []).filter(log => (parseFloat(log.weight) || 0) > 0 && (parseInt(log.reps) || 0) > 0);
+            if (!logs.length) return null;
+            const bestWeight = Math.max(...logs.map(log => parseFloat(log.weight) || 0));
+            const oneRm = logs.reduce((best, log) => {
+                const estimated = (parseFloat(log.weight) || 0) * (1 + (parseInt(log.reps) || 0) / 30);
+                return Math.max(best, estimated);
+            }, 0);
+            const successLogs = logs.filter(log => String(log.status || "").toUpperCase() === "SUCCESS");
+            const volumeLogs = successLogs.length ? successLogs : logs;
+            const volume = volumeLogs.reduce((sum, log) => sum + ((parseFloat(log.weight) || 0) * (parseInt(log.reps) || 0)), 0);
+            return {
+                date: group.date,
+                label: formatHistoryDateLabel(group.date),
+                weight: bestWeight,
+                oneRm,
+                volume,
+                replacement: false
+            };
+        }
+
+        function buildExerciseHistoryPoints(name) {
+            return getHistoryGroupsForExercise(name)
+                .map(buildHistoryPointFromGroup)
+                .filter(point => point && (point.weight > 0 || point.oneRm > 0 || point.volume > 0))
+                .slice(0, 5)
+                .reverse();
+        }
+
+        function historyMetricConfig(metricKey) {
+            const configs = {
+                weight: { title: "최근 5회 최고 중량", suffix: "kg" },
+                oneRm: { title: "최근 5회 예상 1RM", suffix: "kg" },
+                volume: { title: "최근 5회 총 볼륨", suffix: "kg" }
+            };
+            return configs[metricKey] || configs.weight;
+        }
+
+        function formatHistoryMetricValue(value, suffix) {
+            const rounded = suffix === "kg" ? formatKg(roundToHalf(value)) : Math.round(value).toLocaleString();
+            return `${rounded}${suffix}`;
+        }
+
+        function renderHistoryChart() {
+            const svg = document.getElementById("history-chart-svg");
+            const axis = document.getElementById("history-chart-axis");
+            const title = document.getElementById("history-chart-title");
+            const delta = document.getElementById("history-chart-delta");
+            if (!svg || !axis || !title || !delta) return;
+
+            const metric = historyMetricConfig(historyChartMetric);
+            title.innerText = metric.title;
+
+            const points = activeHistoryPoints
+                .map(point => ({ ...point, value: parseFloat(point[historyChartMetric]) || 0 }))
+                .filter(point => point.value > 0);
+
+            axis.innerHTML = "";
+            axis.style.gridTemplateColumns = points.length ? `repeat(${points.length}, 1fr)` : "1fr";
+
+            if (!points.length) {
+                delta.innerText = "-";
+                svg.innerHTML = `
+                    <line x1="18" y1="118" x2="302" y2="118" stroke="rgba(255,255,255,0.11)" stroke-width="1" />
+                    <text x="160" y="74" text-anchor="middle" fill="rgba(255,255,255,0.55)" font-size="12" font-weight="900">표시할 기록 없음</text>
+                `;
+                axis.innerHTML = "<span>-</span>";
+                return;
+            }
+
+            const first = points[0].value;
+            const last = points[points.length - 1].value;
+            const diff = last - first;
+            delta.innerText = points.length < 2
+                ? "기록 1회"
+                : `${diff >= 0 ? "+" : ""}${formatHistoryMetricValue(diff, metric.suffix)}`;
+
+            if (points.length === 1) {
+                const valueLabel = formatHistoryMetricValue(points[0].value, metric.suffix);
+                svg.innerHTML = `
+                    <line x1="18" y1="118" x2="302" y2="118" stroke="rgba(255,255,255,0.11)" stroke-width="1" />
+                    <circle cx="160" cy="72" r="5" fill="#FFD700" stroke="#15151c" stroke-width="3" />
+                    <text x="160" y="54" text-anchor="middle" fill="#FFFFFF" font-size="11" font-weight="900">${valueLabel}</text>
+                `;
+            } else {
+                const min = Math.min(...points.map(point => point.value));
+                const max = Math.max(...points.map(point => point.value));
+                const range = Math.max(1, max - min);
+                const plotted = points.map((point, index) => {
+                    const x = 18 + index * (284 / Math.max(1, points.length - 1));
+                    const y = 116 - ((point.value - min) / range) * 82;
+                    return { ...point, x, y };
+                });
+                const line = plotted.map(point => `${point.x},${point.y}`).join(" ");
+                svg.innerHTML = `
+                    <line x1="18" y1="118" x2="302" y2="118" stroke="rgba(255,255,255,0.11)" stroke-width="1" />
+                    <line x1="18" y1="78" x2="302" y2="78" stroke="rgba(255,255,255,0.07)" stroke-width="1" />
+                    <line x1="18" y1="38" x2="302" y2="38" stroke="rgba(255,255,255,0.07)" stroke-width="1" />
+                    <polyline points="${line}" fill="none" stroke="#FFD700" stroke-width="4" stroke-linecap="round" stroke-linejoin="round" />
+                    ${plotted.map(point => `
+                        <circle cx="${point.x}" cy="${point.y}" r="${point.replacement ? 4.5 : 5.2}" fill="${point.replacement ? "#1C1D24" : "#FFD700"}" stroke="#FFD700" stroke-width="${point.replacement ? 3 : 2}" />
+                        <text x="${point.x}" y="${point.y - 12}" text-anchor="middle" fill="#FFFFFF" font-size="11" font-weight="900">${formatHistoryMetricValue(point.value, metric.suffix)}</text>
+                    `).join("")}
+                `;
+            }
+
+            points.forEach(point => {
+                const label = document.createElement("span");
+                label.innerText = point.label;
+                axis.appendChild(label);
+            });
+        }
+
+        function setHistoryMetric(metricKey) {
+            historyChartMetric = metricKey;
+            document.querySelectorAll(".history-metric-tab").forEach(tab => {
+                tab.classList.toggle("active", tab.dataset.metric === metricKey);
+            });
+            renderHistoryChart();
+        }
+
         function openExerciseHistory(exIdx) {
             const dayObj = getActiveWorkoutDayObj();
             const ex = dayObj?.exercises?.[exIdx];
@@ -3743,10 +4123,14 @@
             const targetWeight = getTargetWeightForExercise(ex);
             document.getElementById("history-exercise-title").innerText = ex.name;
             document.getElementById("history-exercise-subtitle").innerText = `다음 목표 ${formatKg(targetWeight)}kg × ${ex.targetReps}회`;
+            activeHistoryExerciseName = ex.name;
+            historyChartMetric = "weight";
+            activeHistoryPoints = buildExerciseHistoryPoints(ex.name);
+            setHistoryMetric("weight");
 
             const list = document.getElementById("history-session-list");
             list.innerHTML = "";
-            const groups = groupExerciseLogsBySession(ex.name).slice(0, 3);
+            const groups = getHistoryGroupsForExercise(ex.name).slice(0, 5);
             if (!groups.length) {
                 const empty = document.createElement("div");
                 empty.className = "history-item";
@@ -3759,8 +4143,8 @@
                     item.innerHTML = `
                         <time>${group.date}</time>
                         <div>
-                            <strong>${summarizeSessionLogs(group.logs)}</strong>
-                            <span>${summarizeSessionMeta(group)}</span>
+                            <strong>${summarizeHistoryGroup(group)}</strong>
+                            <span class="${group.replacement ? "replacement-note" : ""}">${summarizeSessionMeta(group)}</span>
                         </div>
                     `;
                     list.appendChild(item);
@@ -3832,6 +4216,9 @@
             if (!dayObj || !currentEx || exIdx == null) return;
 
             const replacement = buildReplacementExercise(name, currentEx);
+            replacement.originalExercise = currentEx.originalExercise || currentEx.name;
+            replacement.replacedExercise = currentEx.name;
+            replacement.replacementApplied = replacement.originalExercise !== replacement.name;
             dayObj.exercises[exIdx] = replacement;
 
             const currentCard = document.getElementById(`exercise-card-${exIdx}`);
@@ -3865,8 +4252,44 @@
             }
         }
 
+        function summarizeReplacementRows(rows) {
+            const usableRows = rows.filter(row => row.weight > 0 && row.reps > 0);
+            if (!usableRows.length) return "-";
+            const weights = usableRows.map(row => formatKg(row.weight));
+            const sameWeight = weights.every(weight => weight === weights[0]);
+            if (sameWeight) {
+                return `${weights[0]}kg × ${usableRows.map(row => row.reps).join(" / ")}`;
+            }
+            return usableRows.map(row => `${formatKg(row.weight)}kg×${row.reps}`).join(" · ");
+        }
+
+        function buildReplacementHistoryPayload(ex, rows, currentWeek, dayId, submissionId) {
+            const usableRows = rows.filter(row => row.weight > 0 && row.reps > 0);
+            const bestWeight = usableRows.reduce((best, row) => Math.max(best, row.weight), 0);
+            const bestReps = usableRows.reduce((best, row) => Math.max(best, row.reps), 0);
+            const estimatedOneRm = usableRows.reduce((best, row) => Math.max(best, row.weight * (1 + row.reps / 30)), 0);
+            const volumeRows = usableRows.filter(row => row.checked);
+            const volumeSource = volumeRows.length ? volumeRows : usableRows;
+            const volume = volumeSource.reduce((sum, row) => sum + (row.weight * row.reps), 0);
+            return {
+                originalExercise: ex.originalExercise,
+                exercise: ex.name,
+                setCount: usableRows.length || ex.sets,
+                bestWeight,
+                bestReps,
+                estimatedOneRm,
+                volume,
+                summary: summarizeReplacementRows(usableRows),
+                split: oneRms.activeSplit,
+                week: currentWeek,
+                day: dayId,
+                submissionId
+            };
+        }
+
         // Submit completed workout logs
         async function finishWorkout() {
+            if (isFinishingWorkout) return;
             const currentSplitStr = String(oneRms.activeSplit);
             const activeRoutine = routineData[currentSplitStr];
             if (!activeRoutine) return;
@@ -3875,7 +4298,9 @@
             if (!dayObj) return;
 
             const logs = [];
+            const replacements = [];
             const currentWeek = getActiveWeekNum();
+            const submissionId = generateSubmissionId();
 
             dayObj.exercises.forEach((ex, exIdx) => {
                 let targetWeight = (ex.targetWeight !== undefined) ? ex.targetWeight : ex.defaultWeight;
@@ -3886,6 +4311,7 @@
                 targetWeight = Math.round(targetWeight / 2.5) * 2.5;
 
                 let targetReps = ex.targetReps;
+                const exerciseRows = [];
 
                 for (let s = 1; s <= ex.sets; s++) {
                     const row = document.getElementById(`row-${exIdx}-${s}`);
@@ -3913,31 +4339,53 @@
                         week: currentWeek,
                         day: dayObj.id
                     });
+                    exerciseRows.push({
+                        checked,
+                        weight: weightVal,
+                        reps: repsVal,
+                        rpe: checked ? rpeVal : 0.0
+                    });
+                }
+
+                if (ex.replacementApplied && ex.originalExercise && ex.originalExercise !== ex.name) {
+                    replacements.push(buildReplacementHistoryPayload(ex, exerciseRows, currentWeek, dayObj.id, submissionId));
                 }
             });
 
+            const payload = {
+                submissionId,
+                split: oneRms.activeSplit,
+                week: currentWeek,
+                day: dayObj.id,
+                logs,
+                replacements
+            };
+
+            isFinishingWorkout = true;
+            setFinishButtonSaving(true);
             try {
                 const res = await apiFetch("/api/workout/finish", {
                     method: "POST",
                     headers: { "Content-Type": "application/json" },
-                    body: JSON.stringify({
-                        split: oneRms.activeSplit,
-                        week: currentWeek,
-                        day: dayObj.id,
-                        logs: logs
-                    })
+                    body: JSON.stringify(payload)
                 });
 
                 if (res.ok) {
                     const data = await res.json();
                     activeWorkoutDay = null;
+                    savePendingWorkoutSubmissions(loadPendingWorkoutSubmissions().filter(item => item.submissionId !== submissionId));
                     showFeedbackModal(data);
                 } else {
-                    alert("서버 통신 오류가 발생했습니다.");
+                    queuePendingWorkoutSubmission(payload);
+                    alert("저장에 실패했습니다. 기록은 이 기기에 임시 보관했고, 다음 접속 때 자동 재전송합니다.");
                 }
             } catch (err) {
                 console.error("기록 제출 실패", err);
-                alert("기록 저장에 실패했습니다. 네트워크를 확인해주세요.");
+                queuePendingWorkoutSubmission(payload);
+                alert("기록 저장에 실패했습니다. 기록은 이 기기에 임시 보관했고, 다음 접속 때 자동 재전송합니다.");
+            } finally {
+                isFinishingWorkout = false;
+                setFinishButtonSaving(false);
             }
         }
 
@@ -4005,6 +4453,7 @@
                 fetchSettings(),
                 fetchStatus(),
                 fetchLogs(),
+                fetchReplacementLogs(),
                 fetchRoutine()
             ]);
             updateSettingsUI();
