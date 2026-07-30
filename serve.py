@@ -909,6 +909,31 @@ def save_state(state) -> None:
     save_json(STATE_FILE, state)
 
 
+def load_gym_state():
+    state = load_file_state()
+    store = sheets_store()
+    if store.connected:
+        try:
+            active_gym_id, gyms = store.load_gyms()
+            if gyms:
+                state["activeGymId"], state["gyms"] = active_gym_id, gyms
+        except Exception as exc:
+            print(f"[warn] failed to load gym settings from Google Sheets, using local file state: {exc}")
+    state["activeGymId"], state["gyms"] = normalize_gym_state(state.get("activeGymId"), state.get("gyms"))
+    return state
+
+
+def save_gym_state(state) -> None:
+    state["activeGymId"], state["gyms"] = normalize_gym_state(state.get("activeGymId"), state.get("gyms"))
+    store = sheets_store()
+    if store.connected:
+        try:
+            store.save_gyms(state.get("activeGymId"), state.get("gyms", []))
+        except Exception as exc:
+            print(f"[warn] failed to save gym settings to Google Sheets: {exc}")
+    save_json(STATE_FILE, state)
+
+
 def load_routines():
     routines = load_json(ROUTINES_FILE, {})
     if not isinstance(routines, dict):
@@ -1039,6 +1064,10 @@ def routine_exercise_lookup(routines, split):
     for day in routines.get(str(split), []):
         for ex in day.get("exercises", []):
             lookup[ex.get("name")] = ex
+    for days in routines.values():
+        for day in days:
+            for ex in day.get("exercises", []):
+                lookup.setdefault(ex.get("name"), ex)
     return lookup
 
 
@@ -1430,7 +1459,7 @@ def workout_finish():
 
 @app.route("/api/workout/gyms", methods=["GET", "POST"])
 def workout_gyms():
-    state = load_state()
+    state = load_gym_state()
     if request.method == "POST":
         body = request.get_json(silent=True) or {}
         gym = normalize_gym({
@@ -1444,7 +1473,7 @@ def workout_gyms():
         state["gyms"].append(gym)
         state["activeGymId"] = gym["id"]
         state["activeGymId"], state["gyms"] = normalize_gym_state(state["activeGymId"], state["gyms"])
-        save_state(state)
+        save_gym_state(state)
         return jsonify(gym)
 
     return jsonify({"activeGymId": state.get("activeGymId"), "gyms": state.get("gyms", [])})
@@ -1452,7 +1481,7 @@ def workout_gyms():
 
 @app.route("/api/workout/gyms/<gym_id>", methods=["PUT", "DELETE"])
 def workout_gym_detail(gym_id):
-    state = load_state()
+    state = load_gym_state()
     gyms = state.get("gyms", [])
     gym = next((item for item in gyms if item.get("id") == gym_id), None)
 
@@ -1463,7 +1492,7 @@ def workout_gym_detail(gym_id):
         if state.get("activeGymId") == gym_id:
             state["activeGymId"] = state["gyms"][0]["id"]
         state["activeGymId"], state["gyms"] = normalize_gym_state(state["activeGymId"], state["gyms"])
-        save_state(state)
+        save_gym_state(state)
         return jsonify({"success": True, "gyms": state["gyms"]})
 
     if gym is None:
@@ -1476,23 +1505,23 @@ def workout_gym_detail(gym_id):
         gym["availablePlates"] = clean_plates(body["availablePlates"])
     gym["dumbbellInterval"] = as_float(body.get("dumbbellInterval"), gym.get("dumbbellInterval", 2.0))
     state["activeGymId"], state["gyms"] = normalize_gym_state(state["activeGymId"], state["gyms"])
-    save_state(state)
-    return jsonify(gym)
+    save_gym_state(state)
+    return jsonify({"success": True, "activeGymId": state["activeGymId"], "gyms": state["gyms"], "activeGym": gym})
 
 
 @app.route("/api/workout/gyms/select/<gym_id>", methods=["POST"])
 def workout_gym_select(gym_id):
-    state = load_state()
+    state = load_gym_state()
     if any(gym.get("id") == gym_id for gym in state.get("gyms", [])):
         state["activeGymId"] = gym_id
-        save_state(state)
-        return jsonify({"success": True, "activeGym": active_gym(state)})
-    return jsonify({"success": False, "activeGym": active_gym(state)})
+        save_gym_state(state)
+        return jsonify({"success": True, "activeGymId": state["activeGymId"], "gyms": state["gyms"], "activeGym": active_gym(state)})
+    return jsonify({"success": False, "activeGymId": state.get("activeGymId"), "gyms": state.get("gyms", []), "activeGym": active_gym(state)})
 
 
 @app.route("/api/workout/gyms/<gym_id>/reset-machine", methods=["POST"])
 def workout_gym_reset_machine(gym_id):
-    state = load_state()
+    state = load_gym_state()
     exercise = (request.args.get("exercise") or "").strip()
     for gym in state.get("gyms", []):
         if gym.get("id") == gym_id:
@@ -1501,7 +1530,7 @@ def workout_gym_reset_machine(gym_id):
                 machine_map.pop(exercise, None)
             else:
                 machine_map.clear()
-            save_state(state)
+            save_gym_state(state)
             return jsonify({"success": True})
     return jsonify({"success": False}), 404
 

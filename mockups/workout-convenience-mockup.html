@@ -1,0 +1,894 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, user-scalable=no">
+    <title>LET'S WORKOUT - Feature Mockup</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;800&family=Noto+Sans+KR:wght@300;400;700;900&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --bg-color: #0b0b0d;
+            --bg-gradient: radial-gradient(circle at top, #1c1c24 0%, #0b0b0d 100%);
+            --card-bg: rgba(30, 30, 38, 0.65);
+            --card-border: rgba(255, 255, 255, 0.08);
+            --accent-color: #FFD700;
+            --accent-hover: #FFC107;
+            --accent-gradient: linear-gradient(135deg, #FFD700 0%, #FFA000 100%);
+            --text-main: #F5F5F7;
+            --text-muted: #9E9EAF;
+            --border-color: #22222a;
+            --success-color: #34C759;
+            --fail-color: #FF3B30;
+            --safe-top: env(safe-area-inset-top, 0px);
+            --safe-bottom: env(safe-area-inset-bottom, 0px);
+            --font-family: 'Outfit', 'Noto Sans KR', -apple-system, sans-serif;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            font-family: var(--font-family);
+            -webkit-tap-highlight-color: transparent;
+        }
+
+        body {
+            background: var(--bg-color);
+            background-image: var(--bg-gradient);
+            background-attachment: fixed;
+            color: var(--text-main);
+            min-height: 100vh;
+            overflow-x: hidden;
+            font-size: 16px;
+        }
+
+        button,
+        input {
+            font: inherit;
+        }
+
+        header {
+            position: sticky;
+            top: 0;
+            z-index: 100;
+            background: rgba(11, 11, 13, 0.85);
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+            border-bottom: 1px solid var(--card-border);
+            padding: calc(var(--safe-top) + 12px) 16px 12px 16px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            box-shadow: 0 4px 30px rgba(0, 0, 0, 0.4);
+        }
+
+        .header-left,
+        .header-right {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .header-btn {
+            background: rgba(255, 255, 255, 0.08);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            color: var(--text-main);
+            padding: 8px 14px;
+            border-radius: 20px;
+            font-size: 13px;
+            font-weight: 600;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            cursor: pointer;
+        }
+
+        .vol-badge {
+            color: var(--accent-color);
+            border-color: rgba(255, 215, 0, 0.25);
+            background: rgba(255, 215, 0, 0.05);
+        }
+
+        .stopwatch {
+            min-height: 36px;
+            min-width: 118px;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            font-family: monospace;
+            font-size: 17px;
+            font-weight: 800;
+            color: #FFFFFF;
+            background: rgba(0, 0, 0, 0.4);
+            padding: 7px 14px;
+            border-radius: 12px;
+            letter-spacing: 1px;
+            border: 1px solid var(--border-color);
+        }
+
+        .stopwatch-toggle {
+            width: 25px;
+            height: 25px;
+            border: 0;
+            border-radius: 50%;
+            background: rgba(255, 255, 255, 0.08);
+            color: var(--text-main);
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+        }
+
+        .stopwatch-toggle svg {
+            width: 13px;
+            height: 13px;
+            fill: currentColor;
+        }
+
+        .finish-btn {
+            background: var(--accent-gradient);
+            color: #000000;
+            border: none;
+            min-height: 32px;
+            padding: 6px 11px;
+            border-radius: 16px;
+            font-weight: 800;
+            font-size: 12px;
+            cursor: pointer;
+            box-shadow: 0 4px 15px rgba(255, 215, 0, 0.3);
+        }
+
+        .view-section {
+            display: flex;
+            flex-direction: column;
+            padding: 16px;
+            padding-bottom: calc(var(--safe-bottom) + 90px);
+            max-width: 500px;
+            width: 100%;
+            margin: 0 auto;
+        }
+
+        .day-info h2 {
+            font-size: 20px;
+            font-weight: 900;
+        }
+
+        .day-info p {
+            font-size: 13px;
+            color: var(--text-muted);
+            margin-top: 4px;
+        }
+
+        .exercise-card {
+            background: var(--card-bg);
+            border: 1px solid var(--card-border);
+            border-radius: 8px;
+            margin-bottom: 16px;
+            overflow: hidden;
+            backdrop-filter: blur(10px);
+        }
+
+        .exercise-title {
+            padding: 16px 16px 12px;
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            gap: 10px;
+            border-left: 3px solid var(--accent-color);
+        }
+
+        .exercise-title-main {
+            min-width: 0;
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+        }
+
+        .exercise-name-btn {
+            border: 0;
+            background: transparent;
+            color: #FFFFFF;
+            text-align: left;
+            font-size: 16px;
+            font-weight: 900;
+            cursor: pointer;
+        }
+
+        .exercise-meta {
+            font-size: 11px;
+            color: var(--text-muted);
+            font-weight: 600;
+        }
+
+        .exercise-actions {
+            display: flex;
+            gap: 6px;
+            flex-shrink: 0;
+        }
+
+        .add-set-btn,
+        .replace-btn {
+            border: 1px solid rgba(255, 215, 0, 0.35);
+            background: rgba(255, 215, 0, 0.1);
+            color: var(--accent-color);
+            border-radius: 8px;
+            padding: 6px 8px;
+            font-size: 11px;
+            font-weight: 800;
+            cursor: pointer;
+            white-space: nowrap;
+        }
+
+        .replace-btn {
+            border-color: rgba(255, 255, 255, 0.14);
+            background: rgba(255, 255, 255, 0.05);
+            color: var(--text-main);
+        }
+
+        .plate-toggle-wrap {
+            padding: 0 16px 12px;
+        }
+
+        .plate-toggle {
+            border: 1px solid rgba(255, 255, 255, 0.12);
+            background: rgba(255, 255, 255, 0.04);
+            color: var(--text-muted);
+            border-radius: 7px;
+            min-height: 30px;
+            padding: 0 10px;
+            font-size: 11px;
+            font-weight: 900;
+            cursor: pointer;
+        }
+
+        .plate-drawer {
+            display: none;
+            margin-top: 8px;
+            padding: 9px 10px;
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            border-radius: 8px;
+            background: rgba(0, 0, 0, 0.18);
+            color: #FFFFFF;
+            font-size: 12px;
+            font-weight: 900;
+        }
+
+        .plate-drawer.open {
+            display: block;
+        }
+
+        .sets-table {
+            width: 100%;
+        }
+
+        .set-row {
+            display: grid;
+            grid-template-columns: 24px 1.3fr 1.3fr 0.9fr 0.9fr 0.8fr 34px;
+            gap: 8px;
+            align-items: center;
+            padding: 14px 16px;
+            border-top: 1px solid rgba(255, 255, 255, 0.08);
+        }
+
+        .set-row.header {
+            font-weight: 700;
+            color: var(--text-main);
+            font-size: 12px;
+            padding-top: 12px;
+            padding-bottom: 12px;
+        }
+
+        .set-no {
+            color: var(--accent-color);
+            font-weight: 900;
+        }
+
+        .set-prev-info,
+        .set-target-info {
+            color: var(--text-muted);
+            font-size: 12px;
+            font-weight: 700;
+        }
+
+        .set-intensity-info {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .input-group {
+            background: rgba(0, 0, 0, 0.35);
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            min-height: 45px;
+            padding: 0 8px;
+            display: grid;
+            grid-template-columns: minmax(0, 1fr) auto;
+            align-items: center;
+            gap: 4px;
+        }
+
+        .input-group input {
+            width: 100%;
+            min-width: 0;
+            background: transparent;
+            border: 0;
+            color: #FFFFFF;
+            outline: 0;
+            font-size: 16px;
+            font-weight: 800;
+        }
+
+        .input-group span {
+            color: var(--text-muted);
+            font-size: 10px;
+            font-weight: 700;
+        }
+
+        .check-btn {
+            width: 34px;
+            height: 34px;
+            border-radius: 50%;
+            border: 0;
+            background: rgba(255, 255, 255, 0.09);
+            color: var(--text-muted);
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .check-btn.active {
+            background: var(--accent-gradient);
+            color: #000000;
+        }
+
+        .bottom-sheet-backdrop {
+            position: fixed;
+            inset: 0;
+            z-index: 200;
+            display: none;
+            background: rgba(0, 0, 0, 0.6);
+        }
+
+        .bottom-sheet-backdrop.open {
+            display: block;
+        }
+
+        .bottom-sheet {
+            position: absolute;
+            left: 50%;
+            bottom: 0;
+            transform: translateX(-50%);
+            width: min(100%, 500px);
+            max-height: 76vh;
+            overflow: auto;
+            background: #171820;
+            border: 1px solid var(--card-border);
+            border-radius: 18px 18px 0 0;
+            padding: 14px 16px calc(20px + var(--safe-bottom));
+            box-shadow: 0 -18px 60px rgba(0, 0, 0, 0.55);
+        }
+
+        .sheet-handle {
+            width: 42px;
+            height: 4px;
+            border-radius: 999px;
+            background: rgba(255, 255, 255, 0.2);
+            margin: 0 auto 14px;
+        }
+
+        .sheet-title {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            gap: 12px;
+            margin-bottom: 12px;
+        }
+
+        .sheet-title h3 {
+            font-size: 19px;
+            font-weight: 900;
+        }
+
+        .sheet-title p {
+            margin-top: 3px;
+            color: var(--text-muted);
+            font-size: 12px;
+            font-weight: 700;
+        }
+
+        .close-sheet {
+            width: 32px;
+            height: 32px;
+            border-radius: 8px;
+            border: 1px solid var(--card-border);
+            background: rgba(255, 255, 255, 0.05);
+            color: #FFFFFF;
+            font-size: 18px;
+            font-weight: 900;
+            cursor: pointer;
+        }
+
+        .history-list,
+        .replace-list {
+            display: grid;
+            gap: 8px;
+        }
+
+        .history-item,
+        .replace-item {
+            border: 1px solid var(--card-border);
+            border-radius: 8px;
+            background: rgba(255, 255, 255, 0.04);
+            padding: 11px 12px;
+        }
+
+        .history-item {
+            display: grid;
+            grid-template-columns: 82px minmax(0, 1fr);
+            gap: 10px;
+            align-items: center;
+        }
+
+        .history-item time {
+            color: var(--text-muted);
+            font-size: 11px;
+            font-weight: 800;
+        }
+
+        .history-item strong,
+        .replace-item strong {
+            display: block;
+            color: #FFFFFF;
+            font-size: 13px;
+            font-weight: 900;
+        }
+
+        .history-item span,
+        .replace-item span {
+            display: block;
+            margin-top: 3px;
+            color: var(--text-muted);
+            font-size: 11px;
+            font-weight: 700;
+        }
+
+        .record-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 8px;
+            margin-top: 12px;
+        }
+
+        .record-box {
+            border: 1px solid rgba(255, 215, 0, 0.18);
+            border-radius: 8px;
+            background: rgba(255, 215, 0, 0.06);
+            padding: 10px 8px;
+        }
+
+        .record-box span {
+            color: var(--text-muted);
+            font-size: 10px;
+            font-weight: 800;
+        }
+
+        .record-box strong {
+            display: block;
+            margin-top: 4px;
+            color: #FFFFFF;
+            font-size: 14px;
+            font-weight: 900;
+        }
+
+        .replace-item {
+            width: 100%;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 10px;
+            text-align: left;
+            color: var(--text-main);
+        }
+
+        .replace-item button {
+            border: 0;
+            border-radius: 8px;
+            background: var(--accent-gradient);
+            color: #000000;
+            min-height: 31px;
+            padding: 0 10px;
+            font-size: 11px;
+            font-weight: 900;
+            cursor: pointer;
+        }
+
+        .toast {
+            position: fixed;
+            left: 50%;
+            bottom: 18px;
+            transform: translateX(-50%);
+            z-index: 250;
+            display: none;
+            width: min(calc(100% - 32px), 468px);
+            border: 1px solid var(--card-border);
+            border-radius: 8px;
+            background: #22232d;
+            color: #FFFFFF;
+            padding: 11px 12px;
+            font-size: 13px;
+            font-weight: 800;
+        }
+
+        .toast.show {
+            display: block;
+        }
+
+        @media (max-width: 430px) {
+            header {
+                padding-left: 10px;
+                padding-right: 10px;
+            }
+
+            .header-left {
+                gap: 5px;
+            }
+
+            .header-btn {
+                padding: 8px 10px;
+                font-size: 12px;
+            }
+
+            .stopwatch {
+                min-width: 104px;
+                padding-left: 10px;
+                padding-right: 10px;
+                font-size: 16px;
+            }
+
+            .view-section {
+                padding-left: 10px;
+                padding-right: 10px;
+            }
+
+            .exercise-title {
+                padding-left: 13px;
+                padding-right: 13px;
+            }
+
+            .set-row {
+                grid-template-columns: 24px 1.05fr 0.72fr 0.72fr 0.78fr 32px;
+                gap: 6px;
+                padding-left: 10px;
+                padding-right: 10px;
+            }
+
+            .set-row .set-intensity-info {
+                display: none;
+            }
+
+            .set-row {
+                grid-template-columns: 24px 1.15fr 0.8fr 0.78fr 0.85fr 32px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <header id="active-workout-header">
+        <div class="header-left">
+            <button class="header-btn" type="button">✖ 중단</button>
+            <button class="header-btn vol-badge" type="button">Vol: <span id="vol-counter">4,050</span> kg</button>
+        </div>
+        <div class="header-right">
+            <div class="stopwatch">
+                <span class="stopwatch-time">34:12</span>
+                <button class="stopwatch-toggle" type="button" aria-label="초시계 일시정지">
+                    <svg viewBox="0 0 24 24" aria-hidden="true">
+                        <rect x="7" y="5" width="3.5" height="14" rx="1"></rect>
+                        <rect x="13.5" y="5" width="3.5" height="14" rx="1"></rect>
+                    </svg>
+                </button>
+            </div>
+            <button class="finish-btn" type="button">완료</button>
+        </div>
+    </header>
+
+    <section class="view-section active" id="active-workout-view">
+        <div class="day-info" style="margin-top: 12px; margin-bottom: 16px;">
+            <h2>Week 3 Day 2 | 하체 A</h2>
+            <p>스쿼트 메인 · 기존 운동 화면 기준 목업</p>
+        </div>
+
+        <div id="workout-container">
+            <article class="exercise-card">
+                <div class="exercise-title">
+                    <div class="exercise-title-main">
+                        <button class="exercise-name-btn" type="button" onclick="openSheet('history-sheet')">백 스쿼트 (바벨)</button>
+                        <span class="exercise-meta" id="primary-meta">3세트 × 6-8회 (RPE 8)</span>
+                    </div>
+                    <div class="exercise-actions">
+                        <button class="replace-btn" type="button" onclick="openSheet('replace-sheet')">↔ 교체</button>
+                        <button class="add-set-btn" type="button" onclick="addSet()">+ 세트</button>
+                    </div>
+                </div>
+
+                <div class="plate-toggle-wrap">
+                    <button class="plate-toggle" type="button" onclick="togglePlates(this)">원판 보기</button>
+                    <div class="plate-drawer" id="plate-drawer">20kg + 20kg + 5kg + 1.25kg</div>
+                </div>
+
+                <div class="sets-table" id="sets-table">
+                    <div class="set-row header">
+                        <div>#</div>
+                        <div>Previous</div>
+                        <div class="set-target-info">강도</div>
+                        <div class="set-target-info">Kg</div>
+                        <div class="set-target-info">Reps</div>
+                        <div class="set-target-info">RPE</div>
+                        <div></div>
+                    </div>
+                    <div class="set-row">
+                        <div class="set-no">1</div>
+                        <div class="set-prev-info">110 × 8</div>
+                        <div class="set-target-info set-intensity-info">75%</div>
+                        <div class="input-group"><input value="112.5"><span>kg</span></div>
+                        <div class="input-group"><input value="6"><span>회</span></div>
+                        <div class="input-group"><input value="8"><span>RPE</span></div>
+                        <button class="check-btn active" type="button" onclick="toggleCheck(this)">✓</button>
+                    </div>
+                    <div class="set-row">
+                        <div class="set-no">2</div>
+                        <div class="set-prev-info">110 × 8</div>
+                        <div class="set-target-info set-intensity-info">75%</div>
+                        <div class="input-group"><input value="112.5"><span>kg</span></div>
+                        <div class="input-group"><input value="6"><span>회</span></div>
+                        <div class="input-group"><input value="8"><span>RPE</span></div>
+                        <button class="check-btn" type="button" onclick="toggleCheck(this)">✓</button>
+                    </div>
+                    <div class="set-row">
+                        <div class="set-no">3</div>
+                        <div class="set-prev-info">110 × 8</div>
+                        <div class="set-target-info set-intensity-info">75%</div>
+                        <div class="input-group"><input value="112.5"><span>kg</span></div>
+                        <div class="input-group"><input value="6"><span>회</span></div>
+                        <div class="input-group"><input value="8"><span>RPE</span></div>
+                        <button class="check-btn" type="button" onclick="toggleCheck(this)">✓</button>
+                    </div>
+                </div>
+            </article>
+
+            <article class="exercise-card">
+                <div class="exercise-title">
+                    <div class="exercise-title-main">
+                        <button class="exercise-name-btn" type="button" onclick="openSheet('history-sheet')">루마니안 데드리프트</button>
+                        <span class="exercise-meta">3세트 × 8-10회 (RPE 8)</span>
+                    </div>
+                    <div class="exercise-actions">
+                        <button class="replace-btn" type="button" onclick="openSheet('replace-sheet')">↔ 교체</button>
+                        <button class="add-set-btn" type="button">+ 세트</button>
+                    </div>
+                </div>
+
+                <div class="plate-toggle-wrap">
+                    <button class="plate-toggle" type="button" onclick="togglePlates(this)">원판 보기</button>
+                    <div class="plate-drawer">20kg + 15kg</div>
+                </div>
+
+                <div class="sets-table">
+                    <div class="set-row header">
+                        <div>#</div>
+                        <div>Previous</div>
+                        <div class="set-target-info">강도</div>
+                        <div class="set-target-info">Kg</div>
+                        <div class="set-target-info">Reps</div>
+                        <div class="set-target-info">RPE</div>
+                        <div></div>
+                    </div>
+                    <div class="set-row">
+                        <div class="set-no">1</div>
+                        <div class="set-prev-info">87.5 × 10</div>
+                        <div class="set-target-info set-intensity-info">-</div>
+                        <div class="input-group"><input value="90"><span>kg</span></div>
+                        <div class="input-group"><input value="8"><span>회</span></div>
+                        <div class="input-group"><input value="8"><span>RPE</span></div>
+                        <button class="check-btn" type="button" onclick="toggleCheck(this)">✓</button>
+                    </div>
+                </div>
+            </article>
+        </div>
+    </section>
+
+    <div class="bottom-sheet-backdrop" id="history-sheet" onclick="closeSheet(event)">
+        <section class="bottom-sheet">
+            <div class="sheet-handle"></div>
+            <div class="sheet-title">
+                <div>
+                    <h3>백 스쿼트 (바벨)</h3>
+                    <p>운동명 탭 시 표시되는 최근 기록</p>
+                </div>
+                <button class="close-sheet" type="button" onclick="closeAllSheets()">×</button>
+            </div>
+
+            <div class="history-list">
+                <div class="history-item">
+                    <time>2026-07-27</time>
+                    <div>
+                        <strong>110kg × 8 / 8 / 8</strong>
+                        <span>RPE 8 · 성공 · 다음 목표 112.5kg × 6</span>
+                    </div>
+                </div>
+                <div class="history-item">
+                    <time>2026-07-20</time>
+                    <div>
+                        <strong>110kg × 7 / 7 / 7</strong>
+                        <span>RPE 8 · 성공 · 다음 목표 110kg × 8</span>
+                    </div>
+                </div>
+                <div class="history-item">
+                    <time>2026-07-13</time>
+                    <div>
+                        <strong>110kg × 6 / 6 / 6</strong>
+                        <span>RPE 8 · 성공 · 다음 목표 110kg × 7</span>
+                    </div>
+                </div>
+            </div>
+
+            <div class="record-grid">
+                <div class="record-box"><span>최고 중량</span><strong>112.5kg</strong></div>
+                <div class="record-box"><span>최고 반복</span><strong>110 × 8</strong></div>
+                <div class="record-box"><span>추정 1RM</span><strong>137kg</strong></div>
+            </div>
+        </section>
+    </div>
+
+    <div class="bottom-sheet-backdrop" id="replace-sheet" onclick="closeSheet(event)">
+        <section class="bottom-sheet">
+            <div class="sheet-handle"></div>
+            <div class="sheet-title">
+                <div>
+                    <h3>운동 교체</h3>
+                    <p>같은 부위 운동 중 오늘만 교체</p>
+                </div>
+                <button class="close-sheet" type="button" onclick="closeAllSheets()">×</button>
+            </div>
+
+            <div class="replace-list">
+                <div class="replace-item">
+                    <div>
+                        <strong>레그 프레스 (머신)</strong>
+                        <span>하체 · 3세트 × 10-12회 · 최근 180kg × 12</span>
+                    </div>
+                    <button type="button" onclick="replaceExercise('legPress')">선택</button>
+                </div>
+                <div class="replace-item">
+                    <div>
+                        <strong>불가리안 스플릿 스쿼트 (BSS)</strong>
+                        <span>하체 · 3세트 × 8-10회 · 최근 24kg × 10</span>
+                    </div>
+                    <button type="button" onclick="replaceExercise('bss')">선택</button>
+                </div>
+                <div class="replace-item">
+                    <div>
+                        <strong>덤벨 런지</strong>
+                        <span>하체 · 3세트 × 10-12회 · 기록 없음</span>
+                    </div>
+                    <button type="button" onclick="replaceExercise('lunge')">선택</button>
+                </div>
+            </div>
+        </section>
+    </div>
+
+    <div class="toast" id="toast"></div>
+
+    <script>
+        const replacementPresets = {
+            legPress: {
+                name: "레그 프레스 (머신)",
+                meta: "3세트 × 10-12회 (RPE 8)",
+                previous: "180 × 12",
+                intensity: "-",
+                kg: "185",
+                reps: "10",
+                rpe: "8",
+                plates: "머신 핀 185kg"
+            },
+            bss: {
+                name: "불가리안 스플릿 스쿼트 (BSS)",
+                meta: "3세트 × 8-10회 (RPE 8)",
+                previous: "24 × 10",
+                intensity: "-",
+                kg: "26",
+                reps: "8",
+                rpe: "8",
+                plates: "덤벨 26kg"
+            },
+            lunge: {
+                name: "덤벨 런지",
+                meta: "3세트 × 10-12회 (RPE 8)",
+                previous: "-",
+                intensity: "-",
+                kg: "20",
+                reps: "10",
+                rpe: "8",
+                plates: "덤벨 20kg"
+            }
+        };
+
+        function showToast(message) {
+            const toast = document.getElementById("toast");
+            toast.innerText = message;
+            toast.classList.add("show");
+            clearTimeout(window.toastTimer);
+            window.toastTimer = setTimeout(() => toast.classList.remove("show"), 1800);
+        }
+
+        function togglePlates(button) {
+            const drawer = button.nextElementSibling;
+            drawer.classList.toggle("open");
+            button.innerText = drawer.classList.contains("open") ? "원판 접기" : "원판 보기";
+        }
+
+        function toggleCheck(button) {
+            button.classList.toggle("active");
+        }
+
+        function addSet() {
+            const table = document.getElementById("sets-table");
+            const rows = Array.from(table.querySelectorAll(".set-row:not(.header)"));
+            const clone = rows[rows.length - 1].cloneNode(true);
+            clone.querySelector(".set-no").innerText = String(rows.length + 1);
+            clone.querySelector(".check-btn").classList.remove("active");
+            table.appendChild(clone);
+        }
+
+        function openSheet(id) {
+            closeAllSheets();
+            document.getElementById(id).classList.add("open");
+        }
+
+        function closeSheet(event) {
+            if (event.target.classList.contains("bottom-sheet-backdrop")) {
+                closeAllSheets();
+            }
+        }
+
+        function closeAllSheets() {
+            document.querySelectorAll(".bottom-sheet-backdrop").forEach(sheet => sheet.classList.remove("open"));
+        }
+
+        function replaceExercise(key) {
+            const preset = replacementPresets[key];
+            if (!preset) return;
+
+            document.querySelector(".exercise-name-btn").innerText = preset.name;
+            document.getElementById("primary-meta").innerText = preset.meta;
+            document.getElementById("plate-drawer").innerText = preset.plates;
+
+            const table = document.getElementById("sets-table");
+            Array.from(table.querySelectorAll(".set-row:not(.header)")).forEach(row => row.remove());
+
+            for (let i = 1; i <= 3; i++) {
+                const row = document.createElement("div");
+                row.className = "set-row";
+                row.innerHTML = `
+                    <div class="set-no">${i}</div>
+                    <div class="set-prev-info">${preset.previous}</div>
+                    <div class="set-target-info set-intensity-info">${preset.intensity}</div>
+                    <div class="input-group"><input value="${preset.kg}"><span>kg</span></div>
+                    <div class="input-group"><input value="${preset.reps}"><span>회</span></div>
+                    <div class="input-group"><input value="${preset.rpe}"><span>RPE</span></div>
+                    <button class="check-btn" type="button" onclick="toggleCheck(this)">✓</button>
+                `;
+                table.appendChild(row);
+            }
+
+            closeAllSheets();
+            showToast("오늘 운동에서만 교체됐습니다.");
+        }
+    </script>
+</body>
+</html>

@@ -5,6 +5,7 @@ target/
 data/app_state.json
 data/auth_state.json
 data/*.tmp
+.tmp-local-data/
 credentials.json
 .env
 *.log

@@ -121,24 +121,31 @@
 
         .stopwatch {
             font-family: monospace;
-            font-size: 16px;
+            min-height: 36px;
+            min-width: 118px;
+            font-size: 17px;
             font-weight: 800;
             color: #FFFFFF;
             background: rgba(0, 0, 0, 0.4);
-            padding: 6px 12px;
+            padding: 7px 14px;
             border-radius: 12px;
             letter-spacing: 1px;
             border: 1px solid var(--border-color);
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
         }
 
         .finish-btn {
             background: var(--accent-gradient);
             color: #000000;
             border: none;
-            padding: 8px 16px;
-            border-radius: 20px;
+            min-height: 32px;
+            padding: 6px 11px;
+            border-radius: 16px;
             font-weight: 800;
-            font-size: 14px;
+            font-size: 12px;
             cursor: pointer;
             transition: all 0.2s ease;
             box-shadow: 0 4px 15px rgba(255, 215, 0, 0.3);
@@ -205,6 +212,7 @@
             display: flex;
             align-items: center;
             justify-content: space-between;
+            gap: 10px;
             margin-top: calc(var(--safe-top) + 12px);
             margin-bottom: 20px;
         }
@@ -222,6 +230,14 @@
             -webkit-background-clip: text;
             background-clip: text;
             background-image: var(--accent-gradient);
+        }
+
+        .brand-container .conn-status {
+            margin-bottom: 0;
+            padding: 6px 9px;
+            font-size: 10px;
+            white-space: nowrap;
+            flex-shrink: 0;
         }
 
         /* Segmented Control Split Selector */
@@ -1265,7 +1281,8 @@
             margin-bottom: 12px;
             display: flex;
             justify-content: space-between;
-            align-items: center;
+            align-items: flex-start;
+            gap: 10px;
             border-left: 3px solid var(--accent-color);
             padding-left: 8px;
         }
@@ -1283,6 +1300,24 @@
             font-weight: 600;
         }
 
+        .exercise-name-btn {
+            border: 0;
+            background: transparent;
+            color: #FFFFFF;
+            text-align: left;
+            font-size: 15px;
+            font-weight: 800;
+            cursor: pointer;
+            padding: 0;
+        }
+
+        .exercise-actions {
+            display: flex;
+            align-items: flex-start;
+            gap: 6px;
+            flex-shrink: 0;
+        }
+
         .add-set-btn {
             border: 1px solid rgba(255, 215, 0, 0.35);
             background: rgba(255, 215, 0, 0.1);
@@ -1295,8 +1330,59 @@
             white-space: nowrap;
         }
 
+        .replace-exercise-btn {
+            border: 1px solid rgba(255, 255, 255, 0.14);
+            background: rgba(255, 255, 255, 0.05);
+            color: var(--text-main);
+            border-radius: 8px;
+            padding: 6px 8px;
+            font-size: 11px;
+            font-weight: 800;
+            cursor: pointer;
+            white-space: nowrap;
+        }
+
         .add-set-btn:active {
             transform: scale(0.96);
+        }
+
+        .replace-exercise-btn:active {
+            transform: scale(0.96);
+        }
+
+        .plate-toggle-wrap {
+            margin: -2px 0 10px 11px;
+        }
+
+        .plate-toggle-btn {
+            border: 1px solid rgba(255, 255, 255, 0.12);
+            background: rgba(255, 255, 255, 0.04);
+            color: var(--text-muted);
+            border-radius: 7px;
+            min-height: 30px;
+            padding: 0 10px;
+            font-size: 11px;
+            font-weight: 900;
+            cursor: pointer;
+        }
+
+        .plate-drawer {
+            display: none;
+            width: fit-content;
+            max-width: calc(100% - 12px);
+            margin-top: 8px;
+            padding: 8px 10px;
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            border-radius: 8px;
+            background: rgba(0, 0, 0, 0.18);
+            color: #FFFFFF;
+            font-size: 12px;
+            font-weight: 900;
+            line-height: 1.35;
+        }
+
+        .plate-drawer.open {
+            display: block;
         }
 
         .set-row {
@@ -1447,6 +1533,152 @@
             border: none;
             color: var(--text-muted);
             font-size: 24px;
+            cursor: pointer;
+        }
+
+        .bottom-sheet-modal {
+            align-items: flex-end;
+            padding: 0 12px;
+        }
+
+        .bottom-sheet-panel {
+            width: 100%;
+            max-width: 500px;
+            max-height: 78vh;
+            overflow-y: auto;
+            border-radius: 18px 18px 0 0;
+            border: 1px solid var(--card-border);
+            background: rgba(24, 24, 30, 0.98);
+            box-shadow: 0 -18px 60px rgba(0, 0, 0, 0.55);
+            padding: 14px 16px calc(var(--safe-bottom) + 20px);
+            transform: translateY(18px);
+            transition: all 0.25s ease;
+        }
+
+        .overlay.active .bottom-sheet-panel {
+            transform: translateY(0);
+        }
+
+        .sheet-handle {
+            width: 42px;
+            height: 4px;
+            border-radius: 999px;
+            background: rgba(255, 255, 255, 0.22);
+            margin: 0 auto 14px;
+        }
+
+        .sheet-title-row {
+            display: flex;
+            align-items: flex-start;
+            justify-content: space-between;
+            gap: 12px;
+            margin-bottom: 12px;
+        }
+
+        .sheet-title-row h3 {
+            color: #FFFFFF;
+            font-size: 18px;
+            font-weight: 900;
+            line-height: 1.25;
+        }
+
+        .sheet-title-row p {
+            margin-top: 4px;
+            color: var(--text-muted);
+            font-size: 12px;
+            font-weight: 700;
+            line-height: 1.4;
+        }
+
+        .sheet-list {
+            display: grid;
+            gap: 8px;
+        }
+
+        .history-item,
+        .replacement-item {
+            border: 1px solid var(--card-border);
+            border-radius: 8px;
+            background: rgba(255, 255, 255, 0.04);
+            padding: 10px 11px;
+        }
+
+        .history-item {
+            display: grid;
+            grid-template-columns: 82px minmax(0, 1fr);
+            gap: 10px;
+            align-items: center;
+        }
+
+        .history-item time {
+            color: var(--text-muted);
+            font-size: 11px;
+            font-weight: 800;
+        }
+
+        .history-item strong,
+        .replacement-item strong {
+            display: block;
+            color: #FFFFFF;
+            font-size: 13px;
+            font-weight: 900;
+            line-height: 1.35;
+        }
+
+        .history-item span,
+        .replacement-item span {
+            display: block;
+            margin-top: 3px;
+            color: var(--text-muted);
+            font-size: 11px;
+            font-weight: 700;
+            line-height: 1.35;
+        }
+
+        .history-record-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 8px;
+            margin-top: 12px;
+        }
+
+        .history-record-box {
+            border: 1px solid rgba(255, 215, 0, 0.18);
+            border-radius: 8px;
+            background: rgba(255, 215, 0, 0.06);
+            padding: 9px 8px;
+        }
+
+        .history-record-box span {
+            color: var(--text-muted);
+            font-size: 10px;
+            font-weight: 800;
+        }
+
+        .history-record-box strong {
+            display: block;
+            margin-top: 4px;
+            color: #FFFFFF;
+            font-size: 14px;
+            font-weight: 900;
+        }
+
+        .replacement-item {
+            display: grid;
+            grid-template-columns: minmax(0, 1fr) auto;
+            gap: 10px;
+            align-items: center;
+        }
+
+        .replacement-item button {
+            border: 0;
+            border-radius: 8px;
+            background: var(--accent-gradient);
+            color: #000000;
+            min-height: 31px;
+            padding: 0 10px;
+            font-size: 11px;
+            font-weight: 900;
             cursor: pointer;
         }
 
@@ -1667,12 +1899,10 @@
     <section class="view-section active" id="home-view">
         <div class="brand-container">
             <h1 class="home-title">LET'S <span>WORKOUT</span></h1>
-        </div>
-        
-        <!-- Google sheets connectivity status -->
-        <div class="conn-status">
-            <div class="status-dot" id="home-status-dot"></div>
-            <span id="home-conn-text">구글 시트 연동 체크 중...</span>
+            <div class="conn-status">
+                <div class="status-dot" id="home-status-dot"></div>
+                <span id="home-conn-text">구글 시트 연동 체크 중...</span>
+            </div>
         </div>
 
         <!-- 2, 3, 4, 5 Split Selector Segment -->
@@ -1738,10 +1968,6 @@
                 <h2 class="settings-title">설정</h2>
             </div>
             <div class="settings-top-actions">
-                <div class="settings-sync-state" id="settings-conn-status">
-                    <div class="status-dot" id="settings-status-dot"></div>
-                    <span id="settings-conn-text">로딩 중...</span>
-                </div>
                 <button class="settings-logout-btn" type="button" onclick="logout()">로그아웃</button>
             </div>
         </div>
@@ -1758,7 +1984,6 @@
                         <h3>SBD 기준중량</h3>
                         <p class="settings-helper">첫 목표 중량을 계산할 때만 쓰고, 이후에는 수행 기록 기반으로 진행합니다.</p>
                     </div>
-                    <span class="settings-mini-note">OHP 제외</span>
                 </div>
 
                 <div class="settings-group">
@@ -1825,7 +2050,7 @@
                 </div>
             </div>
 
-            <div class="settings-section">
+            <div class="settings-section" id="gym-editor-section">
                 <div class="settings-section-heading">
                     <div>
                         <h3>무게 세팅</h3>
@@ -1878,7 +2103,7 @@
                             <div class="start-check-kicker">오늘 운동 세팅</div>
                             <div class="start-check-title" id="gym-preview-name">우리동네 헬스장</div>
                         </div>
-                        <button class="start-check-change-btn" type="button" onclick="switchSettingsPanel('gym')">변경</button>
+                        <button class="start-check-change-btn" type="button" onclick="focusGymSettingsEditor()">변경</button>
                     </div>
 
                     <div class="start-check-body">
@@ -1938,6 +2163,51 @@
         </button>
     </nav>
 
+    <div class="overlay bottom-sheet-modal" id="exercise-history-overlay" onclick="closeBottomSheetOnBackdrop(event)">
+        <div class="bottom-sheet-panel">
+            <div class="sheet-handle"></div>
+            <div class="sheet-title-row">
+                <div>
+                    <h3 id="history-exercise-title">운동 기록</h3>
+                    <p id="history-exercise-subtitle">최근 기록과 다음 목표</p>
+                </div>
+                <button class="close-btn" type="button" onclick="closeExerciseHistory()">×</button>
+            </div>
+
+            <div class="sheet-list" id="history-session-list"></div>
+
+            <div class="history-record-grid">
+                <div class="history-record-box">
+                    <span>최고 중량</span>
+                    <strong id="history-best-weight">-</strong>
+                </div>
+                <div class="history-record-box">
+                    <span>최고 반복</span>
+                    <strong id="history-best-reps">-</strong>
+                </div>
+                <div class="history-record-box">
+                    <span>추정 1RM</span>
+                    <strong id="history-estimated-1rm">-</strong>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="overlay bottom-sheet-modal" id="exercise-replace-overlay" onclick="closeBottomSheetOnBackdrop(event)">
+        <div class="bottom-sheet-panel">
+            <div class="sheet-handle"></div>
+            <div class="sheet-title-row">
+                <div>
+                    <h3 id="replace-exercise-title">운동 교체</h3>
+                    <p id="replace-exercise-subtitle">같은 부위 운동 중 오늘만 교체</p>
+                </div>
+                <button class="close-btn" type="button" onclick="closeExerciseReplacement()">×</button>
+            </div>
+
+            <div class="sheet-list" id="replacement-exercise-list"></div>
+        </div>
+    </div>
+
     <!-- AI 자율조절 모달 -->
     <div class="overlay" id="feedback-overlay">
         <div class="modal" style="max-height: 90vh; overflow-y: auto;">
@@ -1996,9 +2266,11 @@
         let oneRms = { squat: 150.0, bench: 100.0, deadlift: 160.0, ohp: 60.0, activeSplit: 5 };
         let sheetsConnected = false;
         let routineData = {}; // Keyed by split ("2", "3", "4", "5")
+        let exerciseDefinitions = { large_muscles: [], small_muscles: [] };
         let completedLogs = [];
         let currentDayId = "Day 1";
         let activeWorkoutDay = null;
+        let replacementExerciseIdx = null;
         let nextRecommendedDayId = "Day 1";
         let settingsSaveVersion = 0;
         const standardPlates = [20.0, 15.0, 10.0, 5.0, 2.5, 1.25];
@@ -2043,6 +2315,7 @@
             await Promise.all([
                 fetchSettings(),
                 fetchGyms(),
+                fetchExerciseDefinitions(),
                 fetchRoutine(),
                 fetchStatus(),
                 fetchLogs()
@@ -2280,6 +2553,20 @@
             }
         }
 
+        async function fetchExerciseDefinitions() {
+            try {
+                const res = await apiFetch("/api/exercises");
+                const data = await res.json();
+                exerciseDefinitions = {
+                    large_muscles: data.large_muscles || data.large || [],
+                    small_muscles: data.small_muscles || data.small || []
+                };
+            } catch (err) {
+                console.error("운동 사전 로드 실패", err);
+                exerciseDefinitions = { large_muscles: [], small_muscles: [] };
+            }
+        }
+
         function updateSettingsUI() {
             const squatInput = document.getElementById("input-squat");
             const benchInput = document.getElementById("input-bench");
@@ -2293,9 +2580,12 @@
 
             document.getElementById("home-status-dot").className = dotClass;
             document.getElementById("home-conn-text").innerText = statusText;
-            document.getElementById("settings-status-dot").className = dotClass;
-            document.getElementById("settings-conn-text").innerText = statusText;
-            document.getElementById("settings-conn-status").className = `settings-sync-state ${sheetsConnected ? "connected" : "fallback"}`;
+            const settingsStatusDot = document.getElementById("settings-status-dot");
+            const settingsConnText = document.getElementById("settings-conn-text");
+            const settingsConnStatus = document.getElementById("settings-conn-status");
+            if (settingsStatusDot) settingsStatusDot.className = dotClass;
+            if (settingsConnText) settingsConnText.innerText = statusText;
+            if (settingsConnStatus) settingsConnStatus.className = `settings-sync-state ${sheetsConnected ? "connected" : "fallback"}`;
 
             updateSbdPreview();
             renderGymSettingsUI();
@@ -2332,6 +2622,17 @@
             const panel = document.getElementById(`settings-panel-${panelName}`);
             if (tab) tab.classList.add("active");
             if (panel) panel.classList.add("active");
+        }
+
+        function focusGymSettingsEditor() {
+            switchSettingsPanel("gym");
+            const editor = document.getElementById("gym-editor-section");
+            if (editor) {
+                editor.scrollIntoView({ behavior: "smooth", block: "start" });
+            }
+            setTimeout(() => {
+                document.getElementById("gym-name-input")?.focus({ preventScroll: true });
+            }, 250);
         }
 
         function getActiveGym() {
@@ -2434,11 +2735,19 @@
             renderGymSettingsUI();
 
             try {
-                await apiFetch(`/api/workout/gyms/select/${encodeURIComponent(gymId)}`, { method: "POST" });
-                await fetchGyms();
-                await fetchRoutine();
+                const res = await apiFetch(`/api/workout/gyms/select/${encodeURIComponent(gymId)}`, { method: "POST" });
+                const data = await res.json().catch(() => ({}));
+                if (data.activeGymId) activeGymId = data.activeGymId;
+                if (Array.isArray(data.gyms)) gyms = data.gyms;
+                renderGymSettingsUI();
                 updateRecommendationUI();
                 renderSplitSelectorGrid();
+                fetchRoutine()
+                    .then(() => {
+                        updateRecommendationUI();
+                        renderSplitSelectorGrid();
+                    })
+                    .catch(err => console.error("루틴 재계산 실패", err));
             } catch (err) {
                 console.error("헬스장 선택 실패", err);
             }
@@ -2458,7 +2767,8 @@
                 });
                 const gym = await res.json();
                 activeGymId = gym.id;
-                await fetchGyms();
+                gyms.push(gym);
+                renderGymSettingsUI();
                 switchSettingsPanel("gym");
             } catch (err) {
                 console.error("헬스장 추가 실패", err);
@@ -2476,11 +2786,25 @@
                     body: JSON.stringify(body)
                 });
                 if (res.ok) {
-                    await fetchGyms();
-                    await fetchRoutine();
-                    alert("헬스장 설정이 저장되었습니다.");
+                    const saved = await res.json().catch(() => ({}));
+                    if (Array.isArray(saved.gyms)) {
+                        gyms = saved.gyms;
+                        activeGymId = saved.activeGymId || activeGymId;
+                    } else {
+                        const idx = gyms.findIndex(item => item.id === gym.id);
+                        const updatedGym = { ...gym, ...body, ...(saved.id ? saved : {}) };
+                        if (idx >= 0) gyms[idx] = updatedGym;
+                    }
+                    renderGymSettingsUI();
                     updateRecommendationUI();
                     renderSplitSelectorGrid();
+                    alert("헬스장 설정이 저장되었습니다.");
+                    fetchRoutine()
+                        .then(() => {
+                            updateRecommendationUI();
+                            renderSplitSelectorGrid();
+                        })
+                        .catch(err => console.error("루틴 재계산 실패", err));
                 }
             } catch (err) {
                 console.error("헬스장 저장 실패", err);
@@ -2719,47 +3043,148 @@
             container.innerHTML = "";
 
             dayObj.exercises.forEach((ex, exIdx) => {
-                const card = document.createElement("div");
-                card.className = "exercise-card";
+                container.appendChild(createExerciseCard(ex, exIdx));
+            });
+        }
 
-                const isSuper = ex.name.includes("슈퍼세트");
-                let badge = "";
-                if (isSuper) badge = '<span class="super-set-badge">SuperSet</span>';
+        function createExerciseCard(ex, exIdx) {
+            const card = document.createElement("div");
+            card.className = "exercise-card";
+            card.id = `exercise-card-${exIdx}`;
 
-                card.innerHTML = `
-                    <div class="exercise-title">
-                        <div class="exercise-title-main">
-                            <span>${ex.name} ${badge}</span>
-                            <span class="exercise-meta" id="exercise-meta-${exIdx}">${ex.sets}세트 × ${ex.repsRange}회 (RPE ${ex.rpeTarget})</span>
-                        </div>
+            const isSuper = ex.name.includes("슈퍼세트");
+            const badge = isSuper ? '<span class="super-set-badge">SuperSet</span>' : "";
+
+            card.innerHTML = `
+                <div class="exercise-title">
+                    <div class="exercise-title-main">
+                        <button class="exercise-name-btn" type="button" onclick="openExerciseHistory(${exIdx})">${ex.name} ${badge}</button>
+                        <span class="exercise-meta" id="exercise-meta-${exIdx}">${ex.sets}세트 × ${ex.repsRange}회 (RPE ${ex.rpeTarget})</span>
+                    </div>
+                    <div class="exercise-actions">
+                        <button class="replace-exercise-btn" type="button" onclick="openExerciseReplacement(${exIdx})">↔ 교체</button>
                         <button class="add-set-btn" type="button" onclick="addSet(${exIdx})">+ 세트</button>
                     </div>
-                    <div class="sets-table" id="ex-${exIdx}">
-                        <div class="set-row" style="font-weight:700; color:var(--text-main); border-bottom: 1px solid rgba(255, 255, 255, 0.08);">
-                            <div class="set-no">#</div>
-                            <div class="set-prev-info">Previous</div>
-                            <div class="set-target-info">강도</div>
-                            <div class="set-target-info">Kg</div>
-                            <div class="set-target-info">Reps</div>
-                            <div class="set-target-info">RPE</div>
-                            <div style="width: 34px;"></div>
-                        </div>
-                        <!-- Set rows populated below -->
+                </div>
+                <div class="plate-toggle-wrap">
+                    <button class="plate-toggle-btn" type="button" onclick="togglePlateDrawer(${exIdx})">원판 보기</button>
+                    <div class="plate-drawer" id="plate-drawer-${exIdx}">${formatPlateLoadout(ex)}</div>
+                </div>
+                <div class="sets-table" id="ex-${exIdx}">
+                    <div class="set-row" style="font-weight:700; color:var(--text-main); border-bottom: 1px solid rgba(255, 255, 255, 0.08);">
+                        <div class="set-no">#</div>
+                        <div class="set-prev-info">Previous</div>
+                        <div class="set-target-info">강도</div>
+                        <div class="set-target-info">Kg</div>
+                        <div class="set-target-info">Reps</div>
+                        <div class="set-target-info">RPE</div>
+                        <div style="width: 34px;"></div>
                     </div>
-                `;
+                </div>
+            `;
 
-                const table = card.querySelector(".sets-table");
-                for (let s = 1; s <= ex.sets; s++) {
-                    table.appendChild(createSetRow(ex, exIdx, s));
-                }
-
-                container.appendChild(card);
-            });
+            const table = card.querySelector(".sets-table");
+            for (let s = 1; s <= ex.sets; s++) {
+                table.appendChild(createSetRow(ex, exIdx, s));
+            }
+            return card;
         }
 
         function getTargetWeightForExercise(ex) {
             let targetWeight = (ex.targetWeight !== undefined) ? ex.targetWeight : ex.defaultWeight;
             return Math.round(targetWeight / 2.5) * 2.5;
+        }
+
+        function normalizeExerciseText(value) {
+            return String(value || "").toLowerCase();
+        }
+
+        function isDumbbellExerciseName(name) {
+            const lower = normalizeExerciseText(name);
+            return lower.includes("덤벨") || lower.includes("db") || lower.includes("dumbbell");
+        }
+
+        function isBarbellExerciseName(name) {
+            const lower = normalizeExerciseText(name);
+            if (isDumbbellExerciseName(name)) return false;
+            return [
+                "바벨", "barbell", "벤치프레스", "bench", "스쿼트", "squat",
+                "데드리프트", "deadlift", "오버헤드 프레스", "ohp"
+            ].some(token => lower.includes(token));
+        }
+
+        function roundToStep(value, step) {
+            if (!step || step <= 0) return value;
+            return Math.round((parseFloat(value) || 0) / step) * step;
+        }
+
+        function resolveEquipmentWeightFrontend(exerciseName, targetWeight) {
+            const weight = parseFloat(targetWeight) || 0;
+            const gym = getActiveGym();
+            if (weight <= 0) return weight;
+
+            if (isDumbbellExerciseName(exerciseName)) {
+                const interval = parseFloat(gym.dumbbellInterval) || 2.0;
+                return roundToStep(weight, interval);
+            }
+
+            if (!isBarbellExerciseName(exerciseName)) {
+                return weight;
+            }
+
+            const plates = (gym.availablePlates || standardPlates).map(value => parseFloat(value)).filter(value => value > 0);
+            if (!plates.length) return weight;
+
+            const bar = 20.0;
+            const minPlate = Math.min(...plates);
+            return weight <= bar ? bar : bar + roundToStep((weight - bar) / 2.0, minPlate) * 2.0;
+        }
+
+        function buildPlateStackText(sideWeight) {
+            let remaining = Math.max(0, parseFloat(sideWeight) || 0);
+            const gym = getActiveGym();
+            const plates = (gym.availablePlates || standardPlates)
+                .map(value => parseFloat(value))
+                .filter(value => value > 0)
+                .sort((a, b) => b - a);
+            const stack = [];
+
+            plates.forEach(plate => {
+                while (remaining + 0.001 >= plate) {
+                    stack.push(`${formatKg(plate)}kg`);
+                    remaining = Math.round((remaining - plate) * 1000) / 1000;
+                }
+            });
+
+            if (remaining > 0.001) {
+                stack.push(`${formatKg(remaining)}kg`);
+            }
+            return stack.length ? stack.join(" + ") : "바만";
+        }
+
+        function formatPlateLoadout(ex) {
+            const targetWeight = getTargetWeightForExercise(ex);
+            if (targetWeight <= 0) return "-";
+
+            if (isDumbbellExerciseName(ex.name)) {
+                return `덤벨 ${formatKg(targetWeight)}kg`;
+            }
+
+            if (!isBarbellExerciseName(ex.name)) {
+                return `${formatKg(targetWeight)}kg`;
+            }
+
+            const bar = 20.0;
+            if (targetWeight <= bar) return "바만";
+            return buildPlateStackText((targetWeight - bar) / 2.0);
+        }
+
+        function togglePlateDrawer(exIdx) {
+            const drawer = document.getElementById(`plate-drawer-${exIdx}`);
+            const button = drawer?.previousElementSibling;
+            if (!drawer || !button) return;
+            drawer.classList.toggle("open");
+            button.innerText = drawer.classList.contains("open") ? "원판 접기" : "원판 보기";
         }
 
         function createSetRow(ex, exIdx, setNo, copiedValues = {}) {
@@ -2994,6 +3419,332 @@
                 return `${ex.previousLog.weight}kg × ${ex.previousLog.reps}`;
             }
             return "-";
+        }
+
+        function getActiveWorkoutDayObj() {
+            const currentSplitStr = String(oneRms.activeSplit);
+            const activeRoutine = routineData[currentSplitStr];
+            if (!activeRoutine) return null;
+            return activeWorkoutDay || activeRoutine.find(d => d.id === currentDayId) || null;
+        }
+
+        function parseRepsRangeFrontend(repsRange) {
+            const parts = String(repsRange || "").split(/[~-]/).map(part => parseInt(part.trim(), 10)).filter(value => !Number.isNaN(value));
+            if (parts.length >= 2) return [parts[0], parts[1]];
+            if (parts.length === 1) return [parts[0], parts[0]];
+            return [8, 12];
+        }
+
+        function logSucceededFrontend(log, rpeTarget) {
+            return String(log.status || "").toUpperCase() === "SUCCESS"
+                && (parseInt(log.reps) || 0) >= (parseInt(log.targetReps) || 0)
+                && (parseFloat(log.rpe) || 0) <= rpeTarget;
+        }
+
+        function getExerciseIncrementFrontend(name) {
+            if ((exerciseDefinitions.large_muscles || []).includes(name)) return 5.0;
+            if ((exerciseDefinitions.small_muscles || []).includes(name)) return 2.5;
+            const lower = normalizeExerciseText(name);
+            if (["스쿼트", "squat", "데드리프트", "deadlift", "벤치프레스", "bench", "레그 프레스", "leg press"].some(token => lower.includes(token))) {
+                return 5.0;
+            }
+            return 2.5;
+        }
+
+        function getExerciseMuscleGroup(name) {
+            const lower = normalizeExerciseText(name);
+            if (["크런치", "레그 레이즈", "플랭크", "crunch", "raise", "plank", "abs"].some(token => lower.includes(token))) return "복근";
+            if (["벤치프레스", "bench", "체스트", "chest", "플라이", "fly", "크로스오버", "딥스", "dips"].some(token => lower.includes(token))) return "가슴";
+            if (["로우", "row", "랫", "풀다운", "pulldown", "풀업", "pull-up", "pull up", "t-bar", "펜들레이"].some(token => lower.includes(token))) return "등";
+            if (["스쿼트", "squat", "데드리프트", "deadlift", "루마니안", "런지", "leg", "레그", "카프", "calf", "bss", "스플릿"].some(token => lower.includes(token))) return "하체";
+            if (["오버헤드", "ohp", "숄더", "shoulder", "레터럴", "lateral", "페이스 풀", "face pull"].some(token => lower.includes(token))) return "어깨";
+            if (["컬", "curl", "트라이셉스", "triceps", "푸시다운", "pushdown", "익스텐션", "extension", "해머"].some(token => lower.includes(token))) return "팔";
+            return "기타";
+        }
+
+        function getAllKnownExerciseNames() {
+            const names = new Set([
+                ...(exerciseDefinitions.large_muscles || []),
+                ...(exerciseDefinitions.small_muscles || [])
+            ]);
+            Object.values(routineData || {}).forEach(days => {
+                (days || []).forEach(day => {
+                    (day.exercises || []).forEach(ex => {
+                        if (ex.name) names.add(ex.name);
+                    });
+                });
+            });
+            return Array.from(names).filter(Boolean);
+        }
+
+        function findExerciseTemplate(name, fallbackEx = null) {
+            const currentSplitDays = routineData[String(oneRms.activeSplit)] || [];
+            for (const day of currentSplitDays) {
+                const found = (day.exercises || []).find(ex => ex.name === name);
+                if (found) return JSON.parse(JSON.stringify(found));
+            }
+
+            for (const days of Object.values(routineData || {})) {
+                for (const day of days || []) {
+                    const found = (day.exercises || []).find(ex => ex.name === name);
+                    if (found) return JSON.parse(JSON.stringify(found));
+                }
+            }
+
+            const base = JSON.parse(JSON.stringify(fallbackEx || {}));
+            base.name = name;
+            base.coreLift = false;
+            base.coreLiftType = null;
+            base.intensity = 0.0;
+            base.defaultWeight = fallbackEx ? getTargetWeightForExercise(fallbackEx) : 0.0;
+            return base;
+        }
+
+        function latestExerciseSessionLogs(name) {
+            const split = parseInt(oneRms.activeSplit);
+            const logs = (completedLogs || []).filter(log =>
+                parseInt(log.split) === split && log.exercise === name && log.date
+            );
+            if (!logs.length) return [];
+            const latestDate = logs.reduce((latest, log) => log.date > latest ? log.date : latest, logs[0].date);
+            return logs
+                .filter(log => log.date === latestDate)
+                .sort((a, b) => (parseInt(a.setNo) || 0) - (parseInt(b.setNo) || 0));
+        }
+
+        function buildReplacementExercise(name, fallbackEx) {
+            const ex = findExerciseTemplate(name, fallbackEx);
+            ex.name = name;
+            ex.sets = parseInt(ex.sets || fallbackEx?.sets || 3);
+            ex.repsRange = ex.repsRange || fallbackEx?.repsRange || "8-12";
+            ex.rpeTarget = parseFloat(ex.rpeTarget || fallbackEx?.rpeTarget || 8.0);
+
+            const [minReps, maxReps] = parseRepsRangeFrontend(ex.repsRange);
+            const previous = latestExerciseSessionLogs(name);
+
+            if (previous.length) {
+                const prevLast = previous[previous.length - 1];
+                const prevWeight = parseFloat(prevLast.weight) || parseFloat(ex.defaultWeight) || getTargetWeightForExercise(fallbackEx || ex);
+                const prevTargetReps = parseInt(prevLast.targetReps) || minReps;
+                const allSucceeded = previous.every(log => logSucceededFrontend(log, ex.rpeTarget));
+
+                if (allSucceeded && prevTargetReps < maxReps) {
+                    ex.targetWeight = prevWeight;
+                    ex.targetReps = prevTargetReps + 1;
+                } else if (allSucceeded) {
+                    ex.targetWeight = prevWeight + getExerciseIncrementFrontend(name);
+                    ex.targetReps = minReps;
+                } else {
+                    ex.targetWeight = prevWeight;
+                    ex.targetReps = prevTargetReps;
+                }
+
+                const bySet = {};
+                previous.forEach(log => {
+                    bySet[parseInt(log.setNo) || 1] = log;
+                });
+                ex.previousLog = {
+                    date: previous[0].date,
+                    weight: prevLast.weight,
+                    reps: prevLast.reps,
+                    sets: previous.length,
+                    rpe: prevLast.rpe
+                };
+                ex.previousSets = Array.from({ length: ex.sets }, (_, idx) => {
+                    const log = bySet[idx + 1];
+                    return log ? { weight: log.weight, reps: log.reps } : null;
+                });
+            } else {
+                let targetWeight = parseFloat(ex.defaultWeight) || getTargetWeightForExercise(fallbackEx || ex);
+                if (ex.coreLift && ex.coreLiftType) {
+                    targetWeight = (parseFloat(oneRms[ex.coreLiftType]) || 100.0) * (parseFloat(ex.intensity) || 0);
+                }
+                ex.targetWeight = targetWeight;
+                ex.targetReps = minReps;
+                ex.previousLog = null;
+                ex.previousSets = [];
+            }
+
+            ex.targetWeight = resolveEquipmentWeightFrontend(name, ex.targetWeight);
+            return ex;
+        }
+
+        function groupExerciseLogsBySession(name) {
+            const split = parseInt(oneRms.activeSplit);
+            const groups = {};
+            (completedLogs || []).forEach(log => {
+                if (parseInt(log.split) !== split || log.exercise !== name || !log.date) return;
+                const key = `${log.date}|${log.week || ""}|${log.day || ""}`;
+                if (!groups[key]) {
+                    groups[key] = { date: log.date, week: log.week, day: log.day, logs: [] };
+                }
+                groups[key].logs.push(log);
+            });
+
+            return Object.values(groups)
+                .map(group => ({
+                    ...group,
+                    logs: group.logs.sort((a, b) => (parseInt(a.setNo) || 0) - (parseInt(b.setNo) || 0))
+                }))
+                .sort((a, b) => String(b.date).localeCompare(String(a.date)));
+        }
+
+        function summarizeSessionLogs(logs) {
+            if (!logs.length) return "-";
+            const weights = logs.map(log => formatKg(log.weight));
+            const sameWeight = weights.every(weight => weight === weights[0]);
+            if (sameWeight) {
+                return `${weights[0]}kg × ${logs.map(log => log.reps).join(" / ")}`;
+            }
+            return logs.map(log => `${formatKg(log.weight)}kg×${log.reps}`).join(" · ");
+        }
+
+        function summarizeSessionMeta(group) {
+            const logs = group.logs || [];
+            const successCount = logs.filter(log => String(log.status || "").toUpperCase() === "SUCCESS").length;
+            const rpes = logs.map(log => parseFloat(log.rpe)).filter(value => value > 0);
+            const avgRpe = rpes.length ? (rpes.reduce((sum, value) => sum + value, 0) / rpes.length).toFixed(1) : "-";
+            return `성공 ${successCount}/${logs.length} · 평균 RPE ${avgRpe}`;
+        }
+
+        function calculateExerciseRecords(name) {
+            const logs = (completedLogs || []).filter(log => log.exercise === name && (parseFloat(log.weight) || 0) > 0 && (parseInt(log.reps) || 0) > 0);
+            if (!logs.length) {
+                return { bestWeight: "-", bestReps: "-", estimatedOneRm: "-" };
+            }
+
+            const bestWeightLog = logs.reduce((best, log) => (parseFloat(log.weight) || 0) > (parseFloat(best.weight) || 0) ? log : best, logs[0]);
+            const bestRepsLog = logs.reduce((best, log) => (parseInt(log.reps) || 0) > (parseInt(best.reps) || 0) ? log : best, logs[0]);
+            const bestOneRm = logs.reduce((best, log) => {
+                const estimated = (parseFloat(log.weight) || 0) * (1 + (parseInt(log.reps) || 0) / 30);
+                return Math.max(best, estimated);
+            }, 0);
+
+            return {
+                bestWeight: `${formatKg(bestWeightLog.weight)}kg`,
+                bestReps: `${formatKg(bestRepsLog.weight)}×${bestRepsLog.reps}`,
+                estimatedOneRm: `${formatKg(roundToHalf(bestOneRm))}kg`
+            };
+        }
+
+        function openExerciseHistory(exIdx) {
+            const dayObj = getActiveWorkoutDayObj();
+            const ex = dayObj?.exercises?.[exIdx];
+            if (!ex) return;
+
+            const targetWeight = getTargetWeightForExercise(ex);
+            document.getElementById("history-exercise-title").innerText = ex.name;
+            document.getElementById("history-exercise-subtitle").innerText = `다음 목표 ${formatKg(targetWeight)}kg × ${ex.targetReps}회`;
+
+            const list = document.getElementById("history-session-list");
+            list.innerHTML = "";
+            const groups = groupExerciseLogsBySession(ex.name).slice(0, 3);
+            if (!groups.length) {
+                const empty = document.createElement("div");
+                empty.className = "history-item";
+                empty.innerHTML = `<time>-</time><div><strong>최근 기록 없음</strong><span>이번 운동을 저장하면 여기에 표시됩니다.</span></div>`;
+                list.appendChild(empty);
+            } else {
+                groups.forEach(group => {
+                    const item = document.createElement("div");
+                    item.className = "history-item";
+                    item.innerHTML = `
+                        <time>${group.date}</time>
+                        <div>
+                            <strong>${summarizeSessionLogs(group.logs)}</strong>
+                            <span>${summarizeSessionMeta(group)}</span>
+                        </div>
+                    `;
+                    list.appendChild(item);
+                });
+            }
+
+            const records = calculateExerciseRecords(ex.name);
+            document.getElementById("history-best-weight").innerText = records.bestWeight;
+            document.getElementById("history-best-reps").innerText = records.bestReps;
+            document.getElementById("history-estimated-1rm").innerText = records.estimatedOneRm;
+            document.getElementById("exercise-history-overlay").classList.add("active");
+        }
+
+        function closeExerciseHistory() {
+            document.getElementById("exercise-history-overlay").classList.remove("active");
+        }
+
+        function openExerciseReplacement(exIdx) {
+            const dayObj = getActiveWorkoutDayObj();
+            const ex = dayObj?.exercises?.[exIdx];
+            if (!ex) return;
+
+            replacementExerciseIdx = exIdx;
+            const muscle = getExerciseMuscleGroup(ex.name);
+            document.getElementById("replace-exercise-title").innerText = `${ex.name} 교체`;
+            document.getElementById("replace-exercise-subtitle").innerText = `${muscle} 운동 중 오늘만 교체`;
+
+            const list = document.getElementById("replacement-exercise-list");
+            list.innerHTML = "";
+            const candidates = getAllKnownExerciseNames()
+                .filter(name => name !== ex.name && getExerciseMuscleGroup(name) === muscle)
+                .sort((a, b) => a.localeCompare(b, "ko"));
+
+            if (!candidates.length) {
+                const empty = document.createElement("div");
+                empty.className = "replacement-item";
+                empty.innerHTML = `<div><strong>대체 가능 종목 없음</strong><span>운동 사전에 같은 부위 운동이 없습니다.</span></div>`;
+                list.appendChild(empty);
+            } else {
+                candidates.forEach(name => {
+                    const replacement = buildReplacementExercise(name, ex);
+                    const recent = replacement.previousLog
+                        ? `최근 ${formatKg(replacement.previousLog.weight)}kg × ${replacement.previousLog.reps}`
+                        : "최근 기록 없음";
+                    const item = document.createElement("div");
+                    item.className = "replacement-item";
+                    item.innerHTML = `
+                        <div>
+                            <strong>${name}</strong>
+                            <span>${replacement.sets}세트 × ${replacement.repsRange}회 · 목표 ${formatKg(getTargetWeightForExercise(replacement))}kg × ${replacement.targetReps} · ${recent}</span>
+                        </div>
+                    `;
+                    const button = document.createElement("button");
+                    button.type = "button";
+                    button.innerText = "선택";
+                    button.addEventListener("click", () => replaceExerciseWithName(name));
+                    item.appendChild(button);
+                    list.appendChild(item);
+                });
+            }
+
+            document.getElementById("exercise-replace-overlay").classList.add("active");
+        }
+
+        function replaceExerciseWithName(name) {
+            const dayObj = getActiveWorkoutDayObj();
+            const exIdx = replacementExerciseIdx;
+            const currentEx = dayObj?.exercises?.[exIdx];
+            if (!dayObj || !currentEx || exIdx == null) return;
+
+            const replacement = buildReplacementExercise(name, currentEx);
+            dayObj.exercises[exIdx] = replacement;
+
+            const currentCard = document.getElementById(`exercise-card-${exIdx}`);
+            if (currentCard) {
+                currentCard.replaceWith(createExerciseCard(replacement, exIdx));
+            } else {
+                renderExercises(dayObj);
+            }
+            closeExerciseReplacement();
+            calculateVolume();
+        }
+
+        function closeExerciseReplacement() {
+            document.getElementById("exercise-replace-overlay").classList.remove("active");
+            replacementExerciseIdx = null;
+        }
+
+        function closeBottomSheetOnBackdrop(event) {
+            if (!event.target.classList.contains("overlay")) return;
+            closeExerciseHistory();
+            closeExerciseReplacement();
         }
 
         function abortWorkout() {
