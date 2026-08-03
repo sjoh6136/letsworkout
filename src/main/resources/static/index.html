@@ -162,6 +162,21 @@
             box-shadow: none;
         }
 
+        #active-workout-header {
+            position: fixed;
+            left: 0;
+            right: 0;
+            top: 0;
+            width: 100%;
+            max-width: 500px;
+            margin: 0 auto;
+            z-index: 1000;
+            transform: translateZ(0);
+            backface-visibility: hidden;
+            -webkit-backface-visibility: hidden;
+            will-change: transform;
+        }
+
         /* Bottom Sticky Tabbar */
         .bottom-nav {
             position: fixed;
@@ -1354,7 +1369,7 @@
 
         /* Tracker View */
         #active-workout-view {
-            padding-top: 0;
+            padding-top: calc(var(--safe-top) + 86px);
         }
 
         .exercise-card {
@@ -2465,6 +2480,8 @@
         }
 
         const RETRYABLE_STATUS_CODES = new Set([404, 408, 425, 429, 500, 502, 503, 504]);
+        const DEFAULT_REQUEST_TIMEOUT_MS = 25000;
+        const FINISH_REQUEST_TIMEOUT_MS = 20000;
 
         function delay(ms) {
             return new Promise(resolve => setTimeout(resolve, ms));
@@ -2595,11 +2612,34 @@
             showAuthOverlay(false);
         }
 
+        async function fetchWithTimeout(url, options = {}) {
+            const { timeoutMs = DEFAULT_REQUEST_TIMEOUT_MS, signal, ...fetchOptions } = options;
+            if (!timeoutMs || timeoutMs <= 0) {
+                return fetch(url, { ...fetchOptions, signal });
+            }
+
+            const controller = new AbortController();
+            const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
+            if (signal) {
+                if (signal.aborted) {
+                    controller.abort();
+                } else {
+                    signal.addEventListener("abort", () => controller.abort(), { once: true });
+                }
+            }
+
+            try {
+                return await fetch(url, { ...fetchOptions, signal: controller.signal });
+            } finally {
+                clearTimeout(timeoutId);
+            }
+        }
+
         async function apiFetch(url, options = {}, retries = 3) {
             let lastError = null;
             for (let attempt = 0; attempt <= retries; attempt++) {
                 try {
-                    const res = await fetch(url, { cache: "no-store", credentials: "same-origin", ...options });
+                    const res = await fetchWithTimeout(url, { cache: "no-store", credentials: "same-origin", ...options });
                     if (res.status === 401 && !url.startsWith("/api/auth/")) {
                         const stillAuthenticated = await handleUnauthorized();
                         if (stillAuthenticated && attempt < retries) {
@@ -2672,8 +2712,9 @@
                     const res = await apiFetch("/api/workout/finish", {
                         method: "POST",
                         headers: { "Content-Type": "application/json" },
-                        body: JSON.stringify(payload)
-                    }, 1);
+                        body: JSON.stringify(payload),
+                        timeoutMs: FINISH_REQUEST_TIMEOUT_MS
+                    }, 0);
                     if (res.ok) {
                         savedAny = true;
                     } else {
@@ -3465,11 +3506,11 @@
                     <div style="font-weight:700; color:var(--text-muted); font-size:12.5px;">${formatIntensityCell(ex)}</div>
                 </div>
                 <div class="input-group">
-                    <input type="number" class="weight-input" value="${targetWeight}" step="2.5" min="0" inputmode="decimal" onchange="calculateVolume()">
+                    <input type="number" class="weight-input" value="${targetWeight}" step="2.5" min="0" inputmode="decimal" onchange="handleSetValueChange(${exIdx}, ${setNo}, 'weight', this)">
                     <span>kg</span>
                 </div>
                 <div class="input-group">
-                    <input type="number" class="reps-input" value="${targetReps}" min="0" inputmode="numeric" onchange="calculateVolume()">
+                    <input type="number" class="reps-input" value="${targetReps}" min="0" inputmode="numeric" onchange="handleSetValueChange(${exIdx}, ${setNo}, 'reps', this)">
                     <span>회</span>
                 </div>
                 <div class="input-group">
@@ -3483,6 +3524,25 @@
                 </button>
             `;
             return row;
+        }
+
+        function handleSetValueChange(exIdx, setNo, field, input) {
+            const selector = field === "weight" ? ".weight-input" : ".reps-input";
+            const value = input.value;
+            const currentSplitStr = String(oneRms.activeSplit);
+            const activeRoutine = routineData[currentSplitStr];
+            const dayObj = activeWorkoutDay || activeRoutine?.find(d => d.id === currentDayId);
+            const ex = dayObj?.exercises?.[exIdx];
+            const setCount = parseInt(ex?.sets) || 0;
+
+            for (let nextSetNo = setNo + 1; nextSetNo <= setCount; nextSetNo++) {
+                const nextInput = document.querySelector(`#row-${exIdx}-${nextSetNo} ${selector}`);
+                if (nextInput) {
+                    nextInput.value = value;
+                }
+            }
+
+            calculateVolume();
         }
 
         function addSet(exIdx) {
@@ -4355,8 +4415,9 @@
                 const res = await apiFetch("/api/workout/finish", {
                     method: "POST",
                     headers: { "Content-Type": "application/json" },
-                    body: JSON.stringify(payload)
-                });
+                    body: JSON.stringify(payload),
+                    timeoutMs: FINISH_REQUEST_TIMEOUT_MS
+                }, 0);
 
                 if (res.ok) {
                     const data = await res.json();

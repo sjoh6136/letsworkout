@@ -1118,18 +1118,20 @@ def load_state():
     return state
 
 
-def save_state(state) -> None:
+def save_state(state, sync_one_rms=True, sync_gyms=True) -> None:
     state["activeGymId"], state["gyms"] = normalize_gym_state(state.get("activeGymId"), state.get("gyms"))
     store = sheets_store()
     if store.connected:
-        try:
-            store.save_one_rms(state.get("oneRms", {}))
-        except Exception as exc:
-            print(f"[warn] failed to save 1RM to Google Sheets: {exc}")
-        try:
-            store.save_gyms(state.get("activeGymId"), state.get("gyms", []))
-        except Exception as exc:
-            print(f"[warn] failed to save gym settings to Google Sheets: {exc}")
+        if sync_one_rms:
+            try:
+                store.save_one_rms(state.get("oneRms", {}))
+            except Exception as exc:
+                print(f"[warn] failed to save 1RM to Google Sheets: {exc}")
+        if sync_gyms:
+            try:
+                store.save_gyms(state.get("activeGymId"), state.get("gyms", []))
+            except Exception as exc:
+                print(f"[warn] failed to save gym settings to Google Sheets: {exc}")
     save_json(STATE_FILE, state)
 
 
@@ -1768,7 +1770,7 @@ def workout_finish():
         if missing_replacements:
             append_workout_replacements_to_sheet(missing_replacements)
             state["replacements"] = merge_replacements(state.get("replacements", []), missing_replacements)
-            save_state(state)
+            save_state(state, sync_one_rms=False, sync_gyms=False)
         return jsonify(duplicate_finish_response(logs))
 
     store = sheets_store()
@@ -1784,14 +1786,16 @@ def workout_finish():
             }), 503
         replacements_saved_to_sheet = append_workout_replacements_to_sheet(replacements)
 
+    one_rms_before = copy.deepcopy(state.get("oneRms", {}))
     feedback = evaluate_and_update(state, logs, split, week, day_id)
+    one_rms_changed = state.get("oneRms", {}) != one_rms_before
     state["logs"].extend(logs)
     state["replacements"] = merge_replacements(state.get("replacements", []), replacements)
     if submission_id:
         submission = make_submission_record(submission_id, date, split, week, day_id, len(logs))
         remember_submission(state, submission)
         append_workout_submission_to_sheet(submission)
-    save_state(state)
+    save_state(state, sync_one_rms=one_rms_changed, sync_gyms=False)
     feedback["sheetsConnected"] = logs_saved_to_sheet if store.connected else sheets_connected()
     feedback["replacementHistorySaved"] = replacements_saved_to_sheet if replacements else True
     feedback["submissionId"] = submission_id
