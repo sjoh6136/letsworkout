@@ -9,77 +9,77 @@
           "sets": 3,
           "targetReps": 6,
           "repsRange": "6-8",
-          "rpeTarget": 8.0,
+          "rpeTarget": 8,
           "coreLift": false,
           "coreLiftType": null,
-          "intensity": 0.0,
-          "defaultWeight": 24.0
+          "intensity": 0,
+          "defaultWeight": 24
         },
         {
           "name": "바벨 로우 (Bent-over Row)",
           "sets": 3,
           "targetReps": 6,
           "repsRange": "6-8",
-          "rpeTarget": 8.0,
+          "rpeTarget": 8,
           "coreLift": false,
           "coreLiftType": null,
-          "intensity": 0.0,
-          "defaultWeight": 50.0
+          "intensity": 0,
+          "defaultWeight": 40
         },
         {
           "name": "오버헤드 프레스 (OHP - 바벨)",
           "sets": 3,
           "targetReps": 8,
           "repsRange": "8-10",
-          "rpeTarget": 8.0,
+          "rpeTarget": 8,
           "coreLift": false,
           "coreLiftType": null,
-          "intensity": 0.0,
-          "defaultWeight": 40.0
+          "intensity": 0,
+          "defaultWeight": 30
         },
         {
           "name": "랫 풀 다운",
           "sets": 3,
           "targetReps": 10,
           "repsRange": "10-12",
-          "rpeTarget": 8.0,
+          "rpeTarget": 8,
           "coreLift": false,
           "coreLiftType": null,
-          "intensity": 0.0,
-          "defaultWeight": 45.0
+          "intensity": 0,
+          "defaultWeight": 45
         },
         {
           "name": "페이스 풀 (케이블)",
           "sets": 3,
           "targetReps": 12,
           "repsRange": "12-15",
-          "rpeTarget": 8.0,
+          "rpeTarget": 8,
           "coreLift": false,
           "coreLiftType": null,
-          "intensity": 0.0,
-          "defaultWeight": 15.0
+          "intensity": 0,
+          "defaultWeight": 35
         },
         {
           "name": "케이블 트라이셉스 푸시다운",
           "sets": 3,
           "targetReps": 10,
           "repsRange": "10-12",
-          "rpeTarget": 8.0,
+          "rpeTarget": 8,
           "coreLift": false,
           "coreLiftType": null,
-          "intensity": 0.0,
-          "defaultWeight": 20.0
+          "intensity": 0,
+          "defaultWeight": 35
         },
         {
           "name": "이두 바벨 컬",
           "sets": 3,
           "targetReps": 10,
           "repsRange": "10-12",
-          "rpeTarget": 8.0,
+          "rpeTarget": 8,
           "coreLift": false,
           "coreLiftType": null,
-          "intensity": 0.0,
-          "defaultWeight": 30.0
+          "intensity": 0,
+          "defaultWeight": 30
         }
       ]
     },
@@ -92,55 +92,55 @@
           "sets": 3,
           "targetReps": 6,
           "repsRange": "6-8",
-          "rpeTarget": 8.0,
+          "rpeTarget": 8,
           "coreLift": true,
           "coreLiftType": "squat",
           "intensity": 0.75,
-          "defaultWeight": 0.0
+          "defaultWeight": 0
         },
         {
           "name": "루마니안 데드리프트",
           "sets": 3,
           "targetReps": 8,
           "repsRange": "8-10",
-          "rpeTarget": 8.0,
+          "rpeTarget": 8,
           "coreLift": false,
           "coreLiftType": null,
-          "intensity": 0.0,
-          "defaultWeight": 60.0
+          "intensity": 0,
+          "defaultWeight": 100
         },
         {
           "name": "레그 프레스 (머신)",
           "sets": 3,
           "targetReps": 10,
           "repsRange": "10-12",
-          "rpeTarget": 8.0,
+          "rpeTarget": 8,
           "coreLift": false,
           "coreLiftType": null,
-          "intensity": 0.0,
-          "defaultWeight": 120.0
+          "intensity": 0,
+          "defaultWeight": 120
         },
         {
           "name": "레그 컬",
           "sets": 3,
           "targetReps": 10,
           "repsRange": "10-12",
-          "rpeTarget": 8.0,
+          "rpeTarget": 8,
           "coreLift": false,
           "coreLiftType": null,
-          "intensity": 0.0,
-          "defaultWeight": 35.0
+          "intensity": 0,
+          "defaultWeight": 20
         },
         {
           "name": "카프 레이즈",
           "sets": 3,
           "targetReps": 12,
           "repsRange": "12-15",
-          "rpeTarget": 8.0,
+          "rpeTarget": 8,
           "coreLift": false,
           "coreLiftType": null,
-          "intensity": 0.0,
-          "defaultWeight": 40.0
+          "intensity": 0,
+          "defaultWeight": 80
         }
       ]
     },
@@ -153,77 +153,77 @@
           "sets": 3,
           "targetReps": 6,
           "repsRange": "6-8",
-          "rpeTarget": 8.0,
+          "rpeTarget": 8,
           "coreLift": true,
           "coreLiftType": "bench",
           "intensity": 0.75,
-          "defaultWeight": 0.0
+          "defaultWeight": 0
         },
         {
           "name": "머신 풀업",
           "sets": 3,
           "targetReps": 6,
           "repsRange": "6-10",
-          "rpeTarget": 8.0,
+          "rpeTarget": 8,
           "coreLift": false,
           "coreLiftType": null,
-          "intensity": 0.0,
-          "defaultWeight": 45.0
+          "intensity": 0,
+          "defaultWeight": 35
         },
         {
           "name": "사이드 레터럴 레이즈 (덤벨)",
           "sets": 3,
           "targetReps": 12,
           "repsRange": "12-15",
-          "rpeTarget": 8.0,
+          "rpeTarget": 8,
           "coreLift": false,
           "coreLiftType": null,
-          "intensity": 0.0,
-          "defaultWeight": 15.0
+          "intensity": 0,
+          "defaultWeight": 8
         },
         {
           "name": "시티드 케이블 로우",
           "sets": 3,
           "targetReps": 8,
           "repsRange": "8-12",
-          "rpeTarget": 8.0,
+          "rpeTarget": 8,
           "coreLift": false,
           "coreLiftType": null,
-          "intensity": 0.0,
-          "defaultWeight": 40.0
+          "intensity": 0,
+          "defaultWeight": 40
         },
         {
           "name": "케이블 크로스오버",
           "sets": 3,
           "targetReps": 10,
           "repsRange": "10-12",
-          "rpeTarget": 8.0,
+          "rpeTarget": 8,
           "coreLift": false,
           "coreLiftType": null,
-          "intensity": 0.0,
-          "defaultWeight": 15.0
+          "intensity": 0,
+          "defaultWeight": 15
         },
         {
           "name": "해머 컬",
           "sets": 3,
           "targetReps": 10,
           "repsRange": "10-12",
-          "rpeTarget": 8.0,
+          "rpeTarget": 8,
           "coreLift": false,
           "coreLiftType": null,
-          "intensity": 0.0,
-          "defaultWeight": 12.0
+          "intensity": 0,
+          "defaultWeight": 12
         },
         {
           "name": "라잉 트라이셉스 익스텐션",
           "sets": 3,
           "targetReps": 10,
           "repsRange": "10-12",
-          "rpeTarget": 8.0,
+          "rpeTarget": 8,
           "coreLift": false,
           "coreLiftType": null,
-          "intensity": 0.0,
-          "defaultWeight": 20.0
+          "intensity": 0,
+          "defaultWeight": 20
         }
       ]
     },
@@ -236,55 +236,55 @@
           "sets": 3,
           "targetReps": 5,
           "repsRange": "5-8",
-          "rpeTarget": 8.0,
+          "rpeTarget": 8,
           "coreLift": true,
           "coreLiftType": "deadlift",
           "intensity": 0.75,
-          "defaultWeight": 0.0
+          "defaultWeight": 0
         },
         {
           "name": "불가리안 스플릿 스쿼트 (BSS)",
           "sets": 3,
           "targetReps": 8,
           "repsRange": "8-10",
-          "rpeTarget": 8.0,
+          "rpeTarget": 8,
           "coreLift": false,
           "coreLiftType": null,
-          "intensity": 0.0,
-          "defaultWeight": 16.0
+          "intensity": 0,
+          "defaultWeight": 16
         },
         {
           "name": "레그 컬",
           "sets": 3,
           "targetReps": 10,
           "repsRange": "10-12",
-          "rpeTarget": 8.0,
+          "rpeTarget": 8,
           "coreLift": false,
           "coreLiftType": null,
-          "intensity": 0.0,
-          "defaultWeight": 35.0
+          "intensity": 0,
+          "defaultWeight": 20
         },
         {
           "name": "레그 익스텐션",
           "sets": 3,
           "targetReps": 12,
           "repsRange": "12-15",
-          "rpeTarget": 8.0,
+          "rpeTarget": 8,
           "coreLift": false,
           "coreLiftType": null,
-          "intensity": 0.0,
-          "defaultWeight": 40.0
+          "intensity": 0,
+          "defaultWeight": 40
         },
         {
           "name": "카프 레이즈",
           "sets": 3,
           "targetReps": 12,
           "repsRange": "12-15",
-          "rpeTarget": 8.0,
+          "rpeTarget": 8,
           "coreLift": false,
           "coreLiftType": null,
-          "intensity": 0.0,
-          "defaultWeight": 40.0
+          "intensity": 0,
+          "defaultWeight": 80
         }
       ]
     }
@@ -299,66 +299,66 @@
           "sets": 3,
           "targetReps": 6,
           "repsRange": "6-8",
-          "rpeTarget": 8.0,
+          "rpeTarget": 8,
           "coreLift": true,
           "coreLiftType": "bench",
           "intensity": 0.75,
-          "defaultWeight": 0.0
+          "defaultWeight": 0
         },
         {
           "name": "인클라인 덤벨 프레스",
           "sets": 3,
           "targetReps": 8,
           "repsRange": "8-10",
-          "rpeTarget": 8.0,
+          "rpeTarget": 8,
           "coreLift": false,
           "coreLiftType": null,
-          "intensity": 0.0,
-          "defaultWeight": 24.0
+          "intensity": 0,
+          "defaultWeight": 24
         },
         {
           "name": "덤벨 숄더 프레스",
           "sets": 3,
           "targetReps": 8,
           "repsRange": "8-10",
-          "rpeTarget": 8.0,
+          "rpeTarget": 8,
           "coreLift": false,
           "coreLiftType": null,
-          "intensity": 0.0,
-          "defaultWeight": 18.0
+          "intensity": 0,
+          "defaultWeight": 18
         },
         {
           "name": "사이드 레터럴 레이즈 (덤벨)",
           "sets": 3,
           "targetReps": 12,
           "repsRange": "12-15",
-          "rpeTarget": 8.0,
+          "rpeTarget": 8,
           "coreLift": false,
           "coreLiftType": null,
-          "intensity": 0.0,
-          "defaultWeight": 8.0
+          "intensity": 0,
+          "defaultWeight": 8
         },
         {
           "name": "케이블 트라이셉스 푸시다운",
           "sets": 3,
           "targetReps": 10,
           "repsRange": "10-12",
-          "rpeTarget": 8.0,
+          "rpeTarget": 8,
           "coreLift": false,
           "coreLiftType": null,
-          "intensity": 0.0,
-          "defaultWeight": 20.0
+          "intensity": 0,
+          "defaultWeight": 35
         },
         {
           "name": "라잉 트라이셉스 익스텐션",
           "sets": 3,
           "targetReps": 10,
           "repsRange": "10-12",
-          "rpeTarget": 8.0,
+          "rpeTarget": 8,
           "coreLift": false,
           "coreLiftType": null,
-          "intensity": 0.0,
-          "defaultWeight": 20.0
+          "intensity": 0,
+          "defaultWeight": 20
         }
       ]
     },
@@ -371,66 +371,66 @@
           "sets": 3,
           "targetReps": 5,
           "repsRange": "5-6",
-          "rpeTarget": 8.0,
+          "rpeTarget": 8,
           "coreLift": true,
           "coreLiftType": "deadlift",
           "intensity": 0.75,
-          "defaultWeight": 0.0
+          "defaultWeight": 0
         },
         {
           "name": "바벨 로우 (Bent-over Row)",
           "sets": 3,
           "targetReps": 6,
           "repsRange": "6-8",
-          "rpeTarget": 8.0,
+          "rpeTarget": 8,
           "coreLift": false,
           "coreLiftType": null,
-          "intensity": 0.0,
-          "defaultWeight": 50.0
+          "intensity": 0,
+          "defaultWeight": 40
         },
         {
           "name": "랫 풀 다운",
           "sets": 3,
           "targetReps": 8,
           "repsRange": "8-10",
-          "rpeTarget": 8.0,
+          "rpeTarget": 8,
           "coreLift": false,
           "coreLiftType": null,
-          "intensity": 0.0,
-          "defaultWeight": 45.0
+          "intensity": 0,
+          "defaultWeight": 45
         },
         {
           "name": "시티드 케이블 로우",
           "sets": 3,
           "targetReps": 10,
           "repsRange": "10-12",
-          "rpeTarget": 8.0,
+          "rpeTarget": 8,
           "coreLift": false,
           "coreLiftType": null,
-          "intensity": 0.0,
-          "defaultWeight": 40.0
+          "intensity": 0,
+          "defaultWeight": 40
         },
         {
           "name": "페이스 풀 (케이블)",
           "sets": 3,
           "targetReps": 12,
           "repsRange": "12-15",
-          "rpeTarget": 8.0,
+          "rpeTarget": 8,
           "coreLift": false,
           "coreLiftType": null,
-          "intensity": 0.0,
-          "defaultWeight": 15.0
+          "intensity": 0,
+          "defaultWeight": 35
         },
         {
           "name": "인클라인 덤벨 컬",
           "sets": 3,
           "targetReps": 10,
           "repsRange": "10-12",
-          "rpeTarget": 8.0,
+          "rpeTarget": 8,
           "coreLift": false,
           "coreLiftType": null,
-          "intensity": 0.0,
-          "defaultWeight": 12.0
+          "intensity": 0,
+          "defaultWeight": 12
         }
       ]
     },
@@ -443,66 +443,66 @@
           "sets": 3,
           "targetReps": 6,
           "repsRange": "6-8",
-          "rpeTarget": 8.0,
+          "rpeTarget": 8,
           "coreLift": true,
           "coreLiftType": "squat",
           "intensity": 0.75,
-          "defaultWeight": 0.0
+          "defaultWeight": 0
         },
         {
           "name": "루마니안 데드리프트",
           "sets": 3,
           "targetReps": 8,
           "repsRange": "8-10",
-          "rpeTarget": 8.0,
+          "rpeTarget": 8,
           "coreLift": false,
           "coreLiftType": null,
-          "intensity": 0.0,
-          "defaultWeight": 60.0
+          "intensity": 0,
+          "defaultWeight": 100
         },
         {
           "name": "레그 프레스 (머신)",
           "sets": 3,
           "targetReps": 10,
           "repsRange": "10-12",
-          "rpeTarget": 8.0,
+          "rpeTarget": 8,
           "coreLift": false,
           "coreLiftType": null,
-          "intensity": 0.0,
-          "defaultWeight": 120.0
+          "intensity": 0,
+          "defaultWeight": 120
         },
         {
           "name": "레그 익스텐션",
           "sets": 3,
           "targetReps": 12,
           "repsRange": "12-15",
-          "rpeTarget": 8.0,
+          "rpeTarget": 8,
           "coreLift": false,
           "coreLiftType": null,
-          "intensity": 0.0,
-          "defaultWeight": 40.0
+          "intensity": 0,
+          "defaultWeight": 40
         },
         {
           "name": "레그 컬",
           "sets": 3,
           "targetReps": 12,
           "repsRange": "12-15",
-          "rpeTarget": 8.0,
+          "rpeTarget": 8,
           "coreLift": false,
           "coreLiftType": null,
-          "intensity": 0.0,
-          "defaultWeight": 35.0
+          "intensity": 0,
+          "defaultWeight": 20
         },
         {
           "name": "카프 레이즈",
           "sets": 3,
           "targetReps": 12,
           "repsRange": "12-15",
-          "rpeTarget": 8.0,
+          "rpeTarget": 8,
           "coreLift": false,
           "coreLiftType": null,
-          "intensity": 0.0,
-          "defaultWeight": 40.0
+          "intensity": 0,
+          "defaultWeight": 80
         }
       ]
     }
@@ -517,66 +517,66 @@
           "sets": 3,
           "targetReps": 6,
           "repsRange": "6-8",
-          "rpeTarget": 8.0,
+          "rpeTarget": 8,
           "coreLift": true,
           "coreLiftType": "bench",
           "intensity": 0.75,
-          "defaultWeight": 0.0
+          "defaultWeight": 0
         },
         {
           "name": "인클라인 덤벨 프레스",
           "sets": 3,
           "targetReps": 8,
           "repsRange": "8-10",
-          "rpeTarget": 8.0,
+          "rpeTarget": 8,
           "coreLift": false,
           "coreLiftType": null,
-          "intensity": 0.0,
-          "defaultWeight": 24.0
+          "intensity": 0,
+          "defaultWeight": 24
         },
         {
           "name": "체스트 프레스 (머신)",
           "sets": 3,
           "targetReps": 10,
           "repsRange": "10-12",
-          "rpeTarget": 8.0,
+          "rpeTarget": 8,
           "coreLift": false,
           "coreLiftType": null,
-          "intensity": 0.0,
-          "defaultWeight": 60.0
+          "intensity": 0,
+          "defaultWeight": 60
         },
         {
           "name": "케이블 크로스오버",
           "sets": 3,
           "targetReps": 12,
           "repsRange": "12-15",
-          "rpeTarget": 8.0,
+          "rpeTarget": 8,
           "coreLift": false,
           "coreLiftType": null,
-          "intensity": 0.0,
-          "defaultWeight": 15.0
+          "intensity": 0,
+          "defaultWeight": 15
         },
         {
           "name": "머신 딥스",
           "sets": 3,
           "targetReps": 8,
           "repsRange": "8-10",
-          "rpeTarget": 8.0,
+          "rpeTarget": 8,
           "coreLift": false,
           "coreLiftType": null,
-          "intensity": 0.0,
-          "defaultWeight": 0.0
+          "intensity": 0,
+          "defaultWeight": 35
         },
         {
           "name": "케이블 트라이셉스 푸시다운",
           "sets": 3,
           "targetReps": 10,
           "repsRange": "10-12",
-          "rpeTarget": 8.0,
+          "rpeTarget": 8,
           "coreLift": false,
           "coreLiftType": null,
-          "intensity": 0.0,
-          "defaultWeight": 20.0
+          "intensity": 0,
+          "defaultWeight": 35
         }
       ]
     },
@@ -589,66 +589,66 @@
           "sets": 3,
           "targetReps": 5,
           "repsRange": "5-6",
-          "rpeTarget": 8.0,
+          "rpeTarget": 8,
           "coreLift": true,
           "coreLiftType": "deadlift",
           "intensity": 0.75,
-          "defaultWeight": 0.0
+          "defaultWeight": 0
         },
         {
           "name": "바벨 로우 (Bent-over Row)",
           "sets": 3,
           "targetReps": 6,
           "repsRange": "6-8",
-          "rpeTarget": 8.0,
+          "rpeTarget": 8,
           "coreLift": false,
           "coreLiftType": null,
-          "intensity": 0.0,
-          "defaultWeight": 50.0
+          "intensity": 0,
+          "defaultWeight": 40
         },
         {
           "name": "랫 풀 다운",
           "sets": 3,
           "targetReps": 8,
           "repsRange": "8-10",
-          "rpeTarget": 8.0,
+          "rpeTarget": 8,
           "coreLift": false,
           "coreLiftType": null,
-          "intensity": 0.0,
-          "defaultWeight": 45.0
+          "intensity": 0,
+          "defaultWeight": 45
         },
         {
           "name": "시티드 케이블 로우",
           "sets": 3,
           "targetReps": 10,
           "repsRange": "10-12",
-          "rpeTarget": 8.0,
+          "rpeTarget": 8,
           "coreLift": false,
           "coreLiftType": null,
-          "intensity": 0.0,
-          "defaultWeight": 40.0
+          "intensity": 0,
+          "defaultWeight": 40
         },
         {
           "name": "페이스 풀 (케이블)",
           "sets": 3,
           "targetReps": 12,
           "repsRange": "12-15",
-          "rpeTarget": 8.0,
+          "rpeTarget": 8,
           "coreLift": false,
           "coreLiftType": null,
-          "intensity": 0.0,
-          "defaultWeight": 15.0
+          "intensity": 0,
+          "defaultWeight": 35
         },
         {
           "name": "바벨 컬",
           "sets": 3,
           "targetReps": 10,
           "repsRange": "10-12",
-          "rpeTarget": 8.0,
+          "rpeTarget": 8,
           "coreLift": false,
           "coreLiftType": null,
-          "intensity": 0.0,
-          "defaultWeight": 30.0
+          "intensity": 0,
+          "defaultWeight": 30
         }
       ]
     },
@@ -661,66 +661,66 @@
           "sets": 3,
           "targetReps": 6,
           "repsRange": "6-8",
-          "rpeTarget": 8.0,
+          "rpeTarget": 8,
           "coreLift": true,
           "coreLiftType": "squat",
           "intensity": 0.75,
-          "defaultWeight": 0.0
+          "defaultWeight": 0
         },
         {
           "name": "루마니안 데드리프트",
           "sets": 3,
           "targetReps": 8,
           "repsRange": "8-10",
-          "rpeTarget": 8.0,
+          "rpeTarget": 8,
           "coreLift": false,
           "coreLiftType": null,
-          "intensity": 0.0,
-          "defaultWeight": 60.0
+          "intensity": 0,
+          "defaultWeight": 100
         },
         {
           "name": "레그 프레스 (머신)",
           "sets": 3,
           "targetReps": 10,
           "repsRange": "10-12",
-          "rpeTarget": 8.0,
+          "rpeTarget": 8,
           "coreLift": false,
           "coreLiftType": null,
-          "intensity": 0.0,
-          "defaultWeight": 120.0
+          "intensity": 0,
+          "defaultWeight": 120
         },
         {
           "name": "레그 익스텐션",
           "sets": 3,
           "targetReps": 12,
           "repsRange": "12-15",
-          "rpeTarget": 8.0,
+          "rpeTarget": 8,
           "coreLift": false,
           "coreLiftType": null,
-          "intensity": 0.0,
-          "defaultWeight": 40.0
+          "intensity": 0,
+          "defaultWeight": 40
         },
         {
           "name": "레그 컬",
           "sets": 3,
           "targetReps": 12,
           "repsRange": "12-15",
-          "rpeTarget": 8.0,
+          "rpeTarget": 8,
           "coreLift": false,
           "coreLiftType": null,
-          "intensity": 0.0,
-          "defaultWeight": 35.0
+          "intensity": 0,
+          "defaultWeight": 20
         },
         {
           "name": "카프 레이즈",
           "sets": 3,
           "targetReps": 12,
           "repsRange": "12-15",
-          "rpeTarget": 8.0,
+          "rpeTarget": 8,
           "coreLift": false,
           "coreLiftType": null,
-          "intensity": 0.0,
-          "defaultWeight": 40.0
+          "intensity": 0,
+          "defaultWeight": 80
         }
       ]
     },
@@ -733,77 +733,77 @@
           "sets": 3,
           "targetReps": 6,
           "repsRange": "6-8",
-          "rpeTarget": 8.0,
+          "rpeTarget": 8,
           "coreLift": false,
           "coreLiftType": null,
-          "intensity": 0.0,
-          "defaultWeight": 40.0
+          "intensity": 0,
+          "defaultWeight": 30
         },
         {
           "name": "덤벨 숄더 프레스",
           "sets": 3,
           "targetReps": 8,
           "repsRange": "8-10",
-          "rpeTarget": 8.0,
+          "rpeTarget": 8,
           "coreLift": false,
           "coreLiftType": null,
-          "intensity": 0.0,
-          "defaultWeight": 18.0
+          "intensity": 0,
+          "defaultWeight": 18
         },
         {
           "name": "사이드 레터럴 레이즈 (덤벨)",
           "sets": 3,
           "targetReps": 12,
           "repsRange": "12-15",
-          "rpeTarget": 8.0,
+          "rpeTarget": 8,
           "coreLift": false,
           "coreLiftType": null,
-          "intensity": 0.0,
-          "defaultWeight": 8.0
+          "intensity": 0,
+          "defaultWeight": 8
         },
         {
           "name": "페이스 풀 (케이블)",
           "sets": 3,
           "targetReps": 12,
           "repsRange": "12-15",
-          "rpeTarget": 8.0,
+          "rpeTarget": 8,
           "coreLift": false,
           "coreLiftType": null,
-          "intensity": 0.0,
-          "defaultWeight": 15.0
+          "intensity": 0,
+          "defaultWeight": 35
         },
         {
           "name": "인클라인 덤벨 컬",
           "sets": 3,
           "targetReps": 10,
           "repsRange": "10-12",
-          "rpeTarget": 8.0,
+          "rpeTarget": 8,
           "coreLift": false,
           "coreLiftType": null,
-          "intensity": 0.0,
-          "defaultWeight": 12.0
+          "intensity": 0,
+          "defaultWeight": 12
         },
         {
           "name": "라잉 트라이셉스 익스텐션",
           "sets": 3,
           "targetReps": 10,
           "repsRange": "10-12",
-          "rpeTarget": 8.0,
+          "rpeTarget": 8,
           "coreLift": false,
           "coreLiftType": null,
-          "intensity": 0.0,
-          "defaultWeight": 20.0
+          "intensity": 0,
+          "defaultWeight": 20
         },
         {
           "name": "해머 컬",
           "sets": 3,
           "targetReps": 10,
           "repsRange": "10-12",
-          "rpeTarget": 8.0,
+          "rpeTarget": 8,
           "coreLift": false,
           "coreLiftType": null,
-          "intensity": 0.0,
-          "defaultWeight": 12.0
+          "intensity": 0,
+          "defaultWeight": 12
         }
       ]
     }
@@ -818,55 +818,55 @@
           "sets": 3,
           "targetReps": 6,
           "repsRange": "6-8",
-          "rpeTarget": 8.0,
+          "rpeTarget": 8,
           "coreLift": true,
           "coreLiftType": "bench",
           "intensity": 0.75,
-          "defaultWeight": 0.0
+          "defaultWeight": 0
         },
         {
           "name": "인클라인 덤벨 프레스",
           "sets": 3,
           "targetReps": 8,
           "repsRange": "8-10",
-          "rpeTarget": 8.0,
+          "rpeTarget": 8,
           "coreLift": false,
           "coreLiftType": null,
-          "intensity": 0.0,
-          "defaultWeight": 24.0
+          "intensity": 0,
+          "defaultWeight": 24
         },
         {
           "name": "체스트 프레스 (머신)",
           "sets": 3,
           "targetReps": 10,
           "repsRange": "10-12",
-          "rpeTarget": 8.0,
+          "rpeTarget": 8,
           "coreLift": false,
           "coreLiftType": null,
-          "intensity": 0.0,
-          "defaultWeight": 60.0
+          "intensity": 0,
+          "defaultWeight": 60
         },
         {
           "name": "케이블 크로스오버",
           "sets": 3,
           "targetReps": 12,
           "repsRange": "12-15",
-          "rpeTarget": 8.0,
+          "rpeTarget": 8,
           "coreLift": false,
           "coreLiftType": null,
-          "intensity": 0.0,
-          "defaultWeight": 15.0
+          "intensity": 0,
+          "defaultWeight": 15
         },
         {
           "name": "머신 딥스",
           "sets": 3,
           "targetReps": 8,
           "repsRange": "8-10",
-          "rpeTarget": 8.0,
+          "rpeTarget": 8,
           "coreLift": false,
           "coreLiftType": null,
-          "intensity": 0.0,
-          "defaultWeight": 0.0
+          "intensity": 0,
+          "defaultWeight": 35
         }
       ]
     },
@@ -879,55 +879,55 @@
           "sets": 3,
           "targetReps": 5,
           "repsRange": "5-6",
-          "rpeTarget": 8.0,
+          "rpeTarget": 8,
           "coreLift": true,
           "coreLiftType": "deadlift",
           "intensity": 0.75,
-          "defaultWeight": 0.0
+          "defaultWeight": 0
         },
         {
           "name": "바벨 로우 (Bent-over Row)",
           "sets": 3,
           "targetReps": 6,
           "repsRange": "6-8",
-          "rpeTarget": 8.0,
+          "rpeTarget": 8,
           "coreLift": false,
           "coreLiftType": null,
-          "intensity": 0.0,
-          "defaultWeight": 50.0
+          "intensity": 0,
+          "defaultWeight": 40
         },
         {
           "name": "랫 풀 다운 (와이드 그립)",
           "sets": 3,
           "targetReps": 8,
           "repsRange": "8-10",
-          "rpeTarget": 8.0,
+          "rpeTarget": 8,
           "coreLift": false,
           "coreLiftType": null,
-          "intensity": 0.0,
-          "defaultWeight": 45.0
+          "intensity": 0,
+          "defaultWeight": 45
         },
         {
           "name": "시티드 케이블 로우",
           "sets": 3,
           "targetReps": 10,
           "repsRange": "10-12",
-          "rpeTarget": 8.0,
+          "rpeTarget": 8,
           "coreLift": false,
           "coreLiftType": null,
-          "intensity": 0.0,
-          "defaultWeight": 40.0
+          "intensity": 0,
+          "defaultWeight": 40
         },
         {
           "name": "암 풀 다운 (케이블)",
           "sets": 3,
           "targetReps": 12,
           "repsRange": "12-15",
-          "rpeTarget": 8.0,
+          "rpeTarget": 8,
           "coreLift": false,
           "coreLiftType": null,
-          "intensity": 0.0,
-          "defaultWeight": 15.0
+          "intensity": 0,
+          "defaultWeight": 40
         }
       ]
     },
@@ -940,44 +940,44 @@
           "sets": 3,
           "targetReps": 6,
           "repsRange": "6-8",
-          "rpeTarget": 8.0,
+          "rpeTarget": 8,
           "coreLift": false,
           "coreLiftType": null,
-          "intensity": 0.0,
-          "defaultWeight": 40.0
+          "intensity": 0,
+          "defaultWeight": 30
         },
         {
           "name": "덤벨 숄더 프레스",
           "sets": 3,
           "targetReps": 8,
           "repsRange": "8-10",
-          "rpeTarget": 8.0,
+          "rpeTarget": 8,
           "coreLift": false,
           "coreLiftType": null,
-          "intensity": 0.0,
-          "defaultWeight": 18.0
+          "intensity": 0,
+          "defaultWeight": 18
         },
         {
           "name": "사이드 레터럴 레이즈 (덤벨)",
           "sets": 3,
           "targetReps": 12,
           "repsRange": "12-15",
-          "rpeTarget": 8.0,
+          "rpeTarget": 8,
           "coreLift": false,
           "coreLiftType": null,
-          "intensity": 0.0,
-          "defaultWeight": 8.0
+          "intensity": 0,
+          "defaultWeight": 8
         },
         {
           "name": "페이스 풀 (케이블)",
           "sets": 3,
           "targetReps": 12,
           "repsRange": "12-15",
-          "rpeTarget": 8.0,
+          "rpeTarget": 8,
           "coreLift": false,
           "coreLiftType": null,
-          "intensity": 0.0,
-          "defaultWeight": 15.0
+          "intensity": 0,
+          "defaultWeight": 35
         }
       ]
     },
@@ -990,66 +990,66 @@
           "sets": 3,
           "targetReps": 6,
           "repsRange": "6-8",
-          "rpeTarget": 8.0,
+          "rpeTarget": 8,
           "coreLift": true,
           "coreLiftType": "squat",
           "intensity": 0.75,
-          "defaultWeight": 0.0
+          "defaultWeight": 0
         },
         {
           "name": "루마니안 데드리프트",
           "sets": 3,
           "targetReps": 8,
           "repsRange": "8-10",
-          "rpeTarget": 8.0,
+          "rpeTarget": 8,
           "coreLift": false,
           "coreLiftType": null,
-          "intensity": 0.0,
-          "defaultWeight": 60.0
+          "intensity": 0,
+          "defaultWeight": 100
         },
         {
           "name": "레그 프레스 (머신)",
           "sets": 3,
           "targetReps": 10,
           "repsRange": "10-12",
-          "rpeTarget": 8.0,
+          "rpeTarget": 8,
           "coreLift": false,
           "coreLiftType": null,
-          "intensity": 0.0,
-          "defaultWeight": 120.0
+          "intensity": 0,
+          "defaultWeight": 120
         },
         {
           "name": "레그 익스텐션",
           "sets": 3,
           "targetReps": 12,
           "repsRange": "12-15",
-          "rpeTarget": 8.0,
+          "rpeTarget": 8,
           "coreLift": false,
           "coreLiftType": null,
-          "intensity": 0.0,
-          "defaultWeight": 40.0
+          "intensity": 0,
+          "defaultWeight": 40
         },
         {
           "name": "레그 컬",
           "sets": 3,
           "targetReps": 12,
           "repsRange": "12-15",
-          "rpeTarget": 8.0,
+          "rpeTarget": 8,
           "coreLift": false,
           "coreLiftType": null,
-          "intensity": 0.0,
-          "defaultWeight": 35.0
+          "intensity": 0,
+          "defaultWeight": 20
         },
         {
           "name": "카프 레이즈",
           "sets": 3,
           "targetReps": 12,
           "repsRange": "12-15",
-          "rpeTarget": 8.0,
+          "rpeTarget": 8,
           "coreLift": false,
           "coreLiftType": null,
-          "intensity": 0.0,
-          "defaultWeight": 40.0
+          "intensity": 0,
+          "defaultWeight": 80
         }
       ]
     },
@@ -1062,55 +1062,55 @@
           "sets": 3,
           "targetReps": 8,
           "repsRange": "8-10",
-          "rpeTarget": 8.0,
+          "rpeTarget": 8,
           "coreLift": false,
           "coreLiftType": null,
-          "intensity": 0.0,
-          "defaultWeight": 30.0
+          "intensity": 0,
+          "defaultWeight": 30
         },
         {
           "name": "라잉 트라이셉스 익스텐션",
           "sets": 3,
           "targetReps": 8,
           "repsRange": "8-10",
-          "rpeTarget": 8.0,
+          "rpeTarget": 8,
           "coreLift": false,
           "coreLiftType": null,
-          "intensity": 0.0,
-          "defaultWeight": 20.0
+          "intensity": 0,
+          "defaultWeight": 20
         },
         {
           "name": "인클라인 덤벨 컬",
           "sets": 3,
           "targetReps": 10,
           "repsRange": "10-12",
-          "rpeTarget": 8.0,
+          "rpeTarget": 8,
           "coreLift": false,
           "coreLiftType": null,
-          "intensity": 0.0,
-          "defaultWeight": 12.0
+          "intensity": 0,
+          "defaultWeight": 12
         },
         {
           "name": "케이블 트라이셉스 푸시다운",
           "sets": 3,
           "targetReps": 10,
           "repsRange": "10-12",
-          "rpeTarget": 8.0,
+          "rpeTarget": 8,
           "coreLift": false,
           "coreLiftType": null,
-          "intensity": 0.0,
-          "defaultWeight": 20.0
+          "intensity": 0,
+          "defaultWeight": 35
         },
         {
           "name": "해머 컬",
           "sets": 3,
           "targetReps": 10,
           "repsRange": "10-12",
-          "rpeTarget": 8.0,
+          "rpeTarget": 8,
           "coreLift": false,
           "coreLiftType": null,
-          "intensity": 0.0,
-          "defaultWeight": 12.0
+          "intensity": 0,
+          "defaultWeight": 12
         }
       ]
     }
