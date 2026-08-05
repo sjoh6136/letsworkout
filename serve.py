@@ -30,12 +30,17 @@ SPREADSHEET_ID = os.environ.get("GOOGLE_SHEETS_SPREADSHEET_ID", "1EZYNSFxd7iuEbK
 GOOGLE_CREDENTIALS_JSON = os.environ.get("GOOGLE_APPLICATION_CREDENTIALS_JSON") or os.environ.get("GOOGLE_CREDENTIALS_JSON")
 GOOGLE_CREDENTIALS_PATH = os.environ.get("GOOGLE_APPLICATION_CREDENTIALS") or os.environ.get("GOOGLE_SHEETS_CREDENTIALS_PATH")
 SHEETS_ENABLED = os.environ.get("GOOGLE_SHEETS_ENABLED", "true").lower() not in {"0", "false", "no"}
+REQUIRE_SHEETS_FOR_FINISH = os.environ.get("REQUIRE_SHEETS_FOR_FINISH", "false").lower() in {"1", "true", "yes"}
 AUTH_COOKIE_NAME = "lw_session"
 AUTH_SESSION_DAYS = max(1, int(os.environ.get("AUTH_SESSION_DAYS", "180")))
 AUTH_PASSWORD_ITERATIONS = 200_000
 AUTH_CACHE_SECONDS = max(60, int(os.environ.get("AUTH_CACHE_SECONDS", str(12 * 60 * 60))))
+STATE_CACHE_SECONDS = max(0, int(os.environ.get("STATE_CACHE_SECONDS", "20")))
 _SHEETS_STORE = None
 _AUTH_SESSION_CACHE = {}
+_STATE_CACHE = {"expires_at": 0.0, "state": None}
+_ROUTINES_CACHE = None
+_EXERCISE_DEFINITIONS_CACHE = None
 
 DEFAULT_ONE_RMS = {
     "squat": 150.0,
@@ -245,8 +250,25 @@ def gym_signature(gym):
         round(normalized["barbellWeight"], 3),
         tuple(normalized["availablePlates"]),
         round(normalized["dumbbellInterval"], 3),
-        json.dumps(normalized.get("machineProgressionMap") or {}, ensure_ascii=False, sort_keys=True),
     )
+
+
+def merge_machine_progression_maps(*maps):
+    merged = {}
+    for machine_map in maps:
+        if not isinstance(machine_map, dict):
+            continue
+        for exercise, values in machine_map.items():
+            name = str(exercise or "").strip()
+            if not name:
+                continue
+            current = list(merged.get(name, []))
+            incoming = values if isinstance(values, list) else [values]
+            for value in incoming:
+                if value not in current:
+                    current.append(value)
+            merged[name] = current
+    return merged
 
 
 def normalize_gym_state(active_gym_id, gyms):
@@ -258,8 +280,16 @@ def normalize_gym_state(active_gym_id, gyms):
         clean_gym = normalize_gym(gym)
         key = gym_signature(clean_gym)
         if key in seen:
+            existing = normalized[seen[key]]
+            merged_map = merge_machine_progression_maps(
+                existing.get("machineProgressionMap"),
+                clean_gym.get("machineProgressionMap"),
+            )
             if clean_gym.get("id") == active_id:
+                clean_gym["machineProgressionMap"] = merged_map
                 normalized[seen[key]] = clean_gym
+            else:
+                existing["machineProgressionMap"] = merged_map
             continue
         seen[key] = len(normalized)
         normalized.append(clean_gym)
@@ -354,6 +384,7 @@ class GoogleSheetsStore:
         self.connected = False
         self.error = None
         self.spreadsheet = None
+        self._worksheets = {}
         if SHEETS_ENABLED:
             self.connect()
 
@@ -388,10 +419,25 @@ class GoogleSheetsStore:
     def worksheet(self, title, rows=100, cols=20):
         import gspread
 
+        if title in self._worksheets:
+            return self._worksheets[title]
+
         try:
-            return self.spreadsheet.worksheet(title)
+            worksheet = self.spreadsheet.worksheet(title)
         except gspread.exceptions.WorksheetNotFound:
-            return self.spreadsheet.add_worksheet(title=title, rows=rows, cols=cols)
+            worksheet = self.spreadsheet.add_worksheet(title=title, rows=rows, cols=cols)
+        self._worksheets[title] = worksheet
+        return worksheet
+
+    @staticmethod
+    def header_matches(row, header):
+        row = (row or []) + [""] * len(header)
+        return [str(value).strip() for value in row[:len(header)]] == [str(value).strip() for value in header]
+
+    def ensure_header(self, worksheet, range_name, header):
+        values = worksheet.get(range_name)
+        if not values or not self.header_matches(values[0], header):
+            worksheet.update(values=[header], range_name=range_name)
 
     def ensure_tabs(self):
         settings = self.worksheet(self.SETTINGS_TAB, rows=2, cols=10)
@@ -415,7 +461,8 @@ class GoogleSheetsStore:
                 range_name="A1:E2",
             )
         else:
-            settings.update(values=[self.SETTINGS_HEADER], range_name="A1:E1")
+            if not self.header_matches(values[0] if values else [], self.SETTINGS_HEADER):
+                settings.update(values=[self.SETTINGS_HEADER], range_name="A1:E1")
             if len(values) < 2 or len(values[1]) < 5:
                 row = (values[1] if len(values) > 1 else []) + [""] * 5
                 settings.update(values=[[
@@ -426,12 +473,12 @@ class GoogleSheetsStore:
                     row[4] or DEFAULT_ONE_RMS["activeSplit"],
                 ]], range_name="A2:E2")
 
-        logs.update(values=[self.LOG_HEADER + ["", ""]], range_name="A1:N1")
-        gym_settings.update(values=[self.GYM_SETTINGS_HEADER], range_name="A1:G1")
-        replacements.update(values=[self.REPLACEMENTS_HEADER], range_name="A1:N1")
-        submissions.update(values=[self.SUBMISSIONS_HEADER], range_name="A1:G1")
-        user_accounts.update(values=[self.USER_ACCOUNTS_HEADER], range_name="A1:I1")
-        user_sessions.update(values=[self.USER_SESSIONS_HEADER], range_name="A1:G1")
+        self.ensure_header(logs, "A1:N1", self.LOG_HEADER + ["SubmissionId", ""])
+        self.ensure_header(gym_settings, "A1:G1", self.GYM_SETTINGS_HEADER)
+        self.ensure_header(replacements, "A1:N1", self.REPLACEMENTS_HEADER)
+        self.ensure_header(submissions, "A1:G1", self.SUBMISSIONS_HEADER)
+        self.ensure_header(user_accounts, "A1:I1", self.USER_ACCOUNTS_HEADER)
+        self.ensure_header(user_sessions, "A1:G1", self.USER_SESSIONS_HEADER)
 
     def load_one_rms(self):
         settings = self.worksheet(self.SETTINGS_TAB, rows=2, cols=10)
@@ -623,7 +670,7 @@ class GoogleSheetsStore:
         start = next((idx for idx, value in enumerate(row) if re.fullmatch(r"\d{4}-\d{2}-\d{2}", value)), None)
         if start is None:
             return None
-        row = row + [""] * (start + 12 - len(row))
+        row = row + [""] * (start + 13 - len(row))
         if len(row) - start < 12 or not row[start]:
             return None
         return {
@@ -639,6 +686,7 @@ class GoogleSheetsStore:
             "status": row[start + 9] or "FAIL",
             "targetWeight": sheet_float(row[start + 10], sheet_float(row[start + 6])),
             "targetReps": sheet_int(row[start + 11], sheet_int(row[start + 7])),
+            "submissionId": row[start + 12],
         }
 
     def append_logs(self, logs):
@@ -660,9 +708,15 @@ class GoogleSheetsStore:
                 log.get("status", ""),
                 log.get("targetWeight", ""),
                 log.get("targetReps", ""),
+                log.get("submissionId", ""),
             ])
-        worksheet.append_rows(rows, value_input_option="RAW", table_range="A1:L1")
+        worksheet.append_rows(rows, value_input_option="RAW", table_range="A1:M1")
         return True
+
+    def load_log_submission_ids(self):
+        worksheet = self.worksheet(self.LOGS_TAB, rows=1000, cols=14)
+        rows = worksheet.get("M2:M")
+        return {str(row[0]).strip() for row in rows if row and str(row[0]).strip()}
 
     def load_replacements(self):
         worksheet = self.worksheet(self.REPLACEMENTS_TAB, rows=500, cols=14)
@@ -750,6 +804,27 @@ def sheets_connected():
 
 def sheets_connected_cached():
     return bool(_SHEETS_STORE and _SHEETS_STORE.connected)
+
+
+def cached_state():
+    if STATE_CACHE_SECONDS <= 0:
+        return None
+    state = _STATE_CACHE.get("state")
+    if state is None or _STATE_CACHE.get("expires_at", 0) <= time.time():
+        return None
+    return copy.deepcopy(state)
+
+
+def set_state_cache(state):
+    if STATE_CACHE_SECONDS <= 0:
+        return
+    _STATE_CACHE["state"] = copy.deepcopy(state)
+    _STATE_CACHE["expires_at"] = time.time() + STATE_CACHE_SECONDS
+
+
+def invalidate_state_cache():
+    _STATE_CACHE["state"] = None
+    _STATE_CACHE["expires_at"] = 0.0
 
 
 def load_auth_state():
@@ -1012,6 +1087,9 @@ def state_has_submission(state, submission_id):
             return True
         if str(item or "").strip() == submission_id:
             return True
+    for log in state.get("logs", []):
+        if str(log.get("submissionId") or "").strip() == submission_id:
+            return True
     return False
 
 
@@ -1022,9 +1100,14 @@ def sheet_has_submission(submission_id):
     if not store.connected:
         return False
     try:
-        return submission_id in store.load_submission_ids()
+        if submission_id in store.load_submission_ids():
+            return True
     except Exception as exc:
         print(f"[warn] failed to load workout submission markers: {exc}")
+    try:
+        return submission_id in store.load_log_submission_ids()
+    except Exception as exc:
+        print(f"[warn] failed to load workout log submission markers: {exc}")
         return False
 
 
@@ -1093,7 +1176,12 @@ def load_file_state():
     return state
 
 
-def load_state():
+def load_state(force_refresh=False):
+    if not force_refresh:
+        state = cached_state()
+        if state is not None:
+            return state
+
     state = load_file_state()
     store = sheets_store()
     if store.connected:
@@ -1115,6 +1203,7 @@ def load_state():
                 store.save_gyms(state.get("activeGymId"), state.get("gyms", []))
         except Exception as exc:
             print(f"[warn] failed to load gym settings from Google Sheets, using local file state: {exc}")
+    set_state_cache(state)
     return state
 
 
@@ -1133,6 +1222,7 @@ def save_state(state, sync_one_rms=True, sync_gyms=True) -> None:
             except Exception as exc:
                 print(f"[warn] failed to save gym settings to Google Sheets: {exc}")
     save_json(STATE_FILE, state)
+    set_state_cache(state)
 
 
 def load_gym_state():
@@ -1158,18 +1248,28 @@ def save_gym_state(state) -> None:
         except Exception as exc:
             print(f"[warn] failed to save gym settings to Google Sheets: {exc}")
     save_json(STATE_FILE, state)
+    invalidate_state_cache()
 
 
 def load_routines():
+    global _ROUTINES_CACHE
+    if _ROUTINES_CACHE is not None:
+        return copy.deepcopy(_ROUTINES_CACHE)
+
     routines = load_json(ROUTINES_FILE, {})
     if not isinstance(routines, dict):
-        return {}
-    return routines
+        routines = {}
+    _ROUTINES_CACHE = routines
+    return copy.deepcopy(_ROUTINES_CACHE)
 
 
 def load_exercise_definitions():
+    global _EXERCISE_DEFINITIONS_CACHE
+    if _EXERCISE_DEFINITIONS_CACHE is not None:
+        return _EXERCISE_DEFINITIONS_CACHE
+
     definitions = load_json(EXERCISE_DEFINITIONS_FILE, {})
-    return {
+    _EXERCISE_DEFINITIONS_CACHE = {
         "large": set(definitions.get("large_muscles") or []),
         "small": set(definitions.get("small_muscles") or []),
         "muscleGroups": {
@@ -1178,6 +1278,7 @@ def load_exercise_definitions():
             if str(name).strip() and str(muscle).strip()
         },
     }
+    return _EXERCISE_DEFINITIONS_CACHE
 
 
 def as_float(value, default=0.0):
@@ -1282,11 +1383,22 @@ def latest_exercise_logs(logs, split, exercise_name):
     return [log for log in matching if log.get("date") == latest_date]
 
 
-def set_succeeded(log, rpe_target):
+def log_checked(log):
+    if "checked" in log:
+        return sheet_bool(log.get("checked"))
+    return str(log.get("status", "")).upper() == "SUCCESS"
+
+
+def set_succeeded(log, rpe_target=None):
+    target_rpe = as_float(rpe_target if rpe_target is not None else log.get("targetRpe"), 8.0)
     return (
-        str(log.get("status", "")).upper() == "SUCCESS"
+        log_checked(log)
+        and as_float(log.get("weight")) > 0
+        and as_float(log.get("weight")) + 0.001 >= as_float(log.get("targetWeight"))
+        and as_int(log.get("reps")) > 0
         and as_int(log.get("reps")) >= as_int(log.get("targetReps"))
-        and as_float(log.get("rpe")) <= rpe_target
+        and as_float(log.get("rpe")) > 0
+        and as_float(log.get("rpe")) <= target_rpe
     )
 
 
@@ -1321,6 +1433,7 @@ def apply_progression(routines, state):
                     previous_sorted = sorted(previous, key=lambda log: as_int(log.get("setNo")))
                     prev_last = previous_sorted[-1]
                     prev_weight = as_float(prev_last.get("weight"), as_float(ex.get("defaultWeight")))
+                    prev_target_weight = as_float(prev_last.get("targetWeight"), prev_weight)
                     prev_target_reps = as_int(prev_last.get("targetReps"), min_reps)
 
                     if all(set_succeeded(log, rpe_target) for log in previous_sorted):
@@ -1331,7 +1444,7 @@ def apply_progression(routines, state):
                             target_weight = prev_weight + get_increment(name)
                             target_reps = min_reps
                     else:
-                        target_weight = prev_weight
+                        target_weight = prev_target_weight
                         target_reps = prev_target_reps
 
                     ex["previousLog"] = {
@@ -1365,6 +1478,30 @@ def apply_progression(routines, state):
     return result
 
 
+def workout_status_payload(state, routines=None):
+    active_split = as_int(state["oneRms"].get("activeSplit"), 5)
+    routines = routines or load_routines()
+    routine_days = routines.get(str(active_split), [])
+    routine_day_count = len(routine_days) or active_split
+    next_recommended = "Day 1"
+    last_completed = None
+
+    for log in reversed(state.get("logs", [])):
+        if log.get("split") == active_split:
+            last_num = day_number(log.get("day"))
+            last_completed = f"Day {last_num}"
+            next_num = last_num + 1 if last_num < routine_day_count else 1
+            next_recommended = f"Day {next_num}"
+            break
+
+    return {
+        "sheetsConnected": sheets_connected(),
+        "routineDayCount": routine_day_count,
+        "lastCompletedDay": last_completed,
+        "nextRecommendedDay": next_recommended,
+    }
+
+
 def target_muscle(exercise_name):
     raw_name = (exercise_name or "").strip()
     definitions = load_exercise_definitions()
@@ -1386,12 +1523,14 @@ def target_muscle(exercise_name):
     return "기타"
 
 
-def normalize_logs(raw_logs, split, week, day_id):
+def normalize_logs(raw_logs, split, week, day_id, exercise_defs=None, submission_id=""):
     today = today_iso()
     normalized = []
+    exercise_defs = exercise_defs or {}
     for raw in raw_logs or []:
         log = dict(raw)
         log["date"] = log.get("date") or today
+        log["submissionId"] = str(log.get("submissionId") or submission_id or "").strip()
         log["split"] = split
         log["week"] = week
         log["day"] = day_id
@@ -1401,8 +1540,10 @@ def normalize_logs(raw_logs, split, week, day_id):
         log["targetReps"] = as_int(log.get("targetReps"))
         log["reps"] = as_int(log.get("reps"))
         log["rpe"] = as_float(log.get("rpe"))
-        checked_success = str(log.get("status", "")).upper() == "SUCCESS"
-        log["status"] = "SUCCESS" if checked_success and log["reps"] >= log["targetReps"] else "FAIL"
+        ex_def = exercise_defs.get(log.get("exercise"), {})
+        log["targetRpe"] = as_float(log.get("targetRpe"), as_float(ex_def.get("rpeTarget"), 8.0))
+        log["checked"] = log_checked(log)
+        log["status"] = "SUCCESS" if set_succeeded(log, log["targetRpe"]) else "FAIL"
         normalized.append(log)
     return normalized
 
@@ -1709,6 +1850,23 @@ def workout_settings():
     return jsonify({"oneRms": state["oneRms"], "sheetsConnected": sheets_connected()})
 
 
+@app.route("/api/workout/bootstrap")
+def workout_bootstrap():
+    state = load_state()
+    routines = load_routines()
+    return jsonify({
+        "oneRms": state["oneRms"],
+        "sheetsConnected": sheets_connected(),
+        "gyms": state.get("gyms", []),
+        "activeGymId": state.get("activeGymId"),
+        "exerciseDefinitions": load_json(EXERCISE_DEFINITIONS_FILE, {}),
+        "routine": apply_progression(routines, state),
+        "status": workout_status_payload(state, routines),
+        "logs": state.get("logs", []),
+        "replacements": state.get("replacements", []),
+    })
+
+
 @app.route("/api/workout/routine")
 def workout_routine():
     state = load_state()
@@ -1718,26 +1876,7 @@ def workout_routine():
 @app.route("/api/workout/status")
 def workout_status():
     state = load_state()
-    active_split = as_int(state["oneRms"].get("activeSplit"), 5)
-    routine_days = load_routines().get(str(active_split), [])
-    routine_day_count = len(routine_days) or active_split
-    next_recommended = "Day 1"
-    last_completed = None
-
-    for log in reversed(state.get("logs", [])):
-        if log.get("split") == active_split:
-            last_num = day_number(log.get("day"))
-            last_completed = f"Day {last_num}"
-            next_num = last_num + 1 if last_num < routine_day_count else 1
-            next_recommended = f"Day {next_num}"
-            break
-
-    return jsonify({
-        "sheetsConnected": sheets_connected(),
-        "routineDayCount": routine_day_count,
-        "lastCompletedDay": last_completed,
-        "nextRecommendedDay": next_recommended,
-    })
+    return jsonify(workout_status_payload(state))
 
 
 @app.route("/api/workout/logs")
@@ -1759,7 +1898,8 @@ def workout_finish():
     day_id = body.get("day") or "Day 1"
     submission_id = str(body.get("submissionId") or "").strip()
     date = today_iso()
-    logs = normalize_logs(body.get("logs", []), split, week, day_id)
+    exercise_defs = routine_exercise_lookup(load_routines(), split)
+    logs = normalize_logs(body.get("logs", []), split, week, day_id, exercise_defs, submission_id)
     for log in logs:
         log["date"] = date
     replacements = normalize_replacements(body.get("replacements", []), split, week, day_id, date, submission_id)
@@ -1776,6 +1916,13 @@ def workout_finish():
     store = sheets_store()
     logs_saved_to_sheet = False
     replacements_saved_to_sheet = False
+    if REQUIRE_SHEETS_FOR_FINISH and not store.connected:
+        return jsonify({
+            "error": "sheet_unavailable",
+            "message": "Google Sheets 연결이 끊겨 운동 기록을 저장하지 못했습니다.",
+            "retryable": True,
+        }), 503
+
     if store.connected:
         logs_saved_to_sheet = append_workout_logs_to_sheet(logs)
         if not logs_saved_to_sheet:

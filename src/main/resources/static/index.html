@@ -26,6 +26,8 @@
             --shadow-premium: 0 12px 40px rgba(0, 0, 0, 0.6);
             --safe-top: env(safe-area-inset-top, 0px);
             --safe-bottom: env(safe-area-inset-bottom, 0px);
+            --active-workout-header-height: 0px;
+            --active-workout-content-offset: max(calc(var(--active-workout-header-height) + 12px), calc(var(--safe-top) + 136px));
             --font-family: 'Outfit', 'Noto Sans KR', -apple-system, sans-serif;
         }
 
@@ -1369,7 +1371,7 @@
 
         /* Tracker View */
         #active-workout-view {
-            padding-top: calc(var(--safe-top) + 86px);
+            padding-top: var(--active-workout-content-offset);
         }
 
         .exercise-card {
@@ -1557,6 +1559,7 @@
             left: 0;
             width: 100%;
             height: 100%;
+            height: 100dvh;
             background: rgba(0, 0, 0, 0.85);
             z-index: 200;
             opacity: 0;
@@ -1612,13 +1615,14 @@
 
         .bottom-sheet-modal {
             align-items: flex-end;
-            padding: 0 12px;
+            padding: var(--active-workout-content-offset) 12px 0;
         }
 
         .bottom-sheet-panel {
             width: 100%;
             max-width: 500px;
             max-height: 78vh;
+            max-height: min(78vh, calc(100dvh - var(--active-workout-content-offset) - var(--safe-bottom) - 12px));
             overflow-y: auto;
             border-radius: 18px 18px 0 0;
             border: 1px solid var(--card-border);
@@ -1966,7 +1970,7 @@
         }
 
     </style>
-    <link rel="stylesheet" href="/styles.css?v=20260730-6">
+    <link rel="stylesheet" href="/styles.css?v=20260805-1">
 </head>
 <body>
     <!-- Login / First Account Setup -->
@@ -2413,6 +2417,10 @@
         let replacementExerciseIdx = null;
         let nextRecommendedDayId = "Day 1";
         let settingsSaveVersion = 0;
+        let settingsSaveTimer = null;
+        let activeWorkoutDraftSaveTimer = null;
+        let isRestoringWorkoutDraft = false;
+        let activeWorkoutDraftDisabled = false;
         let isFinishingWorkout = false;
         let activeHistoryExerciseName = "";
         let historyChartMetric = "weight";
@@ -2433,6 +2441,32 @@
         // Calendar state
         let currentYear = 2026;
         let currentMonth = 6; // 0-indexed (July)
+
+        function updateActiveWorkoutHeaderSpace() {
+            const header = document.getElementById("active-workout-header");
+            const visible = header && window.getComputedStyle(header).display !== "none";
+            const height = visible ? Math.ceil(header.getBoundingClientRect().height) : 0;
+            document.documentElement.style.setProperty("--active-workout-header-height", `${height}px`);
+        }
+
+        function scheduleActiveWorkoutHeaderSpaceUpdate() {
+            updateActiveWorkoutHeaderSpace();
+            requestAnimationFrame(updateActiveWorkoutHeaderSpace);
+            setTimeout(updateActiveWorkoutHeaderSpace, 120);
+        }
+
+        function setActiveWorkoutHeaderVisible(isVisible) {
+            const header = document.getElementById("active-workout-header");
+            if (!header) return;
+            header.style.display = isVisible ? "flex" : "none";
+            scheduleActiveWorkoutHeaderSpaceUpdate();
+        }
+
+        window.addEventListener("resize", scheduleActiveWorkoutHeaderSpaceUpdate);
+        window.addEventListener("orientationchange", () => {
+            setTimeout(scheduleActiveWorkoutHeaderSpaceUpdate, 180);
+        });
+        window.addEventListener("beforeunload", saveActiveWorkoutDraftNow);
 
         // Initialize WebApp
         window.addEventListener("DOMContentLoaded", async () => {
@@ -2457,15 +2491,7 @@
             currentYear = today.getFullYear();
             currentMonth = today.getMonth();
 
-            await Promise.all([
-                fetchSettings(),
-                fetchGyms(),
-                fetchExerciseDefinitions(),
-                fetchRoutine(),
-                fetchStatus(),
-                fetchLogs(),
-                fetchReplacementLogs()
-            ]);
+            await fetchBootstrap();
             await retryPendingWorkoutSubmissions();
             
             // Check first-time onboarding
@@ -2477,9 +2503,10 @@
             // Render UI
             updateRecommendationUI();
             renderSplitSelectorGrid();
+            restoreActiveWorkoutDraftIfAvailable();
         }
 
-        const RETRYABLE_STATUS_CODES = new Set([404, 408, 425, 429, 500, 502, 503, 504]);
+        const RETRYABLE_STATUS_CODES = new Set([408, 425, 429, 500, 502, 503, 504]);
         const DEFAULT_REQUEST_TIMEOUT_MS = 25000;
         const FINISH_REQUEST_TIMEOUT_MS = 20000;
 
@@ -2586,7 +2613,7 @@
             authUser = null;
             appInitialized = false;
             stopStopwatch();
-            document.getElementById("active-workout-header").style.display = "none";
+            setActiveWorkoutHeaderVisible(false);
             document.getElementById("bottom-nav").style.display = "flex";
             showAuthOverlay(status.setupRequired, "로그인이 필요합니다.");
             return false;
@@ -2606,7 +2633,10 @@
             authUser = null;
             appInitialized = false;
             stopStopwatch();
-            document.getElementById("active-workout-header").style.display = "none";
+            activeWorkoutDay = null;
+            activeWorkoutDraftDisabled = true;
+            clearActiveWorkoutDraft();
+            setActiveWorkoutHeaderVisible(false);
             document.getElementById("bottom-nav").style.display = "flex";
             switchTab("home-view");
             showAuthOverlay(false);
@@ -2665,7 +2695,27 @@
             throw lastError || new Error("Request failed");
         }
 
+        async function readApiError(res) {
+            const fallback = `HTTP ${res.status}`;
+            try {
+                const data = await res.json();
+                return data.message || data.error || fallback;
+            } catch (err) {
+                try {
+                    const text = await res.text();
+                    if (res.status === 404 && text.toLowerCase().includes("not found")) {
+                        return "API 주소를 찾지 못했습니다. Flask 서버 주소에서 앱을 열어주세요.";
+                    }
+                    return text ? `${fallback}: ${text.slice(0, 120)}` : fallback;
+                } catch (_) {
+                    return fallback;
+                }
+            }
+        }
+
         const PENDING_WORKOUT_SUBMISSIONS_KEY = "lw_pending_workout_submissions_v1";
+        const ACTIVE_WORKOUT_DRAFT_KEY = "lw_active_workout_draft_v1";
+        const ACTIVE_WORKOUT_DRAFT_MAX_AGE_MS = 24 * 60 * 60 * 1000;
 
         function generateSubmissionId() {
             if (window.crypto && typeof window.crypto.randomUUID === "function") {
@@ -2728,8 +2778,183 @@
 
             savePendingWorkoutSubmissions(remaining);
             if (savedAny) {
-                await Promise.all([fetchLogs(), fetchReplacementLogs(), fetchStatus()]);
+                await fetchBootstrap();
             }
+        }
+
+        function getCurrentStopwatchElapsedMs() {
+            if (!stopwatchInterval) return stopwatchElapsedMs || 0;
+            return stopwatchPaused
+                ? stopwatchElapsedMs
+                : Math.max(0, performance.now() - stopwatchStartedAt);
+        }
+
+        function collectActiveWorkoutRows() {
+            const dayObj = getActiveWorkoutDayObj();
+            if (!dayObj) return [];
+
+            return (dayObj.exercises || []).map((ex, exIdx) => {
+                const rows = [];
+                for (let setNo = 1; setNo <= (parseInt(ex.sets) || 0); setNo++) {
+                    const row = document.getElementById(`row-${exIdx}-${setNo}`);
+                    if (!row) continue;
+                    rows.push({
+                        setNo,
+                        checked: row.classList.contains("checked"),
+                        weight: row.querySelector(".weight-input")?.value ?? "",
+                        reps: row.querySelector(".reps-input")?.value ?? "",
+                        rpe: row.querySelector(".rpe-input-field")?.value ?? "",
+                        targetWeight: row.dataset.targetWeight || "",
+                        targetReps: row.dataset.targetReps || "",
+                        targetRpe: row.dataset.targetRpe || ""
+                    });
+                }
+                return { exIdx, rows };
+            });
+        }
+
+        function collectActiveWorkoutDraft() {
+            if (!activeWorkoutDay || isFinishingWorkout || activeWorkoutDraftDisabled) return null;
+            return {
+                version: 1,
+                savedAt: Date.now(),
+                split: oneRms.activeSplit,
+                week: getActiveWeekNum(),
+                dayId: currentDayId,
+                dayObj: activeWorkoutDay,
+                rows: collectActiveWorkoutRows(),
+                stopwatch: {
+                    elapsedMs: getCurrentStopwatchElapsedMs(),
+                    paused: stopwatchPaused
+                }
+            };
+        }
+
+        function loadActiveWorkoutDraft() {
+            try {
+                const raw = localStorage.getItem(ACTIVE_WORKOUT_DRAFT_KEY);
+                if (!raw) return null;
+                const draft = JSON.parse(raw);
+                if (!draft || !draft.dayId || !draft.dayObj || !Array.isArray(draft.dayObj.exercises)) {
+                    localStorage.removeItem(ACTIVE_WORKOUT_DRAFT_KEY);
+                    return null;
+                }
+                if ((Date.now() - (parseInt(draft.savedAt) || 0)) > ACTIVE_WORKOUT_DRAFT_MAX_AGE_MS) {
+                    localStorage.removeItem(ACTIVE_WORKOUT_DRAFT_KEY);
+                    return null;
+                }
+                return draft;
+            } catch (err) {
+                console.error("active workout draft load failed", err);
+                localStorage.removeItem(ACTIVE_WORKOUT_DRAFT_KEY);
+                return null;
+            }
+        }
+
+        function saveActiveWorkoutDraftNow() {
+            if (isRestoringWorkoutDraft) return;
+            const draft = collectActiveWorkoutDraft();
+            if (!draft) return;
+            try {
+                localStorage.setItem(ACTIVE_WORKOUT_DRAFT_KEY, JSON.stringify(draft));
+            } catch (err) {
+                console.warn("active workout draft save failed", err);
+            }
+        }
+
+        function scheduleActiveWorkoutDraftSave(delayMs = 250) {
+            if (isRestoringWorkoutDraft || !activeWorkoutDay || activeWorkoutDraftDisabled) return;
+            if (activeWorkoutDraftSaveTimer) {
+                clearTimeout(activeWorkoutDraftSaveTimer);
+            }
+            activeWorkoutDraftSaveTimer = setTimeout(() => {
+                activeWorkoutDraftSaveTimer = null;
+                saveActiveWorkoutDraftNow();
+            }, delayMs);
+        }
+
+        function clearActiveWorkoutDraft() {
+            if (activeWorkoutDraftSaveTimer) {
+                clearTimeout(activeWorkoutDraftSaveTimer);
+                activeWorkoutDraftSaveTimer = null;
+            }
+            localStorage.removeItem(ACTIVE_WORKOUT_DRAFT_KEY);
+        }
+
+        function applyDraftRows(draft) {
+            (draft.rows || []).forEach(group => {
+                (group.rows || []).forEach(savedRow => {
+                    const row = document.getElementById(`row-${group.exIdx}-${savedRow.setNo}`);
+                    if (!row) return;
+
+                    const weightInput = row.querySelector(".weight-input");
+                    const repsInput = row.querySelector(".reps-input");
+                    const rpeInput = row.querySelector(".rpe-input-field");
+                    if (weightInput) weightInput.value = savedRow.weight ?? weightInput.value;
+                    if (repsInput) repsInput.value = savedRow.reps ?? repsInput.value;
+                    if (rpeInput) rpeInput.value = savedRow.rpe ?? rpeInput.value;
+
+                    row.dataset.targetWeight = savedRow.targetWeight || savedRow.weight || row.dataset.targetWeight || "";
+                    row.dataset.targetReps = savedRow.targetReps || savedRow.reps || row.dataset.targetReps || "";
+                    row.dataset.targetRpe = savedRow.targetRpe || savedRow.rpe || row.dataset.targetRpe || "";
+
+                    const checkBtn = row.querySelector(".check-btn");
+                    row.classList.toggle("checked", !!savedRow.checked);
+                    if (checkBtn) checkBtn.classList.toggle("checked", !!savedRow.checked);
+                });
+            });
+        }
+
+        function restoreStopwatchFromDraft(draft) {
+            if (stopwatchInterval) clearInterval(stopwatchInterval);
+            stopwatchElapsedMs = Math.max(0, parseFloat(draft?.stopwatch?.elapsedMs) || 0);
+            stopwatchPaused = !!draft?.stopwatch?.paused;
+            stopwatchStartedAt = performance.now() - stopwatchElapsedMs;
+            updateStopwatchDisplay();
+            updateStopwatchToggle();
+            stopwatchInterval = setInterval(updateStopwatchDisplay, 50);
+        }
+
+        function restoreActiveWorkoutDraftIfAvailable() {
+            const draft = loadActiveWorkoutDraft();
+            if (!draft) return false;
+
+            const split = String(draft.split || oneRms.activeSplit);
+            if (!routineData[split]) {
+                clearActiveWorkoutDraft();
+                return false;
+            }
+
+            isRestoringWorkoutDraft = true;
+            try {
+                activeWorkoutDraftDisabled = false;
+                oneRms.activeSplit = parseInt(split, 10) || oneRms.activeSplit;
+                currentDayId = draft.dayId;
+                activeWorkoutDay = JSON.parse(JSON.stringify(draft.dayObj));
+
+                document.getElementById("bottom-nav").style.display = "none";
+                setActiveWorkoutHeaderVisible(true);
+                document.querySelectorAll(".view-section").forEach(sec => {
+                    sec.classList.remove("active");
+                });
+                document.getElementById("active-workout-view").classList.add("active");
+
+                let activeTitle = activeWorkoutDay.name || draft.dayId;
+                activeTitle = activeTitle.replace(/Day\s*\d+/i, `Week ${draft.week || getActiveWeekNum()} ${draft.dayId}`);
+                document.getElementById("active-day-title").innerText = activeTitle;
+
+                renderExercises(activeWorkoutDay);
+                applyDraftRows(draft);
+                restoreStopwatchFromDraft(draft);
+                calculateVolume();
+                resetWorkoutScroll();
+            } finally {
+                isRestoringWorkoutDraft = false;
+            }
+
+            scheduleActiveWorkoutHeaderSpaceUpdate();
+            saveActiveWorkoutDraftNow();
+            return true;
         }
 
         function setFinishButtonSaving(isSaving) {
@@ -2737,6 +2962,7 @@
             if (!button) return;
             button.disabled = isSaving;
             button.innerText = isSaving ? "저장 중..." : "완료";
+            scheduleActiveWorkoutHeaderSpaceUpdate();
         }
 
         function getActiveRoutineDayCount() {
@@ -2777,6 +3003,66 @@
             return lastW;
         }
 
+        function normalizeExerciseDefinitionsPayload(data = {}) {
+            return {
+                large_muscles: data.large_muscles || data.large || [],
+                small_muscles: data.small_muscles || data.small || [],
+                muscle_groups: data.muscle_groups || data.muscleGroups || {}
+            };
+        }
+
+        function applyBootstrapData(data = {}) {
+            oneRms = data.oneRms || oneRms;
+            sheetsConnected = !!data.sheetsConnected;
+            routineData = data.routine || routineData || {};
+            if (data.exerciseDefinitions) {
+                exerciseDefinitions = normalizeExerciseDefinitionsPayload(data.exerciseDefinitions);
+            }
+            if (Array.isArray(data.logs)) {
+                completedLogs = data.logs;
+            }
+            if (Array.isArray(data.replacements)) {
+                replacementLogs = data.replacements;
+            }
+
+            if (data.status) {
+                nextRecommendedDayId = data.status.nextRecommendedDay || "Day 1";
+            }
+            if (Array.isArray(data.gyms)) {
+                setGymState(data.gyms, data.activeGymId);
+            }
+
+            updateSettingsUI();
+            renderCalendar();
+            updateRecommendationUI();
+            renderSplitSelectorGrid();
+        }
+
+        async function fetchBootstrap() {
+            try {
+                const res = await apiFetch("/api/workout/bootstrap");
+                if (!res.ok) {
+                    throw new Error(`Bootstrap failed: ${res.status}`);
+                }
+                const data = await res.json();
+                applyBootstrapData(data);
+            } catch (err) {
+                if (err.message === "Unauthorized") {
+                    throw err;
+                }
+                console.error("Bootstrap load failed", err);
+                await Promise.all([
+                    fetchSettings(),
+                    fetchGyms(),
+                    fetchExerciseDefinitions(),
+                    fetchRoutine(),
+                    fetchStatus(),
+                    fetchLogs(),
+                    fetchReplacementLogs()
+                ]);
+            }
+        }
+
         // Fetch settings from server
         async function fetchSettings() {
             try {
@@ -2805,11 +3091,7 @@
             try {
                 const res = await apiFetch("/api/exercises");
                 const data = await res.json();
-                exerciseDefinitions = {
-                    large_muscles: data.large_muscles || data.large || [],
-                    small_muscles: data.small_muscles || data.small || [],
-                    muscle_groups: data.muscle_groups || data.muscleGroups || {}
-                };
+                exerciseDefinitions = normalizeExerciseDefinitionsPayload(data);
             } catch (err) {
                 console.error("운동 사전 로드 실패", err);
                 exerciseDefinitions = { large_muscles: [], small_muscles: [], muscle_groups: {} };
@@ -3286,7 +3568,7 @@
             renderSplitSelectorGrid();
 
             const saveVersion = ++settingsSaveVersion;
-            saveSettingsSilent(saveVersion);
+            scheduleSettingsSave(saveVersion);
         }
 
         // Fetch logs
@@ -3326,7 +3608,7 @@
             document.querySelectorAll(".nav-item")[idx].classList.add("active");
 
             if (viewId === "calendar-view") {
-                fetchLogs();
+                renderCalendar();
             }
         }
 
@@ -3357,6 +3639,8 @@
         // Start active workout tracking
         function beginWorkout(dayId) {
             if (!dayId) return;
+            clearActiveWorkoutDraft();
+            activeWorkoutDraftDisabled = false;
             currentDayId = dayId;
             const currentSplitStr = String(oneRms.activeSplit);
             const activeRoutine = routineData[currentSplitStr];
@@ -3368,7 +3652,7 @@
 
             // Hide tabbar and show workout header
             document.getElementById("bottom-nav").style.display = "none";
-            document.getElementById("active-workout-header").style.display = "flex";
+            setActiveWorkoutHeaderVisible(true);
             
             // Switch view
             document.querySelectorAll(".view-section").forEach(sec => {
@@ -3498,6 +3782,9 @@
             const targetWeight = copiedValues.weight ?? getTargetWeightForExercise(ex);
             const targetReps = copiedValues.reps ?? ex.targetReps;
             const targetRpe = copiedValues.rpe ?? ex.rpeTarget;
+            row.dataset.targetWeight = targetWeight;
+            row.dataset.targetReps = targetReps;
+            row.dataset.targetRpe = targetRpe;
 
             row.innerHTML = `
                 <div class="set-no">${setNo}</div>
@@ -3506,15 +3793,15 @@
                     <div style="font-weight:700; color:var(--text-muted); font-size:12.5px;">${formatIntensityCell(ex)}</div>
                 </div>
                 <div class="input-group">
-                    <input type="number" class="weight-input" value="${targetWeight}" step="2.5" min="0" inputmode="decimal" onchange="handleSetValueChange(${exIdx}, ${setNo}, 'weight', this)">
+                    <input type="number" class="weight-input" value="${targetWeight}" step="2.5" min="0" inputmode="decimal" oninput="scheduleActiveWorkoutDraftSave()" onchange="handleSetValueChange(${exIdx}, ${setNo}, 'weight', this)">
                     <span>kg</span>
                 </div>
                 <div class="input-group">
-                    <input type="number" class="reps-input" value="${targetReps}" min="0" inputmode="numeric" onchange="handleSetValueChange(${exIdx}, ${setNo}, 'reps', this)">
+                    <input type="number" class="reps-input" value="${targetReps}" min="0" inputmode="numeric" oninput="scheduleActiveWorkoutDraftSave()" onchange="handleSetValueChange(${exIdx}, ${setNo}, 'reps', this)">
                     <span>회</span>
                 </div>
                 <div class="input-group">
-                    <input type="number" class="rpe-input-field" value="${targetRpe}" min="5" max="10" step="0.5" inputmode="decimal" onchange="calculateVolume()">
+                    <input type="number" class="rpe-input-field" value="${targetRpe}" min="5" max="10" step="0.5" inputmode="decimal" oninput="scheduleActiveWorkoutDraftSave()" onchange="calculateVolume()">
                     <span>RPE</span>
                 </div>
                 <button class="check-btn" onclick="toggleSet(${exIdx}, ${setNo})">
@@ -3528,7 +3815,12 @@
 
         function handleSetValueChange(exIdx, setNo, field, input) {
             const selector = field === "weight" ? ".weight-input" : ".reps-input";
+            const datasetKey = field === "weight" ? "targetWeight" : "targetReps";
             const value = input.value;
+            const currentRow = document.getElementById(`row-${exIdx}-${setNo}`);
+            if (currentRow) {
+                currentRow.dataset[datasetKey] = value;
+            }
             const currentSplitStr = String(oneRms.activeSplit);
             const activeRoutine = routineData[currentSplitStr];
             const dayObj = activeWorkoutDay || activeRoutine?.find(d => d.id === currentDayId);
@@ -3539,6 +3831,10 @@
                 const nextInput = document.querySelector(`#row-${exIdx}-${nextSetNo} ${selector}`);
                 if (nextInput) {
                     nextInput.value = value;
+                    const nextRow = document.getElementById(`row-${exIdx}-${nextSetNo}`);
+                    if (nextRow) {
+                        nextRow.dataset[datasetKey] = value;
+                    }
                 }
             }
 
@@ -3657,7 +3953,7 @@
             updateStopwatchToggle();
             stopwatchInterval = setInterval(() => {
                 updateStopwatchDisplay();
-            }, 17);
+            }, 50);
         }
 
         function stopStopwatch() {
@@ -3728,6 +4024,7 @@
             }
             updateStopwatchDisplay();
             updateStopwatchToggle();
+            scheduleActiveWorkoutDraftSave(0);
         }
 
         // Check button click logic
@@ -3754,6 +4051,7 @@
                 total += w * r;
             });
             document.getElementById("vol-counter").innerText = total.toLocaleString();
+            scheduleActiveWorkoutDraftSave();
         }
 
         function formatPreviousCell(ex, setNo) {
@@ -3784,9 +4082,24 @@
         }
 
         function logSucceededFrontend(log, rpeTarget) {
+            const targetRpe = parseFloat(rpeTarget ?? log.targetRpe) || 8.0;
             return String(log.status || "").toUpperCase() === "SUCCESS"
+                && (parseFloat(log.weight) || 0) > 0
+                && (parseFloat(log.weight) || 0) + 0.001 >= (parseFloat(log.targetWeight) || 0)
+                && (parseInt(log.reps) || 0) > 0
                 && (parseInt(log.reps) || 0) >= (parseInt(log.targetReps) || 0)
-                && (parseFloat(log.rpe) || 0) <= rpeTarget;
+                && (parseFloat(log.rpe) || 0) > 0
+                && (parseFloat(log.rpe) || 0) <= targetRpe;
+        }
+
+        function setSucceededFrontend({ checked, weight, targetWeight, reps, targetReps, rpe, targetRpe }) {
+            return !!checked
+                && (parseFloat(weight) || 0) > 0
+                && (parseFloat(weight) || 0) + 0.001 >= (parseFloat(targetWeight) || 0)
+                && (parseInt(reps) || 0) > 0
+                && (parseInt(reps) || 0) >= (parseInt(targetReps) || 0)
+                && (parseFloat(rpe) || 0) > 0
+                && (parseFloat(rpe) || 0) <= (parseFloat(targetRpe) || 8.0);
         }
 
         function getExerciseIncrementFrontend(name) {
@@ -3876,6 +4189,7 @@
             if (previous.length) {
                 const prevLast = previous[previous.length - 1];
                 const prevWeight = parseFloat(prevLast.weight) || parseFloat(ex.defaultWeight) || getTargetWeightForExercise(fallbackEx || ex);
+                const prevTargetWeight = parseFloat(prevLast.targetWeight) || prevWeight;
                 const prevTargetReps = parseInt(prevLast.targetReps) || minReps;
                 const allSucceeded = previous.every(log => logSucceededFrontend(log, ex.rpeTarget));
 
@@ -3886,7 +4200,7 @@
                     ex.targetWeight = prevWeight + getExerciseIncrementFrontend(name);
                     ex.targetReps = minReps;
                 } else {
-                    ex.targetWeight = prevWeight;
+                    ex.targetWeight = prevTargetWeight;
                     ex.targetReps = prevTargetReps;
                 }
 
@@ -4203,6 +4517,7 @@
             document.getElementById("history-best-weight").innerText = records.bestWeight;
             document.getElementById("history-best-reps").innerText = records.bestReps;
             document.getElementById("history-estimated-1rm").innerText = records.estimatedOneRm;
+            scheduleActiveWorkoutHeaderSpaceUpdate();
             document.getElementById("exercise-history-overlay").classList.add("active");
         }
 
@@ -4254,6 +4569,7 @@
                 });
             }
 
+            scheduleActiveWorkoutHeaderSpaceUpdate();
             document.getElementById("exercise-replace-overlay").classList.add("active");
         }
 
@@ -4294,7 +4610,8 @@
             if (confirm("훈련 기록 작성을 취소하시겠습니까? 현재까지의 기록은 저장되지 않습니다.")) {
                 stopStopwatch();
                 activeWorkoutDay = null;
-                document.getElementById("active-workout-header").style.display = "none";
+                clearActiveWorkoutDraft();
+                setActiveWorkoutHeaderVisible(false);
                 document.getElementById("bottom-nav").style.display = "flex";
                 switchTab("home-view");
             }
@@ -4349,30 +4666,36 @@
             const replacements = [];
             const currentWeek = getActiveWeekNum();
             const submissionId = generateSubmissionId();
+            if (document.activeElement && typeof document.activeElement.blur === "function") {
+                document.activeElement.blur();
+            }
 
             dayObj.exercises.forEach((ex, exIdx) => {
-                let targetWeight = (ex.targetWeight !== undefined) ? ex.targetWeight : ex.defaultWeight;
-                if (ex.coreLift && ex.targetWeight === undefined) {
-                    const oneRmValue = oneRms[ex.coreLiftType] || 100.0;
-                    targetWeight = oneRmValue * ex.intensity;
-                }
-                targetWeight = Math.round(targetWeight / 2.5) * 2.5;
-
-                let targetReps = ex.targetReps;
                 const exerciseRows = [];
 
                 for (let s = 1; s <= ex.sets; s++) {
                     const row = document.getElementById(`row-${exIdx}-${s}`);
+                    if (!row) continue;
                     const checked = row.classList.contains("checked");
                     
                     const weightVal = parseFloat(row.querySelector(".weight-input").value) || 0;
                     const repsVal = parseInt(row.querySelector(".reps-input").value) || 0;
+                    const targetWeight = weightVal > 0 ? weightVal : (parseFloat(row.dataset.targetWeight) || 0);
+                    const targetReps = repsVal > 0 ? repsVal : (parseInt(row.dataset.targetReps) || 0);
+                    const targetRpe = parseFloat(row.dataset.targetRpe) || parseFloat(ex.rpeTarget) || 8.0;
                     
-                    let rpeVal = 8.0;
                     const rpeInput = row.querySelector(".rpe-input-field");
-                    if (rpeInput) {
-                        rpeVal = parseFloat(rpeInput.value) || 8.0;
-                    }
+                    const parsedRpe = parseFloat(rpeInput?.value);
+                    const rpeVal = Number.isFinite(parsedRpe) ? parsedRpe : 0.0;
+                    const setSuccess = setSucceededFrontend({
+                        checked,
+                        weight: weightVal,
+                        targetWeight,
+                        reps: repsVal,
+                        targetReps,
+                        rpe: rpeVal,
+                        targetRpe
+                    });
 
                     logs.push({
                         exercise: ex.name,
@@ -4380,9 +4703,11 @@
                         targetWeight: targetWeight,
                         weight: weightVal,
                         targetReps: targetReps,
+                        targetRpe: targetRpe,
                         reps: repsVal,
                         rpe: checked ? rpeVal : 0.0,
-                        status: (checked && repsVal >= targetReps) ? "SUCCESS" : "FAIL",
+                        checked: checked,
+                        status: setSuccess ? "SUCCESS" : "FAIL",
                         split: oneRms.activeSplit,
                         week: currentWeek,
                         day: dayObj.id
@@ -4421,17 +4746,24 @@
 
                 if (res.ok) {
                     const data = await res.json();
+                    activeWorkoutDraftDisabled = true;
+                    clearActiveWorkoutDraft();
                     activeWorkoutDay = null;
                     savePendingWorkoutSubmissions(loadPendingWorkoutSubmissions().filter(item => item.submissionId !== submissionId));
                     showFeedbackModal(data);
                 } else {
+                    const errorMessage = await readApiError(res);
                     queuePendingWorkoutSubmission(payload);
-                    alert("저장에 실패했습니다. 기록은 이 기기에 임시 보관했고, 다음 접속 때 자동 재전송합니다.");
+                    activeWorkoutDraftDisabled = true;
+                    clearActiveWorkoutDraft();
+                    alert(`저장에 실패했습니다.\n\n원인: ${errorMessage}\n\n기록은 이 기기에 임시 보관했고, 다음 접속 때 자동 재전송합니다.`);
                 }
             } catch (err) {
                 console.error("기록 제출 실패", err);
                 queuePendingWorkoutSubmission(payload);
-                alert("기록 저장에 실패했습니다. 기록은 이 기기에 임시 보관했고, 다음 접속 때 자동 재전송합니다.");
+                activeWorkoutDraftDisabled = true;
+                clearActiveWorkoutDraft();
+                alert(`기록 저장에 실패했습니다.\n\n원인: ${err.message || "네트워크 오류"}\n\n기록은 이 기기에 임시 보관했고, 다음 접속 때 자동 재전송합니다.`);
             } finally {
                 isFinishingWorkout = false;
                 setFinishButtonSaving(false);
@@ -4440,7 +4772,7 @@
 
         function showFeedbackModal(data) {
             stopStopwatch();
-            document.getElementById("active-workout-header").style.display = "none";
+            setActiveWorkoutHeaderVisible(false);
             document.getElementById("bottom-nav").style.display = "flex";
 
             // Status Badge
@@ -4498,20 +4830,15 @@
         }
 
         async function refreshHomeData() {
-            await Promise.all([
-                fetchSettings(),
-                fetchStatus(),
-                fetchLogs(),
-                fetchReplacementLogs(),
-                fetchRoutine()
-            ]);
-            updateSettingsUI();
-            updateRecommendationUI();
-            renderSplitSelectorGrid();
+            await fetchBootstrap();
         }
 
         // Save Settings (Manual button click)
         async function saveSettings() {
+            if (settingsSaveTimer) {
+                clearTimeout(settingsSaveTimer);
+                settingsSaveTimer = null;
+            }
             settingsSaveVersion++;
             const body = {
                 squat: parseFloat(document.getElementById("input-squat").value) || 150.0,
@@ -4528,14 +4855,22 @@
                 });
                 if (res.ok) {
                     oneRms = await res.json();
+                    await fetchBootstrap();
                     alert("SBD 기준중량이 저장되었습니다.");
-                    updateSettingsUI();
-                    updateRecommendationUI();
-                    renderSplitSelectorGrid();
                 }
             } catch (err) {
                 console.error("1RM 저장 실패", err);
             }
+        }
+
+        function scheduleSettingsSave(saveVersion) {
+            if (settingsSaveTimer) {
+                clearTimeout(settingsSaveTimer);
+            }
+            settingsSaveTimer = setTimeout(() => {
+                settingsSaveTimer = null;
+                saveSettingsSilent(saveVersion);
+            }, 600);
         }
 
         // Save settings silently (upon split change)
