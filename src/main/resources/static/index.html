@@ -1613,6 +1613,68 @@
             cursor: pointer;
         }
 
+        .draft-restore-modal {
+            max-width: 420px;
+        }
+
+        #draft-restore-overlay {
+            z-index: 10050;
+        }
+
+        .draft-restore-copy {
+            color: var(--text-main);
+            font-size: 14px;
+            line-height: 1.5;
+            margin-bottom: 14px;
+        }
+
+        .draft-restore-summary {
+            display: grid;
+            gap: 8px;
+            padding: 12px;
+            border: 1px solid var(--card-border);
+            border-radius: 14px;
+            background: rgba(255, 255, 255, 0.04);
+        }
+
+        .draft-restore-summary div {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 12px;
+            font-size: 12px;
+            color: var(--text-muted);
+        }
+
+        .draft-restore-summary strong {
+            color: #FFFFFF;
+            font-size: 13px;
+            text-align: right;
+        }
+
+        .draft-restore-actions {
+            display: grid;
+            grid-template-columns: 0.85fr 1.15fr;
+            gap: 10px;
+            margin-top: 14px;
+        }
+
+        .draft-delete-btn {
+            min-height: 48px;
+            border: 1px solid rgba(255, 59, 48, 0.32);
+            border-radius: 14px;
+            background: rgba(255, 59, 48, 0.08);
+            color: #ff9b95;
+            font-size: 14px;
+            font-weight: 900;
+            cursor: pointer;
+        }
+
+        .draft-resume-btn {
+            min-height: 48px;
+            margin-top: 0;
+        }
+
         .bottom-sheet-modal {
             align-items: flex-end;
             padding: var(--active-workout-content-offset) 12px 0;
@@ -1970,7 +2032,7 @@
         }
 
     </style>
-    <link rel="stylesheet" href="/styles.css?v=20260805-1">
+    <link rel="stylesheet" href="/styles.css?v=20260805-2">
 </head>
 <body>
     <!-- Login / First Account Setup -->
@@ -2351,6 +2413,34 @@
         </div>
     </div>
 
+    <!-- Active workout draft restore modal -->
+    <div class="overlay" id="draft-restore-overlay">
+        <div class="modal draft-restore-modal">
+            <div class="modal-title">
+                <span>진행 중 운동</span>
+            </div>
+            <p class="draft-restore-copy">완료 또는 중단하지 않은 운동이 있습니다. 이어서 진행할까요?</p>
+            <div class="draft-restore-summary">
+                <div>
+                    <span>운동</span>
+                    <strong id="draft-restore-title">-</strong>
+                </div>
+                <div>
+                    <span>마지막 저장</span>
+                    <strong id="draft-restore-saved-at">-</strong>
+                </div>
+                <div>
+                    <span>진행 시간</span>
+                    <strong id="draft-restore-elapsed">-</strong>
+                </div>
+            </div>
+            <div class="draft-restore-actions">
+                <button class="draft-delete-btn" type="button" onclick="deleteStoredWorkoutDraft()">삭제</button>
+                <button class="save-btn draft-resume-btn" type="button" onclick="resumeStoredWorkoutDraft()">이어서 하기</button>
+            </div>
+        </div>
+    </div>
+
     <!-- AI 자율조절 모달 -->
     <div class="overlay" id="feedback-overlay">
         <div class="modal" style="max-height: 90vh; overflow-y: auto;">
@@ -2421,6 +2511,9 @@
         let activeWorkoutDraftSaveTimer = null;
         let isRestoringWorkoutDraft = false;
         let activeWorkoutDraftDisabled = false;
+        let activeWorkoutDraftId = null;
+        let activeWorkoutDraftCreatedAt = null;
+        let pendingActiveWorkoutDraft = null;
         let isFinishingWorkout = false;
         let activeHistoryExerciseName = "";
         let historyChartMetric = "weight";
@@ -2466,7 +2559,13 @@
         window.addEventListener("orientationchange", () => {
             setTimeout(scheduleActiveWorkoutHeaderSpaceUpdate, 180);
         });
-        window.addEventListener("beforeunload", saveActiveWorkoutDraftNow);
+        window.addEventListener("pagehide", saveActiveWorkoutDraftSync);
+        window.addEventListener("beforeunload", saveActiveWorkoutDraftSync);
+        document.addEventListener("visibilitychange", () => {
+            if (document.visibilityState === "hidden") {
+                saveActiveWorkoutDraftSync();
+            }
+        });
 
         // Initialize WebApp
         window.addEventListener("DOMContentLoaded", async () => {
@@ -2503,7 +2602,7 @@
             // Render UI
             updateRecommendationUI();
             renderSplitSelectorGrid();
-            restoreActiveWorkoutDraftIfAvailable();
+            await promptActiveWorkoutDraftIfAvailable();
         }
 
         const RETRYABLE_STATUS_CODES = new Set([408, 425, 429, 500, 502, 503, 504]);
@@ -2714,14 +2813,24 @@
         }
 
         const PENDING_WORKOUT_SUBMISSIONS_KEY = "lw_pending_workout_submissions_v1";
-        const ACTIVE_WORKOUT_DRAFT_KEY = "lw_active_workout_draft_v1";
-        const ACTIVE_WORKOUT_DRAFT_MAX_AGE_MS = 24 * 60 * 60 * 1000;
+        const ACTIVE_WORKOUT_DRAFT_DB_NAME = "letsworkout_active_draft_db";
+        const ACTIVE_WORKOUT_DRAFT_DB_VERSION = 1;
+        const ACTIVE_WORKOUT_DRAFT_STORE = "drafts";
+        const ACTIVE_WORKOUT_DRAFT_ID = "active";
+        const ACTIVE_WORKOUT_DRAFT_SIGNAL_KEY = "lw_active_workout_draft_signal_v2";
+        const ACTIVE_WORKOUT_DRAFT_FALLBACK_KEY = "lw_active_workout_draft_fallback_v2";
+        const LEGACY_ACTIVE_WORKOUT_DRAFT_KEY = "lw_active_workout_draft_v1";
+        const ACTIVE_WORKOUT_DRAFT_STALE_MS = 48 * 60 * 60 * 1000;
 
         function generateSubmissionId() {
             if (window.crypto && typeof window.crypto.randomUUID === "function") {
                 return window.crypto.randomUUID();
             }
             return `submission_${Date.now()}_${Math.random().toString(16).slice(2)}`;
+        }
+
+        function generateDraftId() {
+            return `draft_${generateSubmissionId()}`;
         }
 
         function loadPendingWorkoutSubmissions() {
@@ -2782,6 +2891,221 @@
             }
         }
 
+        const DraftManager = (() => {
+            let dbPromise = null;
+
+            function supportsIndexedDb() {
+                return typeof indexedDB !== "undefined";
+            }
+
+            function openDb() {
+                if (!supportsIndexedDb()) return Promise.reject(new Error("IndexedDB unavailable"));
+                if (dbPromise) return dbPromise;
+
+                dbPromise = new Promise((resolve, reject) => {
+                    const req = indexedDB.open(ACTIVE_WORKOUT_DRAFT_DB_NAME, ACTIVE_WORKOUT_DRAFT_DB_VERSION);
+                    req.onupgradeneeded = () => {
+                        const db = req.result;
+                        if (!db.objectStoreNames.contains(ACTIVE_WORKOUT_DRAFT_STORE)) {
+                            db.createObjectStore(ACTIVE_WORKOUT_DRAFT_STORE, { keyPath: "id" });
+                        }
+                    };
+                    req.onsuccess = () => resolve(req.result);
+                    req.onerror = () => reject(req.error || new Error("IndexedDB open failed"));
+                    req.onblocked = () => reject(new Error("IndexedDB upgrade blocked"));
+                }).catch(err => {
+                    dbPromise = null;
+                    throw err;
+                });
+
+                return dbPromise;
+            }
+
+            async function withStore(mode, action) {
+                const db = await openDb();
+                return new Promise((resolve, reject) => {
+                    const tx = db.transaction(ACTIVE_WORKOUT_DRAFT_STORE, mode);
+                    const store = tx.objectStore(ACTIVE_WORKOUT_DRAFT_STORE);
+                    let result;
+                    tx.oncomplete = () => resolve(result);
+                    tx.onerror = () => reject(tx.error || new Error("Draft transaction failed"));
+                    tx.onabort = () => reject(tx.error || new Error("Draft transaction aborted"));
+                    result = action(store);
+                });
+            }
+
+            function requestToPromise(req) {
+                return new Promise((resolve, reject) => {
+                    req.onsuccess = () => resolve(req.result);
+                    req.onerror = () => reject(req.error || new Error("IndexedDB request failed"));
+                });
+            }
+
+            function normalizeDraft(raw) {
+                if (!raw || typeof raw !== "object") return null;
+                const routineSnapshot = raw.routineSnapshot || raw.dayObj;
+                if (!raw.dayId || !routineSnapshot || !Array.isArray(routineSnapshot.exercises)) return null;
+
+                const now = Date.now();
+                const updatedAt = parseInt(raw.updatedAt || raw.savedAt || now, 10) || now;
+                const createdAt = parseInt(raw.createdAt || updatedAt, 10) || updatedAt;
+                const stopwatch = raw.stopwatch || {};
+                const running = stopwatch.running !== undefined ? !!stopwatch.running : !stopwatch.paused;
+
+                return {
+                    id: ACTIVE_WORKOUT_DRAFT_ID,
+                    schemaVersion: 2,
+                    draftId: raw.draftId || generateDraftId(),
+                    userId: raw.userId || authUser?.id || "single-user",
+                    status: raw.status || "active",
+                    split: parseInt(raw.split, 10) || oneRms.activeSplit,
+                    week: parseInt(raw.week, 10) || 1,
+                    dayId: raw.dayId,
+                    routineSnapshot,
+                    dayObj: routineSnapshot,
+                    rows: Array.isArray(raw.rows) ? raw.rows : [],
+                    replacementState: raw.replacementState || {},
+                    addedSetState: raw.addedSetState || {},
+                    stopwatch: {
+                        elapsedMs: Math.max(0, parseFloat(stopwatch.elapsedMs) || 0),
+                        running,
+                        paused: !running,
+                        savedAt: parseInt(stopwatch.savedAt || updatedAt, 10) || updatedAt
+                    },
+                    appVersion: "20260805-draft-v2",
+                    createdAt,
+                    updatedAt,
+                    savedAt: updatedAt
+                };
+            }
+
+            function writeSignal(draft, storageMode) {
+                const signal = {
+                    draftId: draft.draftId,
+                    split: draft.split,
+                    week: draft.week,
+                    dayId: draft.dayId,
+                    status: draft.status,
+                    updatedAt: draft.updatedAt,
+                    storageMode
+                };
+                localStorage.setItem(ACTIVE_WORKOUT_DRAFT_SIGNAL_KEY, JSON.stringify(signal));
+            }
+
+            function readSignal() {
+                try {
+                    const raw = localStorage.getItem(ACTIVE_WORKOUT_DRAFT_SIGNAL_KEY);
+                    return raw ? JSON.parse(raw) : null;
+                } catch (_) {
+                    return null;
+                }
+            }
+
+            function saveFallback(draft, storageMode = "localStorage") {
+                localStorage.setItem(ACTIVE_WORKOUT_DRAFT_FALLBACK_KEY, JSON.stringify(draft));
+                writeSignal(draft, storageMode);
+            }
+
+            function loadFallback() {
+                try {
+                    const raw = localStorage.getItem(ACTIVE_WORKOUT_DRAFT_FALLBACK_KEY);
+                    return normalizeDraft(raw ? JSON.parse(raw) : null);
+                } catch (err) {
+                    console.warn("draft fallback load failed", err);
+                    return null;
+                }
+            }
+
+            function loadLegacy() {
+                try {
+                    const raw = localStorage.getItem(LEGACY_ACTIVE_WORKOUT_DRAFT_KEY);
+                    return normalizeDraft(raw ? JSON.parse(raw) : null);
+                } catch (err) {
+                    console.warn("legacy draft load failed", err);
+                    return null;
+                }
+            }
+
+            async function loadIndexedDb() {
+                try {
+                    const result = await withStore("readonly", store => requestToPromise(store.get(ACTIVE_WORKOUT_DRAFT_ID)));
+                    return normalizeDraft(result);
+                } catch (err) {
+                    console.warn("draft IndexedDB load failed", err);
+                    return null;
+                }
+            }
+
+            function pickLatest(drafts) {
+                return drafts
+                    .filter(Boolean)
+                    .filter(draft => draft.status === "active")
+                    .sort((a, b) => (b.updatedAt || 0) - (a.updatedAt || 0))[0] || null;
+            }
+
+            return {
+                hasDraftSignal() {
+                    return !!(
+                        readSignal()
+                        || localStorage.getItem(ACTIVE_WORKOUT_DRAFT_FALLBACK_KEY)
+                        || localStorage.getItem(LEGACY_ACTIVE_WORKOUT_DRAFT_KEY)
+                    );
+                },
+                async load() {
+                    const draft = pickLatest([
+                        await loadIndexedDb(),
+                        loadFallback(),
+                        loadLegacy()
+                    ]);
+                    if (draft && draft.schemaVersion >= 2) {
+                        try {
+                            localStorage.removeItem(LEGACY_ACTIVE_WORKOUT_DRAFT_KEY);
+                        } catch (_) {}
+                    }
+                    return draft;
+                },
+                async save(draft) {
+                    const normalized = normalizeDraft(draft);
+                    if (!normalized) return false;
+                    try {
+                        await withStore("readwrite", store => store.put(normalized));
+                        writeSignal(normalized, "indexedDB");
+                        return true;
+                    } catch (err) {
+                        console.warn("draft IndexedDB save failed; using localStorage fallback", err);
+                        try {
+                            saveFallback(normalized, "localStorage");
+                            return true;
+                        } catch (fallbackErr) {
+                            console.warn("draft fallback save failed", fallbackErr);
+                            return false;
+                        }
+                    }
+                },
+                saveSyncFallback(draft) {
+                    const normalized = normalizeDraft(draft);
+                    if (!normalized) return false;
+                    try {
+                        saveFallback(normalized, "syncFallback");
+                        return true;
+                    } catch (err) {
+                        console.warn("draft sync fallback save failed", err);
+                        return false;
+                    }
+                },
+                async clear() {
+                    localStorage.removeItem(ACTIVE_WORKOUT_DRAFT_SIGNAL_KEY);
+                    localStorage.removeItem(ACTIVE_WORKOUT_DRAFT_FALLBACK_KEY);
+                    localStorage.removeItem(LEGACY_ACTIVE_WORKOUT_DRAFT_KEY);
+                    try {
+                        await withStore("readwrite", store => store.delete(ACTIVE_WORKOUT_DRAFT_ID));
+                    } catch (err) {
+                        console.warn("draft IndexedDB clear failed", err);
+                    }
+                }
+            };
+        })();
+
         function getCurrentStopwatchElapsedMs() {
             if (!stopwatchInterval) return stopwatchElapsedMs || 0;
             return stopwatchPaused
@@ -2815,51 +3139,48 @@
 
         function collectActiveWorkoutDraft() {
             if (!activeWorkoutDay || isFinishingWorkout || activeWorkoutDraftDisabled) return null;
+            const now = Date.now();
+            activeWorkoutDraftId = activeWorkoutDraftId || generateDraftId();
+            activeWorkoutDraftCreatedAt = activeWorkoutDraftCreatedAt || now;
             return {
-                version: 1,
-                savedAt: Date.now(),
+                schemaVersion: 2,
+                draftId: activeWorkoutDraftId,
+                userId: authUser?.id || "single-user",
+                status: "active",
                 split: oneRms.activeSplit,
                 week: getActiveWeekNum(),
                 dayId: currentDayId,
+                routineSnapshot: activeWorkoutDay,
                 dayObj: activeWorkoutDay,
                 rows: collectActiveWorkoutRows(),
                 stopwatch: {
                     elapsedMs: getCurrentStopwatchElapsedMs(),
-                    paused: stopwatchPaused
-                }
+                    running: !!stopwatchInterval && !stopwatchPaused,
+                    paused: stopwatchPaused,
+                    savedAt: now
+                },
+                createdAt: activeWorkoutDraftCreatedAt,
+                updatedAt: now,
+                savedAt: now
             };
         }
 
-        function loadActiveWorkoutDraft() {
-            try {
-                const raw = localStorage.getItem(ACTIVE_WORKOUT_DRAFT_KEY);
-                if (!raw) return null;
-                const draft = JSON.parse(raw);
-                if (!draft || !draft.dayId || !draft.dayObj || !Array.isArray(draft.dayObj.exercises)) {
-                    localStorage.removeItem(ACTIVE_WORKOUT_DRAFT_KEY);
-                    return null;
-                }
-                if ((Date.now() - (parseInt(draft.savedAt) || 0)) > ACTIVE_WORKOUT_DRAFT_MAX_AGE_MS) {
-                    localStorage.removeItem(ACTIVE_WORKOUT_DRAFT_KEY);
-                    return null;
-                }
-                return draft;
-            } catch (err) {
-                console.error("active workout draft load failed", err);
-                localStorage.removeItem(ACTIVE_WORKOUT_DRAFT_KEY);
-                return null;
-            }
+        async function loadActiveWorkoutDraft() {
+            return DraftManager.load();
         }
 
-        function saveActiveWorkoutDraftNow() {
+        async function saveActiveWorkoutDraftNow() {
             if (isRestoringWorkoutDraft) return;
             const draft = collectActiveWorkoutDraft();
             if (!draft) return;
-            try {
-                localStorage.setItem(ACTIVE_WORKOUT_DRAFT_KEY, JSON.stringify(draft));
-            } catch (err) {
-                console.warn("active workout draft save failed", err);
-            }
+            await DraftManager.save(draft);
+        }
+
+        function saveActiveWorkoutDraftSync() {
+            if (isRestoringWorkoutDraft) return;
+            const draft = collectActiveWorkoutDraft();
+            if (!draft) return;
+            DraftManager.saveSyncFallback(draft);
         }
 
         function scheduleActiveWorkoutDraftSave(delayMs = 250) {
@@ -2878,7 +3199,10 @@
                 clearTimeout(activeWorkoutDraftSaveTimer);
                 activeWorkoutDraftSaveTimer = null;
             }
-            localStorage.removeItem(ACTIVE_WORKOUT_DRAFT_KEY);
+            activeWorkoutDraftId = null;
+            activeWorkoutDraftCreatedAt = null;
+            pendingActiveWorkoutDraft = null;
+            DraftManager.clear();
         }
 
         function applyDraftRows(draft) {
@@ -2908,29 +3232,94 @@
         function restoreStopwatchFromDraft(draft) {
             if (stopwatchInterval) clearInterval(stopwatchInterval);
             stopwatchElapsedMs = Math.max(0, parseFloat(draft?.stopwatch?.elapsedMs) || 0);
-            stopwatchPaused = !!draft?.stopwatch?.paused;
+            const running = draft?.stopwatch?.running !== false && !draft?.stopwatch?.paused;
+            stopwatchPaused = !running;
             stopwatchStartedAt = performance.now() - stopwatchElapsedMs;
             updateStopwatchDisplay();
             updateStopwatchToggle();
             stopwatchInterval = setInterval(updateStopwatchDisplay, 50);
         }
 
-        function restoreActiveWorkoutDraftIfAvailable() {
-            const draft = loadActiveWorkoutDraft();
+        function formatDraftElapsed(ms) {
+            const totalSeconds = Math.floor((parseFloat(ms) || 0) / 1000);
+            const hours = Math.floor(totalSeconds / 3600);
+            const minutes = Math.floor((totalSeconds % 3600) / 60);
+            const seconds = totalSeconds % 60;
+            if (hours > 0) {
+                return `${String(hours).padStart(2, "0")}:${String(minutes).padStart(2, "0")}:${String(seconds).padStart(2, "0")}`;
+            }
+            return `${String(minutes).padStart(2, "0")}:${String(seconds).padStart(2, "0")}`;
+        }
+
+        function formatDraftSavedAt(value) {
+            const date = new Date(parseInt(value, 10) || Date.now());
+            return date.toLocaleString("ko-KR", {
+                month: "2-digit",
+                day: "2-digit",
+                hour: "2-digit",
+                minute: "2-digit"
+            });
+        }
+
+        function showWorkoutDraftPrompt(draft) {
+            pendingActiveWorkoutDraft = draft;
+            const title = draft.routineSnapshot?.name || draft.dayObj?.name || draft.dayId || "진행 중 운동";
+            const stale = Date.now() - (parseInt(draft.updatedAt || draft.savedAt, 10) || 0) > ACTIVE_WORKOUT_DRAFT_STALE_MS;
+            document.getElementById("draft-restore-title").innerText = `${draft.split}분할 ${draft.dayId} · ${title}`;
+            document.getElementById("draft-restore-saved-at").innerText = `${formatDraftSavedAt(draft.updatedAt || draft.savedAt)}${stale ? " · 오래됨" : ""}`;
+            document.getElementById("draft-restore-elapsed").innerText = formatDraftElapsed(draft.stopwatch?.elapsedMs || 0);
+            document.getElementById("draft-restore-overlay").classList.add("active");
+        }
+
+        async function promptActiveWorkoutDraftIfAvailable() {
+            const draft = await loadActiveWorkoutDraft();
+            if (!draft) return false;
+            showWorkoutDraftPrompt(draft);
+            return true;
+        }
+
+        async function resumeStoredWorkoutDraft() {
+            const draft = pendingActiveWorkoutDraft || await loadActiveWorkoutDraft();
+            if (!draft) {
+                document.getElementById("draft-restore-overlay").classList.remove("active");
+                return;
+            }
+            document.getElementById("draft-restore-overlay").classList.remove("active");
+            await restoreActiveWorkoutDraft(draft);
+        }
+
+        async function deleteStoredWorkoutDraft() {
+            if (!confirm("진행 중이던 운동 기록을 삭제할까요?")) return;
+            document.getElementById("draft-restore-overlay").classList.remove("active");
+            pendingActiveWorkoutDraft = null;
+            activeWorkoutDraftDisabled = true;
+            if (activeWorkoutDraftSaveTimer) {
+                clearTimeout(activeWorkoutDraftSaveTimer);
+                activeWorkoutDraftSaveTimer = null;
+            }
+            activeWorkoutDraftId = null;
+            activeWorkoutDraftCreatedAt = null;
+            await DraftManager.clear();
+            activeWorkoutDraftDisabled = false;
+        }
+
+        async function restoreActiveWorkoutDraft(draft) {
             if (!draft) return false;
 
             const split = String(draft.split || oneRms.activeSplit);
             if (!routineData[split]) {
-                clearActiveWorkoutDraft();
+                alert("루틴 정보를 아직 불러오지 못했습니다. 잠시 후 다시 시도해주세요.");
                 return false;
             }
 
             isRestoringWorkoutDraft = true;
             try {
                 activeWorkoutDraftDisabled = false;
+                activeWorkoutDraftId = draft.draftId || generateDraftId();
+                activeWorkoutDraftCreatedAt = parseInt(draft.createdAt || draft.updatedAt || Date.now(), 10) || Date.now();
                 oneRms.activeSplit = parseInt(split, 10) || oneRms.activeSplit;
                 currentDayId = draft.dayId;
-                activeWorkoutDay = JSON.parse(JSON.stringify(draft.dayObj));
+                activeWorkoutDay = JSON.parse(JSON.stringify(draft.routineSnapshot || draft.dayObj));
 
                 document.getElementById("bottom-nav").style.display = "none";
                 setActiveWorkoutHeaderVisible(true);
@@ -2942,6 +3331,7 @@
                 let activeTitle = activeWorkoutDay.name || draft.dayId;
                 activeTitle = activeTitle.replace(/Day\s*\d+/i, `Week ${draft.week || getActiveWeekNum()} ${draft.dayId}`);
                 document.getElementById("active-day-title").innerText = activeTitle;
+                setActiveSplitSegmentUI();
 
                 renderExercises(activeWorkoutDay);
                 applyDraftRows(draft);
@@ -2953,7 +3343,7 @@
             }
 
             scheduleActiveWorkoutHeaderSpaceUpdate();
-            saveActiveWorkoutDraftNow();
+            await saveActiveWorkoutDraftNow();
             return true;
         }
 
@@ -3639,8 +4029,18 @@
         // Start active workout tracking
         function beginWorkout(dayId) {
             if (!dayId) return;
-            clearActiveWorkoutDraft();
+            if (!activeWorkoutDay && !activeWorkoutDraftDisabled && DraftManager.hasDraftSignal()) {
+                promptActiveWorkoutDraftIfAvailable().then(found => {
+                    if (!found) {
+                        activeWorkoutDraftDisabled = true;
+                        beginWorkout(dayId);
+                    }
+                });
+                return;
+            }
             activeWorkoutDraftDisabled = false;
+            activeWorkoutDraftId = generateDraftId();
+            activeWorkoutDraftCreatedAt = Date.now();
             currentDayId = dayId;
             const currentSplitStr = String(oneRms.activeSplit);
             const activeRoutine = routineData[currentSplitStr];
@@ -4734,6 +5134,7 @@
                 replacements
             };
 
+            saveActiveWorkoutDraftSync();
             isFinishingWorkout = true;
             setFinishButtonSaving(true);
             try {

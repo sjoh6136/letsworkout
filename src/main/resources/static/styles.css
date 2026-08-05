@@ -851,6 +851,68 @@ header {
     cursor: pointer;
 }
 
+.draft-restore-modal {
+    max-width: 420px;
+}
+
+#draft-restore-overlay {
+    z-index: 10050;
+}
+
+.draft-restore-copy {
+    color: var(--text-main);
+    font-size: 14px;
+    line-height: 1.5;
+    margin-bottom: 14px;
+}
+
+.draft-restore-summary {
+    display: grid;
+    gap: 8px;
+    padding: 12px;
+    border: 1px solid var(--card-border);
+    border-radius: 14px;
+    background: rgba(255, 255, 255, 0.04);
+}
+
+.draft-restore-summary div {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    font-size: 12px;
+    color: var(--text-muted);
+}
+
+.draft-restore-summary strong {
+    color: #FFFFFF;
+    font-size: 13px;
+    text-align: right;
+}
+
+.draft-restore-actions {
+    display: grid;
+    grid-template-columns: 0.85fr 1.15fr;
+    gap: 10px;
+    margin-top: 14px;
+}
+
+.draft-delete-btn {
+    min-height: 48px;
+    border: 1px solid rgba(255, 59, 48, 0.32);
+    border-radius: 14px;
+    background: rgba(255, 59, 48, 0.08);
+    color: #ff9b95;
+    font-size: 14px;
+    font-weight: 900;
+    cursor: pointer;
+}
+
+.draft-resume-btn {
+    min-height: 48px;
+    margin-top: 0;
+}
+
 .form-group {
     margin-bottom: 14px;
 }
