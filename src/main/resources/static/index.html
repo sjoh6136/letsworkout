@@ -2513,6 +2513,7 @@
         let activeWorkoutDraftDisabled = false;
         let activeWorkoutDraftId = null;
         let activeWorkoutDraftCreatedAt = null;
+        let activeWorkoutSubmissionId = null;
         let pendingActiveWorkoutDraft = null;
         let isFinishingWorkout = false;
         let activeHistoryExerciseName = "";
@@ -2859,10 +2860,16 @@
             savePendingWorkoutSubmissions(next);
         }
 
+        function removePendingWorkoutSubmission(submissionId) {
+            if (!submissionId) return;
+            savePendingWorkoutSubmissions(loadPendingWorkoutSubmissions().filter(item => item.submissionId !== submissionId));
+        }
+
         async function retryPendingWorkoutSubmissions() {
             if (isFinishingWorkout) return;
             const pending = loadPendingWorkoutSubmissions();
             if (!pending.length) return;
+            if (DraftManager.hasDraftSignal()) return;
 
             const remaining = [];
             let savedAny = false;
@@ -2887,6 +2894,7 @@
 
             savePendingWorkoutSubmissions(remaining);
             if (savedAny) {
+                clearActiveWorkoutDraft();
                 await fetchBootstrap();
             }
         }
@@ -2956,6 +2964,7 @@
                     id: ACTIVE_WORKOUT_DRAFT_ID,
                     schemaVersion: 2,
                     draftId: raw.draftId || generateDraftId(),
+                    submissionId: raw.submissionId || "",
                     userId: raw.userId || authUser?.id || "single-user",
                     status: raw.status || "active",
                     split: parseInt(raw.split, 10) || oneRms.activeSplit,
@@ -3145,6 +3154,7 @@
             return {
                 schemaVersion: 2,
                 draftId: activeWorkoutDraftId,
+                submissionId: activeWorkoutSubmissionId || "",
                 userId: authUser?.id || "single-user",
                 status: "active",
                 split: oneRms.activeSplit,
@@ -3199,8 +3209,10 @@
                 clearTimeout(activeWorkoutDraftSaveTimer);
                 activeWorkoutDraftSaveTimer = null;
             }
+            removePendingWorkoutSubmission(activeWorkoutSubmissionId);
             activeWorkoutDraftId = null;
             activeWorkoutDraftCreatedAt = null;
+            activeWorkoutSubmissionId = null;
             pendingActiveWorkoutDraft = null;
             DraftManager.clear();
         }
@@ -3221,7 +3233,6 @@
                     row.dataset.targetWeight = savedRow.targetWeight || savedRow.weight || row.dataset.targetWeight || "";
                     row.dataset.targetReps = savedRow.targetReps || savedRow.reps || row.dataset.targetReps || "";
                     row.dataset.targetRpe = savedRow.targetRpe || savedRow.rpe || row.dataset.targetRpe || "";
-
                     const checkBtn = row.querySelector(".check-btn");
                     row.classList.toggle("checked", !!savedRow.checked);
                     if (checkBtn) checkBtn.classList.toggle("checked", !!savedRow.checked);
@@ -3297,8 +3308,10 @@
                 clearTimeout(activeWorkoutDraftSaveTimer);
                 activeWorkoutDraftSaveTimer = null;
             }
+            removePendingWorkoutSubmission(activeWorkoutSubmissionId);
             activeWorkoutDraftId = null;
             activeWorkoutDraftCreatedAt = null;
+            activeWorkoutSubmissionId = null;
             await DraftManager.clear();
             activeWorkoutDraftDisabled = false;
         }
@@ -3317,6 +3330,7 @@
                 activeWorkoutDraftDisabled = false;
                 activeWorkoutDraftId = draft.draftId || generateDraftId();
                 activeWorkoutDraftCreatedAt = parseInt(draft.createdAt || draft.updatedAt || Date.now(), 10) || Date.now();
+                activeWorkoutSubmissionId = draft.submissionId || null;
                 oneRms.activeSplit = parseInt(split, 10) || oneRms.activeSplit;
                 currentDayId = draft.dayId;
                 activeWorkoutDay = JSON.parse(JSON.stringify(draft.routineSnapshot || draft.dayObj));
@@ -4041,6 +4055,7 @@
             activeWorkoutDraftDisabled = false;
             activeWorkoutDraftId = generateDraftId();
             activeWorkoutDraftCreatedAt = Date.now();
+            activeWorkoutSubmissionId = null;
             currentDayId = dayId;
             const currentSplitStr = String(oneRms.activeSplit);
             const activeRoutine = routineData[currentSplitStr];
@@ -4483,17 +4498,18 @@
 
         function logSucceededFrontend(log, rpeTarget) {
             const targetRpe = parseFloat(rpeTarget ?? log.targetRpe) || 8.0;
+            const rpe = parseFloat(log.rpe) || 0;
+            const rpeOk = rpe > 0 ? rpe <= targetRpe : String(log.status || "").toUpperCase() === "SUCCESS";
             return String(log.status || "").toUpperCase() === "SUCCESS"
                 && (parseFloat(log.weight) || 0) > 0
                 && (parseFloat(log.weight) || 0) + 0.001 >= (parseFloat(log.targetWeight) || 0)
                 && (parseInt(log.reps) || 0) > 0
                 && (parseInt(log.reps) || 0) >= (parseInt(log.targetReps) || 0)
-                && (parseFloat(log.rpe) || 0) > 0
-                && (parseFloat(log.rpe) || 0) <= targetRpe;
+                && rpeOk;
         }
 
-        function setSucceededFrontend({ checked, weight, targetWeight, reps, targetReps, rpe, targetRpe }) {
-            return !!checked
+        function setSucceededFrontend({ completed, weight, targetWeight, reps, targetReps, rpe, targetRpe }) {
+            return !!completed
                 && (parseFloat(weight) || 0) > 0
                 && (parseFloat(weight) || 0) + 0.001 >= (parseFloat(targetWeight) || 0)
                 && (parseInt(reps) || 0) > 0
@@ -5065,7 +5081,8 @@
             const logs = [];
             const replacements = [];
             const currentWeek = getActiveWeekNum();
-            const submissionId = generateSubmissionId();
+            const submissionId = activeWorkoutSubmissionId || generateSubmissionId();
+            activeWorkoutSubmissionId = submissionId;
             if (document.activeElement && typeof document.activeElement.blur === "function") {
                 document.activeElement.blur();
             }
@@ -5077,6 +5094,7 @@
                     const row = document.getElementById(`row-${exIdx}-${s}`);
                     if (!row) continue;
                     const checked = row.classList.contains("checked");
+                    const completed = checked;
                     
                     const weightVal = parseFloat(row.querySelector(".weight-input").value) || 0;
                     const repsVal = parseInt(row.querySelector(".reps-input").value) || 0;
@@ -5088,7 +5106,7 @@
                     const parsedRpe = parseFloat(rpeInput?.value);
                     const rpeVal = Number.isFinite(parsedRpe) ? parsedRpe : 0.0;
                     const setSuccess = setSucceededFrontend({
-                        checked,
+                        completed,
                         weight: weightVal,
                         targetWeight,
                         reps: repsVal,
@@ -5105,18 +5123,19 @@
                         targetReps: targetReps,
                         targetRpe: targetRpe,
                         reps: repsVal,
-                        rpe: checked ? rpeVal : 0.0,
-                        checked: checked,
+                        rpe: completed ? rpeVal : 0.0,
+                        checked: completed,
+                        completed: completed,
                         status: setSuccess ? "SUCCESS" : "FAIL",
                         split: oneRms.activeSplit,
                         week: currentWeek,
                         day: dayObj.id
                     });
                     exerciseRows.push({
-                        checked,
+                        checked: completed,
                         weight: weightVal,
                         reps: repsVal,
-                        rpe: checked ? rpeVal : 0.0
+                        rpe: completed ? rpeVal : 0.0
                     });
                 }
 
@@ -5155,16 +5174,14 @@
                 } else {
                     const errorMessage = await readApiError(res);
                     queuePendingWorkoutSubmission(payload);
-                    activeWorkoutDraftDisabled = true;
-                    clearActiveWorkoutDraft();
-                    alert(`저장에 실패했습니다.\n\n원인: ${errorMessage}\n\n기록은 이 기기에 임시 보관했고, 다음 접속 때 자동 재전송합니다.`);
+                    saveActiveWorkoutDraftSync();
+                    alert(`저장에 실패했습니다.\n\n원인: ${errorMessage}\n\n기록은 이 기기에 임시 보관했고 화면도 유지했습니다. 잠시 후 완료를 다시 눌러주세요.`);
                 }
             } catch (err) {
                 console.error("기록 제출 실패", err);
                 queuePendingWorkoutSubmission(payload);
-                activeWorkoutDraftDisabled = true;
-                clearActiveWorkoutDraft();
-                alert(`기록 저장에 실패했습니다.\n\n원인: ${err.message || "네트워크 오류"}\n\n기록은 이 기기에 임시 보관했고, 다음 접속 때 자동 재전송합니다.`);
+                saveActiveWorkoutDraftSync();
+                alert(`기록 저장에 실패했습니다.\n\n원인: ${err.message || "네트워크 오류"}\n\n기록은 이 기기에 임시 보관했고 화면도 유지했습니다. 잠시 후 완료를 다시 눌러주세요.`);
             } finally {
                 isFinishingWorkout = false;
                 setFinishButtonSaving(false);

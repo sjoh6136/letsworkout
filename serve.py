@@ -1384,6 +1384,8 @@ def latest_exercise_logs(logs, split, exercise_name):
 
 
 def log_checked(log):
+    if "completed" in log:
+        return sheet_bool(log.get("completed"))
     if "checked" in log:
         return sheet_bool(log.get("checked"))
     return str(log.get("status", "")).upper() == "SUCCESS"
@@ -1391,14 +1393,15 @@ def log_checked(log):
 
 def set_succeeded(log, rpe_target=None):
     target_rpe = as_float(rpe_target if rpe_target is not None else log.get("targetRpe"), 8.0)
+    rpe = as_float(log.get("rpe"))
+    rpe_ok = rpe <= target_rpe if rpe > 0 else str(log.get("status", "")).upper() == "SUCCESS"
     return (
         log_checked(log)
         and as_float(log.get("weight")) > 0
         and as_float(log.get("weight")) + 0.001 >= as_float(log.get("targetWeight"))
         and as_int(log.get("reps")) > 0
         and as_int(log.get("reps")) >= as_int(log.get("targetReps"))
-        and as_float(log.get("rpe")) > 0
-        and as_float(log.get("rpe")) <= target_rpe
+        and rpe_ok
     )
 
 
@@ -1542,6 +1545,7 @@ def normalize_logs(raw_logs, split, week, day_id, exercise_defs=None, submission
         log["rpe"] = as_float(log.get("rpe"))
         ex_def = exercise_defs.get(log.get("exercise"), {})
         log["targetRpe"] = as_float(log.get("targetRpe"), as_float(ex_def.get("rpeTarget"), 8.0))
+        log["completed"] = log_checked(log)
         log["checked"] = log_checked(log)
         log["status"] = "SUCCESS" if set_succeeded(log, log["targetRpe"]) else "FAIL"
         normalized.append(log)
