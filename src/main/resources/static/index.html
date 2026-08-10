@@ -2608,7 +2608,7 @@
 
         const RETRYABLE_STATUS_CODES = new Set([408, 425, 429, 500, 502, 503, 504]);
         const DEFAULT_REQUEST_TIMEOUT_MS = 25000;
-        const FINISH_REQUEST_TIMEOUT_MS = 20000;
+        const FINISH_REQUEST_TIMEOUT_MS = 75000;
 
         function delay(ms) {
             return new Promise(resolve => setTimeout(resolve, ms));
@@ -2811,6 +2811,13 @@
                     return fallback;
                 }
             }
+        }
+
+        function readNetworkError(err) {
+            if (err?.name === "AbortError") {
+                return "저장 응답 시간이 초과되었습니다. Google Sheets 저장이 늦게 완료될 수 있습니다.";
+            }
+            return err?.message || "네트워크 오류";
         }
 
         const PENDING_WORKOUT_SUBMISSIONS_KEY = "lw_pending_workout_submissions_v1";
@@ -5181,7 +5188,7 @@
                 console.error("기록 제출 실패", err);
                 queuePendingWorkoutSubmission(payload);
                 saveActiveWorkoutDraftSync();
-                alert(`기록 저장에 실패했습니다.\n\n원인: ${err.message || "네트워크 오류"}\n\n기록은 이 기기에 임시 보관했고 화면도 유지했습니다. 잠시 후 완료를 다시 눌러주세요.`);
+                alert(`기록 저장에 실패했습니다.\n\n원인: ${readNetworkError(err)}\n\n기록은 이 기기에 임시 보관했고 화면도 유지했습니다. 잠시 후 완료를 다시 눌러주세요.`);
             } finally {
                 isFinishingWorkout = false;
                 setFinishButtonSaving(false);
