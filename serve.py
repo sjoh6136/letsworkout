@@ -36,6 +36,8 @@ AUTH_SESSION_DAYS = max(1, int(os.environ.get("AUTH_SESSION_DAYS", "180")))
 AUTH_PASSWORD_ITERATIONS = 200_000
 AUTH_CACHE_SECONDS = max(60, int(os.environ.get("AUTH_CACHE_SECONDS", str(12 * 60 * 60))))
 STATE_CACHE_SECONDS = max(0, int(os.environ.get("STATE_CACHE_SECONDS", "20")))
+APP_RELEASE = "2026-08-10-save-retry-v4"
+APP_BUILD_COMMIT = os.environ.get("RENDER_GIT_COMMIT") or os.environ.get("SOURCE_VERSION") or ""
 _SHEETS_STORE = None
 _AUTH_SESSION_CACHE = {}
 _STATE_CACHE = {"expires_at": 0.0, "state": None}
@@ -1705,7 +1707,11 @@ def index():
 
 @app.route("/healthz")
 def healthz():
-    return jsonify({"ok": True})
+    return jsonify({
+        "ok": True,
+        "release": APP_RELEASE,
+        "commit": APP_BUILD_COMMIT,
+    })
 
 
 @app.route("/api/auth/status")
@@ -1895,7 +1901,9 @@ def workout_replacements():
 
 @app.route("/api/workout/finish", methods=["POST"])
 def workout_finish():
+    started_at = time.perf_counter()
     state = load_state()
+    load_ms = int((time.perf_counter() - started_at) * 1000)
     body = request.get_json(silent=True) or {}
     split = as_int(body.get("split"), as_int(state["oneRms"].get("activeSplit"), 5))
     week = as_int(body.get("week"), 1)
@@ -1908,18 +1916,29 @@ def workout_finish():
         log["date"] = date
     replacements = normalize_replacements(body.get("replacements", []), split, week, day_id, date, submission_id)
 
-    if submission_id and (state_has_submission(state, submission_id) or sheet_has_submission(submission_id)):
+    duplicate_check_started_at = time.perf_counter()
+    is_duplicate = submission_id and (state_has_submission(state, submission_id) or sheet_has_submission(submission_id))
+    duplicate_check_ms = int((time.perf_counter() - duplicate_check_started_at) * 1000)
+    if is_duplicate:
         known_keys = {replacement_key(item) for item in state.get("replacements", [])}
         missing_replacements = [item for item in replacements if replacement_key(item) not in known_keys]
         if missing_replacements:
             append_workout_replacements_to_sheet(missing_replacements)
             state["replacements"] = merge_replacements(state.get("replacements", []), missing_replacements)
             save_state(state, sync_one_rms=False, sync_gyms=False)
+        print(
+            f"[finish] duplicate submission={submission_id or '-'} logs={len(logs)} "
+            f"load={load_ms}ms duplicate_check={duplicate_check_ms}ms "
+            f"total={int((time.perf_counter() - started_at) * 1000)}ms",
+            flush=True,
+        )
         return jsonify(duplicate_finish_response(logs))
 
     store = sheets_store()
     logs_saved_to_sheet = False
     replacements_saved_to_sheet = False
+    logs_sheet_ms = 0
+    replacements_sheet_ms = 0
     if REQUIRE_SHEETS_FOR_FINISH and not store.connected:
         return jsonify({
             "error": "sheet_unavailable",
@@ -1928,28 +1947,57 @@ def workout_finish():
         }), 503
 
     if store.connected:
+        sheet_started_at = time.perf_counter()
         logs_saved_to_sheet = append_workout_logs_to_sheet(logs)
+        logs_sheet_ms = int((time.perf_counter() - sheet_started_at) * 1000)
         if not logs_saved_to_sheet:
+            print(
+                f"[finish] sheet_save_failed submission={submission_id or '-'} logs={len(logs)} "
+                f"load={load_ms}ms duplicate_check={duplicate_check_ms}ms "
+                f"logs_sheet={logs_sheet_ms}ms total={int((time.perf_counter() - started_at) * 1000)}ms",
+                flush=True,
+            )
             return jsonify({
                 "error": "sheet_save_failed",
                 "message": "운동 기록을 Google Sheets에 저장하지 못했습니다.",
                 "retryable": True,
             }), 503
+        replacements_started_at = time.perf_counter()
         replacements_saved_to_sheet = append_workout_replacements_to_sheet(replacements)
+        replacements_sheet_ms = int((time.perf_counter() - replacements_started_at) * 1000)
 
     one_rms_before = copy.deepcopy(state.get("oneRms", {}))
     feedback = evaluate_and_update(state, logs, split, week, day_id)
     one_rms_changed = state.get("oneRms", {}) != one_rms_before
     state["logs"].extend(logs)
     state["replacements"] = merge_replacements(state.get("replacements", []), replacements)
+    submission_sheet_ms = 0
     if submission_id:
         submission = make_submission_record(submission_id, date, split, week, day_id, len(logs))
         remember_submission(state, submission)
+        submission_started_at = time.perf_counter()
         append_workout_submission_to_sheet(submission)
+        submission_sheet_ms = int((time.perf_counter() - submission_started_at) * 1000)
     save_state(state, sync_one_rms=one_rms_changed, sync_gyms=False)
     feedback["sheetsConnected"] = logs_saved_to_sheet if store.connected else sheets_connected()
     feedback["replacementHistorySaved"] = replacements_saved_to_sheet if replacements else True
     feedback["submissionId"] = submission_id
+    feedback["saveTimingMs"] = {
+        "load": load_ms,
+        "duplicateCheck": duplicate_check_ms,
+        "logsSheet": logs_sheet_ms,
+        "replacementsSheet": replacements_sheet_ms,
+        "submissionSheet": submission_sheet_ms,
+        "total": int((time.perf_counter() - started_at) * 1000),
+    }
+    print(
+        f"[finish] saved submission={submission_id or '-'} logs={len(logs)} replacements={len(replacements)} "
+        f"sheet={logs_saved_to_sheet if store.connected else 'local'} load={load_ms}ms "
+        f"duplicate_check={duplicate_check_ms}ms logs_sheet={logs_sheet_ms}ms "
+        f"replacements_sheet={replacements_sheet_ms}ms submission_sheet={submission_sheet_ms}ms "
+        f"total={feedback['saveTimingMs']['total']}ms",
+        flush=True,
+    )
     return jsonify(feedback)
 
 
