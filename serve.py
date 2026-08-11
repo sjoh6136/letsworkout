@@ -36,7 +36,7 @@ AUTH_SESSION_DAYS = max(1, int(os.environ.get("AUTH_SESSION_DAYS", "180")))
 AUTH_PASSWORD_ITERATIONS = 200_000
 AUTH_CACHE_SECONDS = max(60, int(os.environ.get("AUTH_CACHE_SECONDS", str(12 * 60 * 60))))
 STATE_CACHE_SECONDS = max(0, int(os.environ.get("STATE_CACHE_SECONDS", "20")))
-APP_RELEASE = "2026-08-11-username-tabs-v1"
+APP_RELEASE = "2026-08-11-workout-date-dedupe-v1"
 APP_BUILD_COMMIT = os.environ.get("RENDER_GIT_COMMIT") or os.environ.get("SOURCE_VERSION") or ""
 _SHEETS_STORE = None
 _AUTH_SESSION_CACHE = {}
@@ -380,6 +380,7 @@ class GoogleSheetsStore:
     ]
     LOG_HEADER = [
         "날짜",
+        "사용자",
         "분할",
         "주차",
         "일차",
@@ -450,7 +451,7 @@ class GoogleSheetsStore:
         return "Username" if normalize_username(username) else "UserId"
 
     def log_header_for_user(self, username=""):
-        return self.LOG_HEADER + ["SubmissionId", self.log_actor_header(username)]
+        return self.LOG_HEADER + ["SubmissionId"]
 
     def replacements_header_for_user(self, username=""):
         return self.REPLACEMENTS_HEADER + [self.log_actor_header(username)]
@@ -519,6 +520,14 @@ class GoogleSheetsStore:
         candidates = {normalize_username(username), str(user_id or "").strip()}
         return actor in {candidate for candidate in candidates if candidate}
 
+    @staticmethod
+    def looks_like_submission_id(value):
+        value = str(value or "").strip()
+        return bool(
+            value.startswith("submission_")
+            or re.fullmatch(r"[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}", value)
+        )
+
     def ensure_user_settings(self, settings, source_settings):
         source_values = source_settings.get("A2:E2")
         source_defaults = source_values[0] if source_values else [
@@ -557,8 +566,26 @@ class GoogleSheetsStore:
             padded = [str(value).strip() for value in row] + [""] * width
             if not self.actor_matches(padded[actor_index], username, user_id):
                 continue
-            new_row = padded[:width]
-            new_row[-1] = normalize_username(username)
+            if source_title == self.LOGS_TAB and width == 14:
+                new_row = [
+                    padded[0],
+                    normalize_username(username),
+                    padded[1],
+                    padded[2],
+                    padded[3],
+                    padded[4],
+                    padded[5],
+                    padded[6],
+                    padded[7],
+                    padded[8],
+                    padded[9],
+                    padded[10],
+                    padded[11],
+                    padded[12],
+                ]
+            else:
+                new_row = padded[:width]
+                new_row[-1] = normalize_username(username)
             migrated.append(new_row)
             if width >= 13 and new_row[12]:
                 submission_ids.append(new_row[12])
@@ -1273,6 +1300,40 @@ def state_has_submission(state, submission_id):
     return False
 
 
+def log_duplicate_key(log):
+    return (
+        str(log.get("date") or ""),
+        as_int(log.get("split")),
+        as_int(log.get("week"), 1),
+        str(log.get("day") or ""),
+        str(log.get("exercise") or ""),
+        as_int(log.get("setNo")),
+        round(as_float(log.get("weight")), 3),
+        as_int(log.get("reps")),
+        round(as_float(log.get("rpe")), 3),
+        str(log.get("status") or ""),
+        round(as_float(log.get("targetWeight")), 3),
+        as_int(log.get("targetReps")),
+    )
+
+
+def workout_logs_already_saved(state, logs):
+    if not logs:
+        return False
+
+    new_counts = {}
+    for log in logs:
+        key = log_duplicate_key(log)
+        new_counts[key] = new_counts.get(key, 0) + 1
+
+    existing_counts = {}
+    for log in state.get("logs", []):
+        key = log_duplicate_key(log)
+        existing_counts[key] = existing_counts.get(key, 0) + 1
+
+    return all(existing_counts.get(key, 0) >= count for key, count in new_counts.items())
+
+
 def current_request_user():
     user = getattr(g, "current_user", None)
     if isinstance(user, dict):
@@ -1361,6 +1422,16 @@ def today_iso():
     except ZoneInfoNotFoundError:
         tz = ZoneInfo("UTC")
     return datetime.now(tz).date().isoformat()
+
+
+def normalize_workout_date(value):
+    raw = str(value or "").strip()
+    if not re.fullmatch(r"\d{4}-\d{2}-\d{2}", raw):
+        return today_iso()
+    try:
+        return datetime.strptime(raw, "%Y-%m-%d").date().isoformat()
+    except ValueError:
+        return today_iso()
 
 
 def load_legacy_gyms():
@@ -2164,7 +2235,7 @@ def workout_finish():
     week = as_int(body.get("week"), 1)
     day_id = body.get("day") or "Day 1"
     submission_id = str(body.get("submissionId") or "").strip()
-    date = today_iso()
+    date = normalize_workout_date(body.get("date"))
     exercise_defs = routine_exercise_lookup(load_routines(), split)
     logs = normalize_logs(body.get("logs", []), split, week, day_id, exercise_defs, submission_id, username, user_id)
     for log in logs:
@@ -2172,7 +2243,10 @@ def workout_finish():
     replacements = normalize_replacements(body.get("replacements", []), split, week, day_id, date, submission_id, username, user_id)
 
     duplicate_check_started_at = time.perf_counter()
-    is_duplicate = submission_id and (state_has_submission(state, submission_id) or sheet_has_submission(submission_id, username, user_id))
+    is_duplicate = (
+        bool(submission_id and (state_has_submission(state, submission_id) or sheet_has_submission(submission_id, username, user_id)))
+        or workout_logs_already_saved(state, logs)
+    )
     duplicate_check_ms = int((time.perf_counter() - duplicate_check_started_at) * 1000)
     if is_duplicate:
         known_keys = {replacement_key(item) for item in state.get("replacements", [])}
@@ -2180,6 +2254,11 @@ def workout_finish():
         if missing_replacements:
             append_workout_replacements_to_sheet(missing_replacements, username, user_id)
             state["replacements"] = merge_replacements(state.get("replacements", []), missing_replacements)
+        if submission_id and not state_has_submission(state, submission_id):
+            submission = make_submission_record(submission_id, date, split, week, day_id, len(logs))
+            remember_submission(state, submission)
+            append_workout_submission_to_sheet(submission, username, user_id)
+        if missing_replacements or submission_id:
             save_state(state, sync_one_rms=False, sync_gyms=False, username=username, user_id=user_id)
         print(
             f"[finish] duplicate submission={submission_id or '-'} logs={len(logs)} "

@@ -193,6 +193,8 @@ Never store plaintext passwords. Do not place auth/session columns in `Workout_L
 - `/api/workout/status` recommends the next workout day.
 - Recommendation logic must use the actual routine day count, not the split number.
 - `/api/workout/finish` saves workout logs and evaluates progression.
+- `/api/workout/finish` should store the workout start date sent by the frontend, not blindly overwrite with the server's current date.
+- Duplicate finish protection must cover both repeated `SubmissionId` values and identical saved workout content for the same username/date/split/week/day.
 - `/api/auth/status`, `/api/auth/register`, `/api/auth/login`, and `/api/auth/logout` are public auth endpoints.
 - Other `/api/*` endpoints require the `lw_session` cookie.
 - Be careful around Google Sheets write paths. Column alignment regressions are high risk.

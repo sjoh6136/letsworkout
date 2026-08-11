@@ -2973,6 +2973,7 @@
                     draftId: raw.draftId || generateDraftId(),
                     submissionId: raw.submissionId || "",
                     username: raw.username || authUser?.username || raw.userId || "single-user",
+                    date: raw.date || getLocalDateString(new Date(createdAt)),
                     status: raw.status || "active",
                     split: parseInt(raw.split, 10) || oneRms.activeSplit,
                     week: parseInt(raw.week, 10) || 1,
@@ -3163,6 +3164,7 @@
                 draftId: activeWorkoutDraftId,
                 submissionId: activeWorkoutSubmissionId || "",
                 username: authUser?.username || "single-user",
+                date: getLocalDateString(new Date(activeWorkoutDraftCreatedAt)),
                 status: "active",
                 split: oneRms.activeSplit,
                 week: getActiveWeekNum(),
@@ -5153,6 +5155,7 @@
 
             const payload = {
                 submissionId,
+                date: getLocalDateString(new Date(activeWorkoutDraftCreatedAt || Date.now())),
                 split: oneRms.activeSplit,
                 week: currentWeek,
                 day: dayObj.id,
