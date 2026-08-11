@@ -140,13 +140,20 @@ Workout log column order is important. Do not add an empty leading column or shi
 | K | 목표무게(kg) |
 | L | 목표횟수(reps) |
 
-M/N and later columns are not part of the normal log schema.
+M/N are reserved identifiers:
+
+| Column | Field |
+|---|---|
+| M | SubmissionId |
+| N | UserId |
+
+Do not insert new columns before N. If more log metadata is needed later, append it after N.
 
 Gym equipment settings are stored in a separate `Gym_Settings` tab. Keep it separate from `Workout_Logs` so workout log columns never shift.
 
 Workout replacement history is stored separately:
 
-- `Workout_Replacements`: one row per replaced exercise in a completed workout
+- `Workout_Replacements`: one row per replaced exercise in a completed workout, with `UserId` in column O
 - `Workout_Submissions`: idempotency markers for completed workout submissions
 
 Do not add replacement metadata to `Workout_Logs`. A replaced workout still writes set logs under the actual exercise performed, while `Workout_Replacements` links `originalExercise` to the actual `exercise`.

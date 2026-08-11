@@ -445,7 +445,7 @@ class GoogleSheetsStore:
         settings = self.worksheet(self.SETTINGS_TAB, rows=2, cols=10)
         logs = self.worksheet(self.LOGS_TAB, rows=1000, cols=14)
         gym_settings = self.worksheet(self.GYM_SETTINGS_TAB, rows=50, cols=8)
-        replacements = self.worksheet(self.REPLACEMENTS_TAB, rows=500, cols=14)
+        replacements = self.worksheet(self.REPLACEMENTS_TAB, rows=500, cols=15)
         submissions = self.worksheet(self.SUBMISSIONS_TAB, rows=500, cols=7)
         user_accounts = self.worksheet(self.USER_ACCOUNTS_TAB, rows=20, cols=10)
         user_sessions = self.worksheet(self.USER_SESSIONS_TAB, rows=100, cols=8)
@@ -475,9 +475,9 @@ class GoogleSheetsStore:
                     row[4] or DEFAULT_ONE_RMS["activeSplit"],
                 ]], range_name="A2:E2")
 
-        self.ensure_header(logs, "A1:N1", self.LOG_HEADER + ["SubmissionId", ""])
+        self.ensure_header(logs, "A1:N1", self.LOG_HEADER + ["SubmissionId", "UserId"])
         self.ensure_header(gym_settings, "A1:G1", self.GYM_SETTINGS_HEADER)
-        self.ensure_header(replacements, "A1:N1", self.REPLACEMENTS_HEADER)
+        self.ensure_header(replacements, "A1:O1", self.REPLACEMENTS_HEADER + ["UserId"])
         self.ensure_header(submissions, "A1:G1", self.SUBMISSIONS_HEADER)
         self.ensure_header(user_accounts, "A1:I1", self.USER_ACCOUNTS_HEADER)
         self.ensure_header(user_sessions, "A1:G1", self.USER_SESSIONS_HEADER)
@@ -672,7 +672,7 @@ class GoogleSheetsStore:
         start = next((idx for idx, value in enumerate(row) if re.fullmatch(r"\d{4}-\d{2}-\d{2}", value)), None)
         if start is None:
             return None
-        row = row + [""] * (start + 13 - len(row))
+        row = row + [""] * (start + 14 - len(row))
         if len(row) - start < 12 or not row[start]:
             return None
         return {
@@ -689,6 +689,7 @@ class GoogleSheetsStore:
             "targetWeight": sheet_float(row[start + 10], sheet_float(row[start + 6])),
             "targetReps": sheet_int(row[start + 11], sheet_int(row[start + 7])),
             "submissionId": row[start + 12],
+            "userId": row[start + 13],
         }
 
     def append_logs(self, logs):
@@ -711,8 +712,9 @@ class GoogleSheetsStore:
                 log.get("targetWeight", ""),
                 log.get("targetReps", ""),
                 log.get("submissionId", ""),
+                log.get("userId", ""),
             ])
-        worksheet.append_rows(rows, value_input_option="RAW", table_range="A1:M1")
+        worksheet.append_rows(rows, value_input_option="RAW", table_range="A1:N1")
         return True
 
     def load_log_submission_ids(self):
@@ -721,11 +723,11 @@ class GoogleSheetsStore:
         return {str(row[0]).strip() for row in rows if row and str(row[0]).strip()}
 
     def load_replacements(self):
-        worksheet = self.worksheet(self.REPLACEMENTS_TAB, rows=500, cols=14)
-        rows = worksheet.get("A2:N")
+        worksheet = self.worksheet(self.REPLACEMENTS_TAB, rows=500, cols=15)
+        rows = worksheet.get("A2:O")
         parsed = []
         for row in rows:
-            row = [str(value).strip() for value in row] + [""] * 14
+            row = [str(value).strip() for value in row] + [""] * 15
             if not row[0] or not row[4] or not row[5]:
                 continue
             parsed.append({
@@ -743,13 +745,14 @@ class GoogleSheetsStore:
                 "summary": row[11],
                 "submissionId": row[12],
                 "createdAt": row[13],
+                "userId": row[14],
             })
         return parsed
 
     def append_replacements(self, replacements):
         if not replacements:
             return True
-        worksheet = self.worksheet(self.REPLACEMENTS_TAB, rows=500, cols=14)
+        worksheet = self.worksheet(self.REPLACEMENTS_TAB, rows=500, cols=15)
         rows = []
         for item in replacements:
             rows.append([
@@ -767,8 +770,9 @@ class GoogleSheetsStore:
                 item.get("summary", ""),
                 item.get("submissionId", ""),
                 item.get("createdAt", ""),
+                item.get("userId", ""),
             ])
-        worksheet.append_rows(rows, value_input_option="RAW", table_range="A1:N1")
+        worksheet.append_rows(rows, value_input_option="RAW", table_range="A1:O1")
         return True
 
     def load_submission_ids(self):
@@ -1061,6 +1065,7 @@ def append_workout_submission_to_sheet(submission):
 
 def replacement_key(item):
     return "|".join([
+        str(item.get("userId") or ""),
         str(item.get("submissionId") or ""),
         str(item.get("date") or ""),
         str(item.get("split") or ""),
@@ -1093,6 +1098,28 @@ def state_has_submission(state, submission_id):
         if str(log.get("submissionId") or "").strip() == submission_id:
             return True
     return False
+
+
+def current_request_user_id():
+    user = getattr(g, "current_user", None)
+    if isinstance(user, dict):
+        return str(user.get("id") or "").strip()
+    return ""
+
+
+def item_matches_user(item, user_id):
+    if not user_id:
+        return True
+    return str(item.get("userId") or "").strip() == user_id
+
+
+def state_for_user(state, user_id):
+    if not user_id:
+        return state
+    scoped = copy.deepcopy(state)
+    scoped["logs"] = [log for log in state.get("logs", []) if item_matches_user(log, user_id)]
+    scoped["replacements"] = [item for item in state.get("replacements", []) if item_matches_user(item, user_id)]
+    return scoped
 
 
 def sheet_has_submission(submission_id):
@@ -1528,7 +1555,7 @@ def target_muscle(exercise_name):
     return "기타"
 
 
-def normalize_logs(raw_logs, split, week, day_id, exercise_defs=None, submission_id=""):
+def normalize_logs(raw_logs, split, week, day_id, exercise_defs=None, submission_id="", user_id=""):
     today = today_iso()
     normalized = []
     exercise_defs = exercise_defs or {}
@@ -1536,6 +1563,7 @@ def normalize_logs(raw_logs, split, week, day_id, exercise_defs=None, submission
         log = dict(raw)
         log["date"] = log.get("date") or today
         log["submissionId"] = str(log.get("submissionId") or submission_id or "").strip()
+        log["userId"] = str(log.get("userId") or user_id or "").strip()
         log["split"] = split
         log["week"] = week
         log["day"] = day_id
@@ -1580,10 +1608,11 @@ def normalize_replacement_item(raw):
         "summary": str(source.get("summary") or "").strip(),
         "submissionId": str(source.get("submissionId") or "").strip(),
         "createdAt": str(source.get("createdAt") or now_iso()),
+        "userId": str(source.get("userId") or "").strip(),
     }
 
 
-def normalize_replacements(raw_replacements, split, week, day_id, date, submission_id):
+def normalize_replacements(raw_replacements, split, week, day_id, date, submission_id, user_id=""):
     normalized = []
     for raw in raw_replacements or []:
         item = normalize_replacement_item({
@@ -1593,6 +1622,7 @@ def normalize_replacements(raw_replacements, split, week, day_id, date, submissi
             "week": week,
             "day": day_id,
             "submissionId": submission_id,
+            "userId": user_id,
         })
         if item:
             normalized.append(item)
@@ -1862,7 +1892,7 @@ def workout_settings():
 
 @app.route("/api/workout/bootstrap")
 def workout_bootstrap():
-    state = load_state()
+    state = state_for_user(load_state(), current_request_user_id())
     routines = load_routines()
     return jsonify({
         "oneRms": state["oneRms"],
@@ -1879,24 +1909,24 @@ def workout_bootstrap():
 
 @app.route("/api/workout/routine")
 def workout_routine():
-    state = load_state()
+    state = state_for_user(load_state(), current_request_user_id())
     return jsonify(apply_progression(load_routines(), state))
 
 
 @app.route("/api/workout/status")
 def workout_status():
-    state = load_state()
+    state = state_for_user(load_state(), current_request_user_id())
     return jsonify(workout_status_payload(state))
 
 
 @app.route("/api/workout/logs")
 def workout_logs():
-    return jsonify(load_state().get("logs", []))
+    return jsonify(state_for_user(load_state(), current_request_user_id()).get("logs", []))
 
 
 @app.route("/api/workout/replacements")
 def workout_replacements():
-    return jsonify(load_state().get("replacements", []))
+    return jsonify(state_for_user(load_state(), current_request_user_id()).get("replacements", []))
 
 
 @app.route("/api/workout/finish", methods=["POST"])
@@ -1909,12 +1939,13 @@ def workout_finish():
     week = as_int(body.get("week"), 1)
     day_id = body.get("day") or "Day 1"
     submission_id = str(body.get("submissionId") or "").strip()
+    user_id = current_request_user_id()
     date = today_iso()
     exercise_defs = routine_exercise_lookup(load_routines(), split)
-    logs = normalize_logs(body.get("logs", []), split, week, day_id, exercise_defs, submission_id)
+    logs = normalize_logs(body.get("logs", []), split, week, day_id, exercise_defs, submission_id, user_id)
     for log in logs:
         log["date"] = date
-    replacements = normalize_replacements(body.get("replacements", []), split, week, day_id, date, submission_id)
+    replacements = normalize_replacements(body.get("replacements", []), split, week, day_id, date, submission_id, user_id)
 
     duplicate_check_started_at = time.perf_counter()
     is_duplicate = submission_id and (state_has_submission(state, submission_id) or sheet_has_submission(submission_id))
@@ -1967,7 +1998,9 @@ def workout_finish():
         replacements_sheet_ms = int((time.perf_counter() - replacements_started_at) * 1000)
 
     one_rms_before = copy.deepcopy(state.get("oneRms", {}))
-    feedback = evaluate_and_update(state, logs, split, week, day_id)
+    scoped_state = state_for_user(state, user_id)
+    feedback = evaluate_and_update(scoped_state, logs, split, week, day_id)
+    state["oneRms"] = scoped_state.get("oneRms", state.get("oneRms", {}))
     one_rms_changed = state.get("oneRms", {}) != one_rms_before
     state["logs"].extend(logs)
     state["replacements"] = merge_replacements(state.get("replacements", []), replacements)
@@ -1992,7 +2025,7 @@ def workout_finish():
     }
     print(
         f"[finish] saved submission={submission_id or '-'} logs={len(logs)} replacements={len(replacements)} "
-        f"sheet={logs_saved_to_sheet if store.connected else 'local'} load={load_ms}ms "
+        f"user={user_id or '-'} sheet={logs_saved_to_sheet if store.connected else 'local'} load={load_ms}ms "
         f"duplicate_check={duplicate_check_ms}ms logs_sheet={logs_sheet_ms}ms "
         f"replacements_sheet={replacements_sheet_ms}ms submission_sheet={submission_sheet_ms}ms "
         f"total={feedback['saveTimingMs']['total']}ms",
