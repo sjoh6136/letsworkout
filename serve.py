@@ -36,7 +36,7 @@ AUTH_SESSION_DAYS = max(1, int(os.environ.get("AUTH_SESSION_DAYS", "180")))
 AUTH_PASSWORD_ITERATIONS = 200_000
 AUTH_CACHE_SECONDS = max(60, int(os.environ.get("AUTH_CACHE_SECONDS", str(12 * 60 * 60))))
 STATE_CACHE_SECONDS = max(0, int(os.environ.get("STATE_CACHE_SECONDS", "20")))
-APP_RELEASE = "2026-08-11-rpe-zero-guard-v1"
+APP_RELEASE = "2026-08-11-user-scoped-sheets-only-v1"
 APP_BUILD_COMMIT = os.environ.get("RENDER_GIT_COMMIT") or os.environ.get("SOURCE_VERSION") or ""
 _SHEETS_STORE = None
 _AUTH_SESSION_CACHE = {}
@@ -467,70 +467,14 @@ class GoogleSheetsStore:
             worksheet.update(values=[header], range_name=range_name)
 
     def ensure_tabs(self):
-        settings = self.worksheet(self.SETTINGS_TAB, rows=2, cols=10)
-        logs = self.worksheet(self.LOGS_TAB, rows=1000, cols=13)
-        gym_settings = self.worksheet(self.GYM_SETTINGS_TAB, rows=50, cols=8)
-        replacements = self.worksheet(self.REPLACEMENTS_TAB, rows=500, cols=15)
-        submissions = self.worksheet(self.SUBMISSIONS_TAB, rows=500, cols=7)
         user_accounts = self.worksheet(self.USER_ACCOUNTS_TAB, rows=20, cols=10)
         user_sessions = self.worksheet(self.USER_SESSIONS_TAB, rows=100, cols=8)
 
-        values = settings.get("A1:E2")
-        if not values:
-            settings.update(
-                values=[self.SETTINGS_HEADER, [
-                    DEFAULT_ONE_RMS["squat"],
-                    DEFAULT_ONE_RMS["bench"],
-                    DEFAULT_ONE_RMS["deadlift"],
-                    DEFAULT_ONE_RMS["ohp"],
-                    DEFAULT_ONE_RMS["activeSplit"],
-                ]],
-                range_name="A1:E2",
-            )
-        else:
-            if not self.header_matches(values[0] if values else [], self.SETTINGS_HEADER):
-                settings.update(values=[self.SETTINGS_HEADER], range_name="A1:E1")
-            if len(values) < 2 or len(values[1]) < 5:
-                row = (values[1] if len(values) > 1 else []) + [""] * 5
-                settings.update(values=[[
-                    row[0] or DEFAULT_ONE_RMS["squat"],
-                    row[1] or DEFAULT_ONE_RMS["bench"],
-                    row[2] or DEFAULT_ONE_RMS["deadlift"],
-                    row[3] or DEFAULT_ONE_RMS["ohp"],
-                    row[4] or DEFAULT_ONE_RMS["activeSplit"],
-                ]], range_name="A2:E2")
-
-        self.ensure_header(logs, "A1:M1", self.log_header_for_user())
-        self.ensure_header(gym_settings, "A1:G1", self.GYM_SETTINGS_HEADER)
-        self.ensure_header(replacements, "A1:O1", self.replacements_header_for_user())
-        self.ensure_header(submissions, "A1:G1", self.SUBMISSIONS_HEADER)
         self.ensure_header(user_accounts, "A1:I1", self.USER_ACCOUNTS_HEADER)
         self.ensure_header(user_sessions, "A1:G1", self.USER_SESSIONS_HEADER)
 
-    @staticmethod
-    def worksheet_has_data_rows(worksheet, range_name):
-        values = worksheet.get(range_name)
-        return any(any(str(cell).strip() for cell in row) for row in values)
-
-    @staticmethod
-    def actor_matches(actor, username="", user_id=""):
-        actor = str(actor or "").strip()
-        if not actor:
-            return False
-        candidates = {normalize_username(username), str(user_id or "").strip()}
-        return actor in {candidate for candidate in candidates if candidate}
-
-    @staticmethod
-    def looks_like_submission_id(value):
-        value = str(value or "").strip()
-        return bool(
-            value.startswith("submission_")
-            or re.fullmatch(r"[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}", value)
-        )
-
-    def ensure_user_settings(self, settings, source_settings):
-        source_values = source_settings.get("A2:E2")
-        source_defaults = source_values[0] if source_values else [
+    def ensure_user_settings(self, settings):
+        source_defaults = [
             DEFAULT_ONE_RMS["squat"],
             DEFAULT_ONE_RMS["bench"],
             DEFAULT_ONE_RMS["deadlift"],
@@ -555,79 +499,6 @@ class GoogleSheetsStore:
                 row[4] or source_defaults[4] or DEFAULT_ONE_RMS["activeSplit"],
             ]], range_name="A2:E2")
 
-    def migrate_legacy_rows(self, source_title, target, source_range, table_range, username, user_id, actor_index, width):
-        if self.worksheet_has_data_rows(target, "A2:A"):
-            return []
-
-        source = self.worksheet(source_title, rows=1000, cols=width)
-        migrated = []
-        submission_ids = []
-        for row in source.get(source_range):
-            padded = [str(value).strip() for value in row] + [""] * width
-            is_new_log_row = (
-                source_title == self.LOGS_TAB
-                and width == 14
-                and padded[1]
-                and not re.fullmatch(r"-?\d+(?:\.\d+)?", padded[1])
-                and re.fullmatch(r"-?\d+(?:\.\d+)?", padded[2])
-            )
-            actor = padded[1] if is_new_log_row else padded[actor_index]
-            if not self.actor_matches(actor, username, user_id):
-                continue
-            if source_title == self.LOGS_TAB and width == 14:
-                submission_candidate = padded[13] if is_new_log_row else padded[12]
-                if is_new_log_row:
-                    new_row = padded[:13]
-                    new_row[1] = normalize_username(username)
-                else:
-                    new_row = [
-                        padded[0],
-                        normalize_username(username),
-                        padded[1],
-                        padded[2],
-                        padded[3],
-                        padded[4],
-                        padded[5],
-                        padded[6],
-                        padded[7],
-                        padded[8],
-                        padded[9],
-                        padded[10],
-                        padded[11],
-                    ]
-            else:
-                new_row = padded[:width]
-                new_row[-1] = normalize_username(username)
-                submission_candidate = new_row[12]
-            migrated.append(new_row)
-            if self.looks_like_submission_id(submission_candidate):
-                submission_ids.append(submission_candidate)
-
-        if migrated:
-            target.append_rows(migrated, value_input_option="RAW", table_range=table_range)
-        return submission_ids
-
-    def migrate_legacy_submissions(self, target, submission_ids):
-        if self.worksheet_has_data_rows(target, "A2:A") or not submission_ids:
-            return
-        source = self.worksheet(self.SUBMISSIONS_TAB, rows=500, cols=7)
-        wanted = {str(item).strip() for item in submission_ids if str(item).strip()}
-        migrated = []
-        for row in source.get("A2:G"):
-            padded = [str(value).strip() for value in row] + [""] * 7
-            if padded[0] in wanted:
-                migrated.append(padded[:7])
-        if migrated:
-            target.append_rows(migrated, value_input_option="RAW", table_range="A1:G1")
-
-    def migrate_legacy_gyms(self, target):
-        if self.worksheet_has_data_rows(target, "A2:A"):
-            return
-        source = self.worksheet(self.GYM_SETTINGS_TAB, rows=50, cols=8)
-        rows = source.get("A2:G")
-        if rows:
-            target.append_rows(rows, value_input_option="RAW", table_range="A1:G1")
-
     def ensure_user_tabs(self, username="", user_id=""):
         username = normalize_username(username)
         if not username or username in self._ensured_user_tabs:
@@ -639,34 +510,11 @@ class GoogleSheetsStore:
         replacements = self.worksheet_for_user(self.REPLACEMENTS_TAB, username, rows=500, cols=15)
         submissions = self.worksheet_for_user(self.SUBMISSIONS_TAB, username, rows=500, cols=7)
 
-        self.ensure_user_settings(settings, self.worksheet(self.SETTINGS_TAB, rows=2, cols=10))
+        self.ensure_user_settings(settings)
         self.ensure_header(logs, "A1:M1", self.log_header_for_user(username))
         self.ensure_header(gym_settings, "A1:G1", self.GYM_SETTINGS_HEADER)
         self.ensure_header(replacements, "A1:O1", self.replacements_header_for_user(username))
         self.ensure_header(submissions, "A1:G1", self.SUBMISSIONS_HEADER)
-
-        log_submission_ids = self.migrate_legacy_rows(
-            self.LOGS_TAB,
-            logs,
-            "A2:M",
-            "A1:M1",
-            username,
-            user_id,
-            actor_index=13,
-            width=14,
-        )
-        replacement_submission_ids = self.migrate_legacy_rows(
-            self.REPLACEMENTS_TAB,
-            replacements,
-            "A2:O",
-            "A1:O1",
-            username,
-            user_id,
-            actor_index=14,
-            width=15,
-        )
-        self.migrate_legacy_submissions(submissions, log_submission_ids + replacement_submission_ids)
-        self.migrate_legacy_gyms(gym_settings)
         self._ensured_user_tabs.add(username)
 
     def load_one_rms(self, username="", user_id=""):
@@ -929,9 +777,6 @@ class GoogleSheetsStore:
             ])
         worksheet.append_rows(rows, value_input_option="RAW", table_range="A1:M1")
         return True
-
-    def load_log_submission_ids(self, username="", user_id=""):
-        return set()
 
     def load_replacements(self, username="", user_id=""):
         self.ensure_user_tabs(username, user_id)
@@ -1415,11 +1260,7 @@ def sheet_has_submission(submission_id, username="", user_id=""):
             return True
     except Exception as exc:
         print(f"[warn] failed to load workout submission markers: {exc}")
-    try:
-        return submission_id in store.load_log_submission_ids(username, user_id)
-    except Exception as exc:
-        print(f"[warn] failed to load workout log submission markers: {exc}")
-        return False
+    return False
 
 
 def make_submission_record(submission_id, date, split, week, day_id, log_count):

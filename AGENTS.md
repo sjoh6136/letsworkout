@@ -144,11 +144,11 @@ Workout log column order is important. Do not add an empty leading column or shi
 
 `사용자` stores the normalized username, not the internal `userId`.
 
-Do not store `SubmissionId` in `Workout_Logs`. Submission markers belong only in `Workout_Submissions`.
+Do not store `SubmissionId` in `Workout_Logs`. Submission markers belong only in `Workout_Submissions__{username}`.
 
 Do not insert new columns before M. If more log metadata is needed later, append it after M only after confirming with the user.
 
-User-specific workout data is stored in username-suffixed tabs:
+Workout data is stored only in username-suffixed tabs:
 
 - `Setting_1RM__{username}`
 - `Gym_Settings__{username}`
@@ -156,9 +156,17 @@ User-specific workout data is stored in username-suffixed tabs:
 - `Workout_Replacements__{username}`
 - `Workout_Submissions__{username}`
 
+Do not create, read, migrate from, or write to unsuffixed workout tabs:
+
+- `Setting_1RM`
+- `Gym_Settings`
+- `Workout_Logs`
+- `Workout_Replacements`
+- `Workout_Submissions`
+
 Keep `User_Accounts` and `User_Sessions` shared. Do not create separate auth tables per user.
 
-Gym equipment settings are stored in a separate `Gym_Settings` tab. Keep it separate from `Workout_Logs` so workout log columns never shift.
+Gym equipment settings are stored in separate `Gym_Settings__{username}` tabs. Keep it separate from `Workout_Logs__{username}` so workout log columns never shift.
 
 Workout replacement history is stored separately:
 
@@ -193,7 +201,7 @@ Never store plaintext passwords. Do not place auth/session columns in `Workout_L
 - Recommendation logic must use the actual routine day count, not the split number.
 - `/api/workout/finish` saves workout logs and evaluates progression.
 - `/api/workout/finish` should store the workout start date sent by the frontend, not blindly overwrite with the server's current date.
-- Duplicate finish protection must cover repeated `SubmissionId` values in `Workout_Submissions` and identical saved workout content for the same username/date/split/week/day.
+- Duplicate finish protection must cover repeated `SubmissionId` values in `Workout_Submissions__{username}` and identical saved workout content for the same username/date/split/week/day.
 - Completed sets with missing RPE should be saved with the target RPE, usually `8`, so new `SUCCESS + RPE 0` rows are never created.
 - `/api/auth/status`, `/api/auth/register`, `/api/auth/login`, and `/api/auth/logout` are public auth endpoints.
 - Other `/api/*` endpoints require the `lw_session` cookie.
