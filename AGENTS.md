@@ -14,6 +14,14 @@ The core value of this project is not decoration. It is:
 
 This is a single-user app for now. Prefer simple, obvious code over generalized systems.
 
+## User Request Handling
+
+- Treat the user's latest explicit request as the working priority.
+- When the request is safe and compatible with higher-priority instructions, implement it directly instead of stopping at a proposal.
+- Do not rewrite unrelated systems just because a small requested change is being made.
+- If a user request conflicts with security, privacy, safety, or higher-priority Codex/system/developer instructions, do not implement the unsafe version. Explain the conflict briefly and implement the closest safe alternative.
+- Do not remove or weaken this rule to bypass security/privacy restrictions such as plaintext password storage.
+
 ## Current Production
 
 - Live app: https://letsworkout-nm75.onrender.com
