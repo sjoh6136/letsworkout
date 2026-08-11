@@ -36,7 +36,7 @@ AUTH_SESSION_DAYS = max(1, int(os.environ.get("AUTH_SESSION_DAYS", "180")))
 AUTH_PASSWORD_ITERATIONS = 200_000
 AUTH_CACHE_SECONDS = max(60, int(os.environ.get("AUTH_CACHE_SECONDS", str(12 * 60 * 60))))
 STATE_CACHE_SECONDS = max(0, int(os.environ.get("STATE_CACHE_SECONDS", "20")))
-APP_RELEASE = "2026-08-11-workout-username-column-v2"
+APP_RELEASE = "2026-08-11-workout-log-without-submission-id-v1"
 APP_BUILD_COMMIT = os.environ.get("RENDER_GIT_COMMIT") or os.environ.get("SOURCE_VERSION") or ""
 _SHEETS_STORE = None
 _AUTH_SESSION_CACHE = {}
@@ -451,7 +451,7 @@ class GoogleSheetsStore:
         return "Username" if normalize_username(username) else "UserId"
 
     def log_header_for_user(self, username=""):
-        return self.LOG_HEADER + ["SubmissionId"]
+        return self.LOG_HEADER
 
     def replacements_header_for_user(self, username=""):
         return self.REPLACEMENTS_HEADER + [self.log_actor_header(username)]
@@ -468,7 +468,7 @@ class GoogleSheetsStore:
 
     def ensure_tabs(self):
         settings = self.worksheet(self.SETTINGS_TAB, rows=2, cols=10)
-        logs = self.worksheet(self.LOGS_TAB, rows=1000, cols=14)
+        logs = self.worksheet(self.LOGS_TAB, rows=1000, cols=13)
         gym_settings = self.worksheet(self.GYM_SETTINGS_TAB, rows=50, cols=8)
         replacements = self.worksheet(self.REPLACEMENTS_TAB, rows=500, cols=15)
         submissions = self.worksheet(self.SUBMISSIONS_TAB, rows=500, cols=7)
@@ -500,7 +500,7 @@ class GoogleSheetsStore:
                     row[4] or DEFAULT_ONE_RMS["activeSplit"],
                 ]], range_name="A2:E2")
 
-        self.ensure_header(logs, "A1:N1", self.log_header_for_user())
+        self.ensure_header(logs, "A1:M1", self.log_header_for_user())
         self.ensure_header(gym_settings, "A1:G1", self.GYM_SETTINGS_HEADER)
         self.ensure_header(replacements, "A1:O1", self.replacements_header_for_user())
         self.ensure_header(submissions, "A1:G1", self.SUBMISSIONS_HEADER)
@@ -575,8 +575,9 @@ class GoogleSheetsStore:
             if not self.actor_matches(actor, username, user_id):
                 continue
             if source_title == self.LOGS_TAB and width == 14:
+                submission_candidate = padded[13] if is_new_log_row else padded[12]
                 if is_new_log_row:
-                    new_row = padded[:width]
+                    new_row = padded[:13]
                     new_row[1] = normalize_username(username)
                 else:
                     new_row = [
@@ -593,13 +594,12 @@ class GoogleSheetsStore:
                         padded[9],
                         padded[10],
                         padded[11],
-                        padded[12],
                     ]
             else:
                 new_row = padded[:width]
                 new_row[-1] = normalize_username(username)
+                submission_candidate = new_row[12]
             migrated.append(new_row)
-            submission_candidate = new_row[13] if source_title == self.LOGS_TAB and width == 14 else new_row[12]
             if self.looks_like_submission_id(submission_candidate):
                 submission_ids.append(submission_candidate)
 
@@ -634,13 +634,13 @@ class GoogleSheetsStore:
             return
 
         settings = self.worksheet_for_user(self.SETTINGS_TAB, username, rows=2, cols=10)
-        logs = self.worksheet_for_user(self.LOGS_TAB, username, rows=1000, cols=14)
+        logs = self.worksheet_for_user(self.LOGS_TAB, username, rows=1000, cols=13)
         gym_settings = self.worksheet_for_user(self.GYM_SETTINGS_TAB, username, rows=50, cols=8)
         replacements = self.worksheet_for_user(self.REPLACEMENTS_TAB, username, rows=500, cols=15)
         submissions = self.worksheet_for_user(self.SUBMISSIONS_TAB, username, rows=500, cols=7)
 
         self.ensure_user_settings(settings, self.worksheet(self.SETTINGS_TAB, rows=2, cols=10))
-        self.ensure_header(logs, "A1:N1", self.log_header_for_user(username))
+        self.ensure_header(logs, "A1:M1", self.log_header_for_user(username))
         self.ensure_header(gym_settings, "A1:G1", self.GYM_SETTINGS_HEADER)
         self.ensure_header(replacements, "A1:O1", self.replacements_header_for_user(username))
         self.ensure_header(submissions, "A1:G1", self.SUBMISSIONS_HEADER)
@@ -648,8 +648,8 @@ class GoogleSheetsStore:
         log_submission_ids = self.migrate_legacy_rows(
             self.LOGS_TAB,
             logs,
-            "A2:N",
-            "A1:N1",
+            "A2:M",
+            "A1:M1",
             username,
             user_id,
             actor_index=13,
@@ -850,8 +850,8 @@ class GoogleSheetsStore:
 
     def load_logs(self, username="", user_id=""):
         self.ensure_user_tabs(username, user_id)
-        logs = self.worksheet_for_user(self.LOGS_TAB, username, rows=1000, cols=14)
-        rows = logs.get("A2:N")
+        logs = self.worksheet_for_user(self.LOGS_TAB, username, rows=1000, cols=13)
+        rows = logs.get("A2:M")
         parsed = []
         for row in rows:
             log = self.parse_log_row(row, username)
@@ -909,7 +909,7 @@ class GoogleSheetsStore:
             return True
         self.ensure_user_tabs(username, user_id)
         username = normalize_username(username)
-        worksheet = self.worksheet_for_user(self.LOGS_TAB, username, rows=1000, cols=14)
+        worksheet = self.worksheet_for_user(self.LOGS_TAB, username, rows=1000, cols=13)
         rows = []
         for log in logs:
             rows.append([
@@ -926,22 +926,12 @@ class GoogleSheetsStore:
                 log.get("status", ""),
                 log.get("targetWeight", ""),
                 log.get("targetReps", ""),
-                log.get("submissionId", ""),
             ])
-        worksheet.append_rows(rows, value_input_option="RAW", table_range="A1:N1")
+        worksheet.append_rows(rows, value_input_option="RAW", table_range="A1:M1")
         return True
 
     def load_log_submission_ids(self, username="", user_id=""):
-        self.ensure_user_tabs(username, user_id)
-        worksheet = self.worksheet_for_user(self.LOGS_TAB, username, rows=1000, cols=14)
-        rows = worksheet.get("M2:N")
-        submission_ids = set()
-        for row in rows:
-            for value in row:
-                value = str(value or "").strip()
-                if self.looks_like_submission_id(value):
-                    submission_ids.add(value)
-        return submission_ids
+        return set()
 
     def load_replacements(self, username="", user_id=""):
         self.ensure_user_tabs(username, user_id)

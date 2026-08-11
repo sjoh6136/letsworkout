@@ -128,26 +128,24 @@ Workout log column order is important. Do not add an empty leading column or shi
 | Column | Field |
 |---|---|
 | A | 날짜 |
-| B | 분할 |
-| C | 주차 |
-| D | 일차 |
-| E | 운동종목 |
-| F | 세트수 |
-| G | 무게(kg) |
-| H | 횟수(reps) |
-| I | RPE |
-| J | 상태 |
-| K | 목표무게(kg) |
-| L | 목표횟수(reps) |
+| B | 사용자 |
+| C | 분할 |
+| D | 주차 |
+| E | 일차 |
+| F | 운동종목 |
+| G | 세트수 |
+| H | 무게(kg) |
+| I | 횟수(reps) |
+| J | RPE |
+| K | 상태 |
+| L | 목표무게(kg) |
+| M | 목표횟수(reps) |
 
-M/N are reserved identifiers:
+`사용자` stores the normalized username, not the internal `userId`.
 
-| Column | Field |
-|---|---|
-| M | SubmissionId |
-| N | Username |
+Do not store `SubmissionId` in `Workout_Logs`. Submission markers belong only in `Workout_Submissions`.
 
-Do not insert new columns before N. If more log metadata is needed later, append it after N.
+Do not insert new columns before M. If more log metadata is needed later, append it after M only after confirming with the user.
 
 User-specific workout data is stored in username-suffixed tabs:
 
@@ -181,7 +179,7 @@ Never store plaintext passwords. Do not place auth/session columns in `Workout_L
 - Preserve the planned exercise name as `originalExercise` and the performed exercise as `exercise`.
 - Exercise history bottom sheets must show direct history plus replacement history linked by `originalExercise`.
 - When a user replaces bench press with dumbbell press, the next bench press history view should still surface that dumbbell press session as a replacement record.
-- Keep replacement metadata in `Workout_Replacements` or local state fallback. Keep all set-by-set lifting logs in `Workout_Logs` A-L.
+- Keep replacement metadata in `Workout_Replacements` or local state fallback. Keep all set-by-set lifting logs in `Workout_Logs` A-M.
 - Do not automatically carry target weights across clearly different equipment types. Build the replacement exercise from the selected exercise definition and current progression data.
 
 ## Backend Coding Rules
@@ -194,7 +192,7 @@ Never store plaintext passwords. Do not place auth/session columns in `Workout_L
 - Recommendation logic must use the actual routine day count, not the split number.
 - `/api/workout/finish` saves workout logs and evaluates progression.
 - `/api/workout/finish` should store the workout start date sent by the frontend, not blindly overwrite with the server's current date.
-- Duplicate finish protection must cover both repeated `SubmissionId` values and identical saved workout content for the same username/date/split/week/day.
+- Duplicate finish protection must cover repeated `SubmissionId` values in `Workout_Submissions` and identical saved workout content for the same username/date/split/week/day.
 - `/api/auth/status`, `/api/auth/register`, `/api/auth/login`, and `/api/auth/logout` are public auth endpoints.
 - Other `/api/*` endpoints require the `lw_session` cookie.
 - Be careful around Google Sheets write paths. Column alignment regressions are high risk.
