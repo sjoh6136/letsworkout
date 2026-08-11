@@ -36,11 +36,11 @@ AUTH_SESSION_DAYS = max(1, int(os.environ.get("AUTH_SESSION_DAYS", "180")))
 AUTH_PASSWORD_ITERATIONS = 200_000
 AUTH_CACHE_SECONDS = max(60, int(os.environ.get("AUTH_CACHE_SECONDS", str(12 * 60 * 60))))
 STATE_CACHE_SECONDS = max(0, int(os.environ.get("STATE_CACHE_SECONDS", "20")))
-APP_RELEASE = "2026-08-10-save-retry-v4"
+APP_RELEASE = "2026-08-11-username-tabs-v1"
 APP_BUILD_COMMIT = os.environ.get("RENDER_GIT_COMMIT") or os.environ.get("SOURCE_VERSION") or ""
 _SHEETS_STORE = None
 _AUTH_SESSION_CACHE = {}
-_STATE_CACHE = {"expires_at": 0.0, "state": None}
+_STATE_CACHE = {}
 _ROUTINES_CACHE = None
 _EXERCISE_DEFINITIONS_CACHE = None
 
@@ -175,6 +175,17 @@ def public_user(user):
 
 def normalize_username(username):
     return re.sub(r"\s+", "", str(username or "")).strip().lower()
+
+
+def safe_username_suffix(username):
+    username = normalize_username(username)
+    suffix = re.sub(r"[^0-9a-zA-Z_-]+", "_", username).strip("_")
+    return suffix[:40] or ""
+
+
+def user_tab_title(base_title, username):
+    suffix = safe_username_suffix(username)
+    return f"{base_title}__{suffix}" if suffix else base_title
 
 
 def active_users(users):
@@ -387,6 +398,7 @@ class GoogleSheetsStore:
         self.error = None
         self.spreadsheet = None
         self._worksheets = {}
+        self._ensured_user_tabs = set()
         if SHEETS_ENABLED:
             self.connect()
 
@@ -430,6 +442,18 @@ class GoogleSheetsStore:
             worksheet = self.spreadsheet.add_worksheet(title=title, rows=rows, cols=cols)
         self._worksheets[title] = worksheet
         return worksheet
+
+    def worksheet_for_user(self, base_title, username="", rows=100, cols=20):
+        return self.worksheet(user_tab_title(base_title, username), rows=rows, cols=cols)
+
+    def log_actor_header(self, username=""):
+        return "Username" if normalize_username(username) else "UserId"
+
+    def log_header_for_user(self, username=""):
+        return self.LOG_HEADER + ["SubmissionId", self.log_actor_header(username)]
+
+    def replacements_header_for_user(self, username=""):
+        return self.REPLACEMENTS_HEADER + [self.log_actor_header(username)]
 
     @staticmethod
     def header_matches(row, header):
@@ -475,15 +499,139 @@ class GoogleSheetsStore:
                     row[4] or DEFAULT_ONE_RMS["activeSplit"],
                 ]], range_name="A2:E2")
 
-        self.ensure_header(logs, "A1:N1", self.LOG_HEADER + ["SubmissionId", "UserId"])
+        self.ensure_header(logs, "A1:N1", self.log_header_for_user())
         self.ensure_header(gym_settings, "A1:G1", self.GYM_SETTINGS_HEADER)
-        self.ensure_header(replacements, "A1:O1", self.REPLACEMENTS_HEADER + ["UserId"])
+        self.ensure_header(replacements, "A1:O1", self.replacements_header_for_user())
         self.ensure_header(submissions, "A1:G1", self.SUBMISSIONS_HEADER)
         self.ensure_header(user_accounts, "A1:I1", self.USER_ACCOUNTS_HEADER)
         self.ensure_header(user_sessions, "A1:G1", self.USER_SESSIONS_HEADER)
 
-    def load_one_rms(self):
-        settings = self.worksheet(self.SETTINGS_TAB, rows=2, cols=10)
+    @staticmethod
+    def worksheet_has_data_rows(worksheet, range_name):
+        values = worksheet.get(range_name)
+        return any(any(str(cell).strip() for cell in row) for row in values)
+
+    @staticmethod
+    def actor_matches(actor, username="", user_id=""):
+        actor = str(actor or "").strip()
+        if not actor:
+            return False
+        candidates = {normalize_username(username), str(user_id or "").strip()}
+        return actor in {candidate for candidate in candidates if candidate}
+
+    def ensure_user_settings(self, settings, source_settings):
+        source_values = source_settings.get("A2:E2")
+        source_defaults = source_values[0] if source_values else [
+            DEFAULT_ONE_RMS["squat"],
+            DEFAULT_ONE_RMS["bench"],
+            DEFAULT_ONE_RMS["deadlift"],
+            DEFAULT_ONE_RMS["ohp"],
+            DEFAULT_ONE_RMS["activeSplit"],
+        ]
+        values = settings.get("A1:E2")
+        if not values:
+            settings.update(values=[self.SETTINGS_HEADER, source_defaults], range_name="A1:E2")
+            return
+
+        if not self.header_matches(values[0] if values else [], self.SETTINGS_HEADER):
+            settings.update(values=[self.SETTINGS_HEADER], range_name="A1:E1")
+        if len(values) < 2 or len(values[1]) < 5:
+            row = (values[1] if len(values) > 1 else []) + [""] * 5
+            source_defaults = source_defaults + [""] * 5
+            settings.update(values=[[
+                row[0] or source_defaults[0] or DEFAULT_ONE_RMS["squat"],
+                row[1] or source_defaults[1] or DEFAULT_ONE_RMS["bench"],
+                row[2] or source_defaults[2] or DEFAULT_ONE_RMS["deadlift"],
+                row[3] or source_defaults[3] or DEFAULT_ONE_RMS["ohp"],
+                row[4] or source_defaults[4] or DEFAULT_ONE_RMS["activeSplit"],
+            ]], range_name="A2:E2")
+
+    def migrate_legacy_rows(self, source_title, target, source_range, table_range, username, user_id, actor_index, width):
+        if self.worksheet_has_data_rows(target, "A2:A"):
+            return []
+
+        source = self.worksheet(source_title, rows=1000, cols=width)
+        migrated = []
+        submission_ids = []
+        for row in source.get(source_range):
+            padded = [str(value).strip() for value in row] + [""] * width
+            if not self.actor_matches(padded[actor_index], username, user_id):
+                continue
+            new_row = padded[:width]
+            new_row[-1] = normalize_username(username)
+            migrated.append(new_row)
+            if width >= 13 and new_row[12]:
+                submission_ids.append(new_row[12])
+
+        if migrated:
+            target.append_rows(migrated, value_input_option="RAW", table_range=table_range)
+        return submission_ids
+
+    def migrate_legacy_submissions(self, target, submission_ids):
+        if self.worksheet_has_data_rows(target, "A2:A") or not submission_ids:
+            return
+        source = self.worksheet(self.SUBMISSIONS_TAB, rows=500, cols=7)
+        wanted = {str(item).strip() for item in submission_ids if str(item).strip()}
+        migrated = []
+        for row in source.get("A2:G"):
+            padded = [str(value).strip() for value in row] + [""] * 7
+            if padded[0] in wanted:
+                migrated.append(padded[:7])
+        if migrated:
+            target.append_rows(migrated, value_input_option="RAW", table_range="A1:G1")
+
+    def migrate_legacy_gyms(self, target):
+        if self.worksheet_has_data_rows(target, "A2:A"):
+            return
+        source = self.worksheet(self.GYM_SETTINGS_TAB, rows=50, cols=8)
+        rows = source.get("A2:G")
+        if rows:
+            target.append_rows(rows, value_input_option="RAW", table_range="A1:G1")
+
+    def ensure_user_tabs(self, username="", user_id=""):
+        username = normalize_username(username)
+        if not username or username in self._ensured_user_tabs:
+            return
+
+        settings = self.worksheet_for_user(self.SETTINGS_TAB, username, rows=2, cols=10)
+        logs = self.worksheet_for_user(self.LOGS_TAB, username, rows=1000, cols=14)
+        gym_settings = self.worksheet_for_user(self.GYM_SETTINGS_TAB, username, rows=50, cols=8)
+        replacements = self.worksheet_for_user(self.REPLACEMENTS_TAB, username, rows=500, cols=15)
+        submissions = self.worksheet_for_user(self.SUBMISSIONS_TAB, username, rows=500, cols=7)
+
+        self.ensure_user_settings(settings, self.worksheet(self.SETTINGS_TAB, rows=2, cols=10))
+        self.ensure_header(logs, "A1:N1", self.log_header_for_user(username))
+        self.ensure_header(gym_settings, "A1:G1", self.GYM_SETTINGS_HEADER)
+        self.ensure_header(replacements, "A1:O1", self.replacements_header_for_user(username))
+        self.ensure_header(submissions, "A1:G1", self.SUBMISSIONS_HEADER)
+
+        log_submission_ids = self.migrate_legacy_rows(
+            self.LOGS_TAB,
+            logs,
+            "A2:N",
+            "A1:N1",
+            username,
+            user_id,
+            actor_index=13,
+            width=14,
+        )
+        replacement_submission_ids = self.migrate_legacy_rows(
+            self.REPLACEMENTS_TAB,
+            replacements,
+            "A2:O",
+            "A1:O1",
+            username,
+            user_id,
+            actor_index=14,
+            width=15,
+        )
+        self.migrate_legacy_submissions(submissions, log_submission_ids + replacement_submission_ids)
+        self.migrate_legacy_gyms(gym_settings)
+        self._ensured_user_tabs.add(username)
+
+    def load_one_rms(self, username="", user_id=""):
+        self.ensure_user_tabs(username, user_id)
+        settings = self.worksheet_for_user(self.SETTINGS_TAB, username, rows=2, cols=10)
         row = (settings.get("A2:E2") or [[]])[0]
         row = row + [""] * 5
         return {
@@ -494,8 +642,9 @@ class GoogleSheetsStore:
             "activeSplit": sheet_int(row[4], DEFAULT_ONE_RMS["activeSplit"]),
         }
 
-    def save_one_rms(self, one_rms):
-        settings = self.worksheet(self.SETTINGS_TAB, rows=2, cols=10)
+    def save_one_rms(self, one_rms, username="", user_id=""):
+        self.ensure_user_tabs(username, user_id)
+        settings = self.worksheet_for_user(self.SETTINGS_TAB, username, rows=2, cols=10)
         settings.update(values=[self.SETTINGS_HEADER], range_name="A1:E1")
         settings.update(values=[[
             sheet_float(one_rms.get("squat"), DEFAULT_ONE_RMS["squat"]),
@@ -505,8 +654,9 @@ class GoogleSheetsStore:
             sheet_int(one_rms.get("activeSplit"), DEFAULT_ONE_RMS["activeSplit"]),
         ]], range_name="A2:E2")
 
-    def load_gyms(self):
-        gym_settings = self.worksheet(self.GYM_SETTINGS_TAB, rows=50, cols=8)
+    def load_gyms(self, username="", user_id=""):
+        self.ensure_user_tabs(username, user_id)
+        gym_settings = self.worksheet_for_user(self.GYM_SETTINGS_TAB, username, rows=50, cols=8)
         rows = gym_settings.get("A2:G")
         gyms = []
         active_gym_id = None
@@ -532,9 +682,10 @@ class GoogleSheetsStore:
             return None, []
         return normalize_gym_state(active_gym_id, gyms)
 
-    def save_gyms(self, active_gym_id, gyms):
+    def save_gyms(self, active_gym_id, gyms, username="", user_id=""):
+        self.ensure_user_tabs(username, user_id)
         active_gym_id, gyms = normalize_gym_state(active_gym_id, gyms)
-        gym_settings = self.worksheet(self.GYM_SETTINGS_TAB, rows=max(50, len(gyms) + 1), cols=8)
+        gym_settings = self.worksheet_for_user(self.GYM_SETTINGS_TAB, username, rows=max(50, len(gyms) + 1), cols=8)
         rows = [self.GYM_SETTINGS_HEADER]
         for gym in gyms:
             rows.append([
@@ -657,17 +808,18 @@ class GoogleSheetsStore:
                 return True
         return False
 
-    def load_logs(self):
-        logs = self.worksheet(self.LOGS_TAB, rows=1000, cols=14)
+    def load_logs(self, username="", user_id=""):
+        self.ensure_user_tabs(username, user_id)
+        logs = self.worksheet_for_user(self.LOGS_TAB, username, rows=1000, cols=14)
         rows = logs.get("A2:N")
         parsed = []
         for row in rows:
-            log = self.parse_log_row(row)
+            log = self.parse_log_row(row, username)
             if log:
                 parsed.append(log)
         return parsed
 
-    def parse_log_row(self, row):
+    def parse_log_row(self, row, username=""):
         row = [str(value).strip() for value in row]
         start = next((idx for idx, value in enumerate(row) if re.fullmatch(r"\d{4}-\d{2}-\d{2}", value)), None)
         if start is None:
@@ -675,6 +827,8 @@ class GoogleSheetsStore:
         row = row + [""] * (start + 14 - len(row))
         if len(row) - start < 12 or not row[start]:
             return None
+        actor = row[start + 13]
+        actor_username = normalize_username(username or ("" if actor.startswith("user_") else actor))
         return {
             "date": row[start],
             "split": sheet_int(row[start + 1]),
@@ -689,13 +843,16 @@ class GoogleSheetsStore:
             "targetWeight": sheet_float(row[start + 10], sheet_float(row[start + 6])),
             "targetReps": sheet_int(row[start + 11], sheet_int(row[start + 7])),
             "submissionId": row[start + 12],
-            "userId": row[start + 13],
+            "username": actor_username,
+            "userId": actor if actor.startswith("user_") else "",
         }
 
-    def append_logs(self, logs):
+    def append_logs(self, logs, username="", user_id=""):
         if not logs:
             return True
-        worksheet = self.worksheet(self.LOGS_TAB, rows=1000, cols=14)
+        self.ensure_user_tabs(username, user_id)
+        username = normalize_username(username)
+        worksheet = self.worksheet_for_user(self.LOGS_TAB, username, rows=1000, cols=14)
         rows = []
         for log in logs:
             rows.append([
@@ -712,24 +869,27 @@ class GoogleSheetsStore:
                 log.get("targetWeight", ""),
                 log.get("targetReps", ""),
                 log.get("submissionId", ""),
-                log.get("userId", ""),
+                normalize_username(log.get("username") or username),
             ])
         worksheet.append_rows(rows, value_input_option="RAW", table_range="A1:N1")
         return True
 
-    def load_log_submission_ids(self):
-        worksheet = self.worksheet(self.LOGS_TAB, rows=1000, cols=14)
+    def load_log_submission_ids(self, username="", user_id=""):
+        self.ensure_user_tabs(username, user_id)
+        worksheet = self.worksheet_for_user(self.LOGS_TAB, username, rows=1000, cols=14)
         rows = worksheet.get("M2:M")
         return {str(row[0]).strip() for row in rows if row and str(row[0]).strip()}
 
-    def load_replacements(self):
-        worksheet = self.worksheet(self.REPLACEMENTS_TAB, rows=500, cols=15)
+    def load_replacements(self, username="", user_id=""):
+        self.ensure_user_tabs(username, user_id)
+        worksheet = self.worksheet_for_user(self.REPLACEMENTS_TAB, username, rows=500, cols=15)
         rows = worksheet.get("A2:O")
         parsed = []
         for row in rows:
             row = [str(value).strip() for value in row] + [""] * 15
             if not row[0] or not row[4] or not row[5]:
                 continue
+            actor = row[14]
             parsed.append({
                 "date": row[0],
                 "split": sheet_int(row[1]),
@@ -745,14 +905,17 @@ class GoogleSheetsStore:
                 "summary": row[11],
                 "submissionId": row[12],
                 "createdAt": row[13],
-                "userId": row[14],
+                "username": normalize_username(username or ("" if actor.startswith("user_") else actor)),
+                "userId": actor if actor.startswith("user_") else "",
             })
         return parsed
 
-    def append_replacements(self, replacements):
+    def append_replacements(self, replacements, username="", user_id=""):
         if not replacements:
             return True
-        worksheet = self.worksheet(self.REPLACEMENTS_TAB, rows=500, cols=15)
+        self.ensure_user_tabs(username, user_id)
+        username = normalize_username(username)
+        worksheet = self.worksheet_for_user(self.REPLACEMENTS_TAB, username, rows=500, cols=15)
         rows = []
         for item in replacements:
             rows.append([
@@ -770,21 +933,23 @@ class GoogleSheetsStore:
                 item.get("summary", ""),
                 item.get("submissionId", ""),
                 item.get("createdAt", ""),
-                item.get("userId", ""),
+                normalize_username(item.get("username") or username),
             ])
         worksheet.append_rows(rows, value_input_option="RAW", table_range="A1:O1")
         return True
 
-    def load_submission_ids(self):
-        worksheet = self.worksheet(self.SUBMISSIONS_TAB, rows=500, cols=7)
+    def load_submission_ids(self, username="", user_id=""):
+        self.ensure_user_tabs(username, user_id)
+        worksheet = self.worksheet_for_user(self.SUBMISSIONS_TAB, username, rows=500, cols=7)
         rows = worksheet.get("A2:A")
         return {str(row[0]).strip() for row in rows if row and str(row[0]).strip()}
 
-    def append_submission(self, submission):
+    def append_submission(self, submission, username="", user_id=""):
         submission_id = str(submission.get("id") or "").strip()
         if not submission_id:
             return True
-        worksheet = self.worksheet(self.SUBMISSIONS_TAB, rows=500, cols=7)
+        self.ensure_user_tabs(username, user_id)
+        worksheet = self.worksheet_for_user(self.SUBMISSIONS_TAB, username, rows=500, cols=7)
         worksheet.append_row([
             submission_id,
             submission.get("date", ""),
@@ -812,25 +977,33 @@ def sheets_connected_cached():
     return bool(_SHEETS_STORE and _SHEETS_STORE.connected)
 
 
-def cached_state():
+def state_cache_key(username=""):
+    return safe_username_suffix(username) or "__shared__"
+
+
+def cached_state(username=""):
     if STATE_CACHE_SECONDS <= 0:
         return None
-    state = _STATE_CACHE.get("state")
-    if state is None or _STATE_CACHE.get("expires_at", 0) <= time.time():
+    cached = _STATE_CACHE.get(state_cache_key(username))
+    if not cached or cached.get("expires_at", 0) <= time.time():
         return None
-    return copy.deepcopy(state)
+    return copy.deepcopy(cached.get("state"))
 
 
-def set_state_cache(state):
+def set_state_cache(state, username=""):
     if STATE_CACHE_SECONDS <= 0:
         return
-    _STATE_CACHE["state"] = copy.deepcopy(state)
-    _STATE_CACHE["expires_at"] = time.time() + STATE_CACHE_SECONDS
+    _STATE_CACHE[state_cache_key(username)] = {
+        "state": copy.deepcopy(state),
+        "expires_at": time.time() + STATE_CACHE_SECONDS,
+    }
 
 
-def invalidate_state_cache():
-    _STATE_CACHE["state"] = None
-    _STATE_CACHE["expires_at"] = 0.0
+def invalidate_state_cache(username=None):
+    if username is None:
+        _STATE_CACHE.clear()
+        return
+    _STATE_CACHE.pop(state_cache_key(username), None)
 
 
 def load_auth_state():
@@ -1030,34 +1203,34 @@ def require_auth_for_api():
     }), 401
 
 
-def append_workout_logs_to_sheet(logs):
+def append_workout_logs_to_sheet(logs, username="", user_id=""):
     store = sheets_store()
     if not store.connected:
         return False
     try:
-        return store.append_logs(logs)
+        return store.append_logs(logs, username, user_id)
     except Exception as exc:
         print(f"[warn] failed to append workout logs to Google Sheets: {exc}")
         return False
 
 
-def append_workout_replacements_to_sheet(replacements):
+def append_workout_replacements_to_sheet(replacements, username="", user_id=""):
     store = sheets_store()
     if not store.connected:
         return False
     try:
-        return store.append_replacements(replacements)
+        return store.append_replacements(replacements, username, user_id)
     except Exception as exc:
         print(f"[warn] failed to append workout replacements to Google Sheets: {exc}")
         return False
 
 
-def append_workout_submission_to_sheet(submission):
+def append_workout_submission_to_sheet(submission, username="", user_id=""):
     store = sheets_store()
     if not store.connected:
         return False
     try:
-        return store.append_submission(submission)
+        return store.append_submission(submission, username, user_id)
     except Exception as exc:
         print(f"[warn] failed to append workout submission marker to Google Sheets: {exc}")
         return False
@@ -1065,7 +1238,7 @@ def append_workout_submission_to_sheet(submission):
 
 def replacement_key(item):
     return "|".join([
-        str(item.get("userId") or ""),
+        str(item.get("username") or item.get("userId") or ""),
         str(item.get("submissionId") or ""),
         str(item.get("date") or ""),
         str(item.get("split") or ""),
@@ -1100,41 +1273,63 @@ def state_has_submission(state, submission_id):
     return False
 
 
-def current_request_user_id():
+def current_request_user():
     user = getattr(g, "current_user", None)
+    if isinstance(user, dict):
+        return user
+    return {}
+
+
+def current_request_user_id():
+    user = current_request_user()
     if isinstance(user, dict):
         return str(user.get("id") or "").strip()
     return ""
 
 
-def item_matches_user(item, user_id):
-    if not user_id:
+def current_request_username():
+    user = current_request_user()
+    if isinstance(user, dict):
+        return normalize_username(user.get("username"))
+    return ""
+
+
+def item_matches_user(item, user_id="", username=""):
+    username = normalize_username(username)
+    user_id = str(user_id or "").strip()
+    if not user_id and not username:
         return True
-    return str(item.get("userId") or "").strip() == user_id
+    item_username = normalize_username(item.get("username"))
+    item_user_id = str(item.get("userId") or "").strip()
+    if username and item_username:
+        return item_username == username
+    if user_id and item_user_id:
+        return item_user_id == user_id
+    return False
 
 
-def state_for_user(state, user_id):
-    if not user_id:
+def state_for_user(state, user_id="", username=""):
+    if not user_id and not username:
         return state
     scoped = copy.deepcopy(state)
-    scoped["logs"] = [log for log in state.get("logs", []) if item_matches_user(log, user_id)]
-    scoped["replacements"] = [item for item in state.get("replacements", []) if item_matches_user(item, user_id)]
+    scoped["logs"] = [log for log in state.get("logs", []) if item_matches_user(log, user_id, username)]
+    scoped["replacements"] = [item for item in state.get("replacements", []) if item_matches_user(item, user_id, username)]
     return scoped
 
 
-def sheet_has_submission(submission_id):
+def sheet_has_submission(submission_id, username="", user_id=""):
     if not submission_id:
         return False
     store = sheets_store()
     if not store.connected:
         return False
     try:
-        if submission_id in store.load_submission_ids():
+        if submission_id in store.load_submission_ids(username, user_id):
             return True
     except Exception as exc:
         print(f"[warn] failed to load workout submission markers: {exc}")
     try:
-        return submission_id in store.load_log_submission_ids()
+        return submission_id in store.load_log_submission_ids(username, user_id)
     except Exception as exc:
         print(f"[warn] failed to load workout log submission markers: {exc}")
         return False
@@ -1176,8 +1371,16 @@ def load_legacy_gyms():
     return DEFAULT_GYM["id"], [copy.deepcopy(DEFAULT_GYM)]
 
 
-def load_file_state():
-    state = load_json(STATE_FILE, None)
+def state_file_for_username(username=""):
+    suffix = safe_username_suffix(username)
+    return STATE_DIR / f"app_state_{suffix}.json" if suffix else STATE_FILE
+
+
+def load_file_state(username=""):
+    state_path = state_file_for_username(username)
+    state = load_json(state_path, None)
+    if not isinstance(state, dict) and normalize_username(username):
+        state = load_json(STATE_FILE, None)
     if not isinstance(state, dict):
         active_gym_id, gyms = load_legacy_gyms()
         state = {
@@ -1205,61 +1408,73 @@ def load_file_state():
     return state
 
 
-def load_state(force_refresh=False):
+def load_state(force_refresh=False, username="", user_id=""):
+    username = normalize_username(username)
     if not force_refresh:
-        state = cached_state()
+        state = cached_state(username)
         if state is not None:
             return state
 
-    state = load_file_state()
+    state = load_file_state(username)
     store = sheets_store()
+    loaded_sheet_state = False
     if store.connected:
         try:
-            state["oneRms"].update(store.load_one_rms())
-            state["logs"] = store.load_logs()
+            state["oneRms"].update(store.load_one_rms(username, user_id))
+            state["logs"] = store.load_logs(username, user_id)
+            loaded_sheet_state = True
         except Exception as exc:
             print(f"[warn] failed to load Google Sheets state, using local file state: {exc}")
         try:
-            state["replacements"] = merge_replacements(state.get("replacements", []), store.load_replacements())
+            state["replacements"] = merge_replacements(state.get("replacements", []), store.load_replacements(username, user_id))
         except Exception as exc:
             print(f"[warn] failed to load replacement history from Google Sheets, using local file state: {exc}")
         try:
-            active_gym_id, gyms = store.load_gyms()
+            state["submissions"] = list(store.load_submission_ids(username, user_id))
+        except Exception as exc:
+            print(f"[warn] failed to load workout submission markers from Google Sheets, using local file state: {exc}")
+        try:
+            active_gym_id, gyms = store.load_gyms(username, user_id)
             if gyms:
                 state["activeGymId"], state["gyms"] = active_gym_id, gyms
             else:
                 state["activeGymId"], state["gyms"] = normalize_gym_state(DEFAULT_GYM["id"], [copy.deepcopy(DEFAULT_GYM)])
-                store.save_gyms(state.get("activeGymId"), state.get("gyms", []))
+                store.save_gyms(state.get("activeGymId"), state.get("gyms", []), username, user_id)
         except Exception as exc:
             print(f"[warn] failed to load gym settings from Google Sheets, using local file state: {exc}")
-    set_state_cache(state)
+    state = state_for_user(state, user_id, username)
+    if loaded_sheet_state:
+        save_json(state_file_for_username(username), state)
+    set_state_cache(state, username)
     return state
 
 
-def save_state(state, sync_one_rms=True, sync_gyms=True) -> None:
+def save_state(state, sync_one_rms=True, sync_gyms=True, username="", user_id="") -> None:
+    username = normalize_username(username)
     state["activeGymId"], state["gyms"] = normalize_gym_state(state.get("activeGymId"), state.get("gyms"))
     store = sheets_store()
     if store.connected:
         if sync_one_rms:
             try:
-                store.save_one_rms(state.get("oneRms", {}))
+                store.save_one_rms(state.get("oneRms", {}), username, user_id)
             except Exception as exc:
                 print(f"[warn] failed to save 1RM to Google Sheets: {exc}")
         if sync_gyms:
             try:
-                store.save_gyms(state.get("activeGymId"), state.get("gyms", []))
+                store.save_gyms(state.get("activeGymId"), state.get("gyms", []), username, user_id)
             except Exception as exc:
                 print(f"[warn] failed to save gym settings to Google Sheets: {exc}")
-    save_json(STATE_FILE, state)
-    set_state_cache(state)
+    save_json(state_file_for_username(username), state)
+    set_state_cache(state, username)
 
 
-def load_gym_state():
-    state = load_file_state()
+def load_gym_state(username="", user_id=""):
+    username = normalize_username(username)
+    state = load_file_state(username)
     store = sheets_store()
     if store.connected:
         try:
-            active_gym_id, gyms = store.load_gyms()
+            active_gym_id, gyms = store.load_gyms(username, user_id)
             if gyms:
                 state["activeGymId"], state["gyms"] = active_gym_id, gyms
         except Exception as exc:
@@ -1268,16 +1483,17 @@ def load_gym_state():
     return state
 
 
-def save_gym_state(state) -> None:
+def save_gym_state(state, username="", user_id="") -> None:
+    username = normalize_username(username)
     state["activeGymId"], state["gyms"] = normalize_gym_state(state.get("activeGymId"), state.get("gyms"))
     store = sheets_store()
     if store.connected:
         try:
-            store.save_gyms(state.get("activeGymId"), state.get("gyms", []))
+            store.save_gyms(state.get("activeGymId"), state.get("gyms", []), username, user_id)
         except Exception as exc:
             print(f"[warn] failed to save gym settings to Google Sheets: {exc}")
-    save_json(STATE_FILE, state)
-    invalidate_state_cache()
+    save_json(state_file_for_username(username), state)
+    invalidate_state_cache(username)
 
 
 def load_routines():
@@ -1555,14 +1771,16 @@ def target_muscle(exercise_name):
     return "기타"
 
 
-def normalize_logs(raw_logs, split, week, day_id, exercise_defs=None, submission_id="", user_id=""):
+def normalize_logs(raw_logs, split, week, day_id, exercise_defs=None, submission_id="", username="", user_id=""):
     today = today_iso()
     normalized = []
     exercise_defs = exercise_defs or {}
+    username = normalize_username(username)
     for raw in raw_logs or []:
         log = dict(raw)
         log["date"] = log.get("date") or today
         log["submissionId"] = str(log.get("submissionId") or submission_id or "").strip()
+        log["username"] = normalize_username(log.get("username") or username)
         log["userId"] = str(log.get("userId") or user_id or "").strip()
         log["split"] = split
         log["week"] = week
@@ -1608,12 +1826,14 @@ def normalize_replacement_item(raw):
         "summary": str(source.get("summary") or "").strip(),
         "submissionId": str(source.get("submissionId") or "").strip(),
         "createdAt": str(source.get("createdAt") or now_iso()),
+        "username": normalize_username(source.get("username")),
         "userId": str(source.get("userId") or "").strip(),
     }
 
 
-def normalize_replacements(raw_replacements, split, week, day_id, date, submission_id, user_id=""):
+def normalize_replacements(raw_replacements, split, week, day_id, date, submission_id, username="", user_id=""):
     normalized = []
+    username = normalize_username(username)
     for raw in raw_replacements or []:
         item = normalize_replacement_item({
             **(raw if isinstance(raw, dict) else {}),
@@ -1622,6 +1842,7 @@ def normalize_replacements(raw_replacements, split, week, day_id, date, submissi
             "week": week,
             "day": day_id,
             "submissionId": submission_id,
+            "username": username,
             "userId": user_id,
         })
         if item:
@@ -1877,14 +2098,16 @@ def static_files(path):
 
 @app.route("/api/workout/settings", methods=["GET", "POST"])
 def workout_settings():
-    state = load_state()
+    username = current_request_username()
+    user_id = current_request_user_id()
+    state = load_state(username=username, user_id=user_id)
     if request.method == "POST":
         body = request.get_json(silent=True) or {}
         for key, default in DEFAULT_ONE_RMS.items():
             if key in body:
                 state["oneRms"][key] = bool(body[key]) if isinstance(default, bool) else as_float(body[key], default)
         state["oneRms"]["activeSplit"] = as_int(state["oneRms"].get("activeSplit"), 5)
-        save_state(state)
+        save_state(state, username=username, user_id=user_id)
         return jsonify(state["oneRms"])
 
     return jsonify({"oneRms": state["oneRms"], "sheetsConnected": sheets_connected()})
@@ -1892,7 +2115,7 @@ def workout_settings():
 
 @app.route("/api/workout/bootstrap")
 def workout_bootstrap():
-    state = state_for_user(load_state(), current_request_user_id())
+    state = load_state(username=current_request_username(), user_id=current_request_user_id())
     routines = load_routines()
     return jsonify({
         "oneRms": state["oneRms"],
@@ -1909,54 +2132,55 @@ def workout_bootstrap():
 
 @app.route("/api/workout/routine")
 def workout_routine():
-    state = state_for_user(load_state(), current_request_user_id())
+    state = load_state(username=current_request_username(), user_id=current_request_user_id())
     return jsonify(apply_progression(load_routines(), state))
 
 
 @app.route("/api/workout/status")
 def workout_status():
-    state = state_for_user(load_state(), current_request_user_id())
+    state = load_state(username=current_request_username(), user_id=current_request_user_id())
     return jsonify(workout_status_payload(state))
 
 
 @app.route("/api/workout/logs")
 def workout_logs():
-    return jsonify(state_for_user(load_state(), current_request_user_id()).get("logs", []))
+    return jsonify(load_state(username=current_request_username(), user_id=current_request_user_id()).get("logs", []))
 
 
 @app.route("/api/workout/replacements")
 def workout_replacements():
-    return jsonify(state_for_user(load_state(), current_request_user_id()).get("replacements", []))
+    return jsonify(load_state(username=current_request_username(), user_id=current_request_user_id()).get("replacements", []))
 
 
 @app.route("/api/workout/finish", methods=["POST"])
 def workout_finish():
     started_at = time.perf_counter()
-    state = load_state()
+    username = current_request_username()
+    user_id = current_request_user_id()
+    state = load_state(username=username, user_id=user_id)
     load_ms = int((time.perf_counter() - started_at) * 1000)
     body = request.get_json(silent=True) or {}
     split = as_int(body.get("split"), as_int(state["oneRms"].get("activeSplit"), 5))
     week = as_int(body.get("week"), 1)
     day_id = body.get("day") or "Day 1"
     submission_id = str(body.get("submissionId") or "").strip()
-    user_id = current_request_user_id()
     date = today_iso()
     exercise_defs = routine_exercise_lookup(load_routines(), split)
-    logs = normalize_logs(body.get("logs", []), split, week, day_id, exercise_defs, submission_id, user_id)
+    logs = normalize_logs(body.get("logs", []), split, week, day_id, exercise_defs, submission_id, username, user_id)
     for log in logs:
         log["date"] = date
-    replacements = normalize_replacements(body.get("replacements", []), split, week, day_id, date, submission_id, user_id)
+    replacements = normalize_replacements(body.get("replacements", []), split, week, day_id, date, submission_id, username, user_id)
 
     duplicate_check_started_at = time.perf_counter()
-    is_duplicate = submission_id and (state_has_submission(state, submission_id) or sheet_has_submission(submission_id))
+    is_duplicate = submission_id and (state_has_submission(state, submission_id) or sheet_has_submission(submission_id, username, user_id))
     duplicate_check_ms = int((time.perf_counter() - duplicate_check_started_at) * 1000)
     if is_duplicate:
         known_keys = {replacement_key(item) for item in state.get("replacements", [])}
         missing_replacements = [item for item in replacements if replacement_key(item) not in known_keys]
         if missing_replacements:
-            append_workout_replacements_to_sheet(missing_replacements)
+            append_workout_replacements_to_sheet(missing_replacements, username, user_id)
             state["replacements"] = merge_replacements(state.get("replacements", []), missing_replacements)
-            save_state(state, sync_one_rms=False, sync_gyms=False)
+            save_state(state, sync_one_rms=False, sync_gyms=False, username=username, user_id=user_id)
         print(
             f"[finish] duplicate submission={submission_id or '-'} logs={len(logs)} "
             f"load={load_ms}ms duplicate_check={duplicate_check_ms}ms "
@@ -1979,7 +2203,7 @@ def workout_finish():
 
     if store.connected:
         sheet_started_at = time.perf_counter()
-        logs_saved_to_sheet = append_workout_logs_to_sheet(logs)
+        logs_saved_to_sheet = append_workout_logs_to_sheet(logs, username, user_id)
         logs_sheet_ms = int((time.perf_counter() - sheet_started_at) * 1000)
         if not logs_saved_to_sheet:
             print(
@@ -1994,11 +2218,11 @@ def workout_finish():
                 "retryable": True,
             }), 503
         replacements_started_at = time.perf_counter()
-        replacements_saved_to_sheet = append_workout_replacements_to_sheet(replacements)
+        replacements_saved_to_sheet = append_workout_replacements_to_sheet(replacements, username, user_id)
         replacements_sheet_ms = int((time.perf_counter() - replacements_started_at) * 1000)
 
     one_rms_before = copy.deepcopy(state.get("oneRms", {}))
-    scoped_state = state_for_user(state, user_id)
+    scoped_state = copy.deepcopy(state)
     feedback = evaluate_and_update(scoped_state, logs, split, week, day_id)
     state["oneRms"] = scoped_state.get("oneRms", state.get("oneRms", {}))
     one_rms_changed = state.get("oneRms", {}) != one_rms_before
@@ -2009,9 +2233,9 @@ def workout_finish():
         submission = make_submission_record(submission_id, date, split, week, day_id, len(logs))
         remember_submission(state, submission)
         submission_started_at = time.perf_counter()
-        append_workout_submission_to_sheet(submission)
+        append_workout_submission_to_sheet(submission, username, user_id)
         submission_sheet_ms = int((time.perf_counter() - submission_started_at) * 1000)
-    save_state(state, sync_one_rms=one_rms_changed, sync_gyms=False)
+    save_state(state, sync_one_rms=one_rms_changed, sync_gyms=False, username=username, user_id=user_id)
     feedback["sheetsConnected"] = logs_saved_to_sheet if store.connected else sheets_connected()
     feedback["replacementHistorySaved"] = replacements_saved_to_sheet if replacements else True
     feedback["submissionId"] = submission_id
@@ -2025,7 +2249,7 @@ def workout_finish():
     }
     print(
         f"[finish] saved submission={submission_id or '-'} logs={len(logs)} replacements={len(replacements)} "
-        f"user={user_id or '-'} sheet={logs_saved_to_sheet if store.connected else 'local'} load={load_ms}ms "
+        f"user={username or user_id or '-'} sheet={logs_saved_to_sheet if store.connected else 'local'} load={load_ms}ms "
         f"duplicate_check={duplicate_check_ms}ms logs_sheet={logs_sheet_ms}ms "
         f"replacements_sheet={replacements_sheet_ms}ms submission_sheet={submission_sheet_ms}ms "
         f"total={feedback['saveTimingMs']['total']}ms",
@@ -2036,7 +2260,9 @@ def workout_finish():
 
 @app.route("/api/workout/gyms", methods=["GET", "POST"])
 def workout_gyms():
-    state = load_gym_state()
+    username = current_request_username()
+    user_id = current_request_user_id()
+    state = load_gym_state(username, user_id)
     if request.method == "POST":
         body = request.get_json(silent=True) or {}
         gym = normalize_gym({
@@ -2050,7 +2276,7 @@ def workout_gyms():
         state["gyms"].append(gym)
         state["activeGymId"] = gym["id"]
         state["activeGymId"], state["gyms"] = normalize_gym_state(state["activeGymId"], state["gyms"])
-        save_gym_state(state)
+        save_gym_state(state, username, user_id)
         return jsonify({"success": True, "activeGymId": state["activeGymId"], "gyms": state["gyms"], "activeGym": active_gym(state)})
 
     return jsonify({"activeGymId": state.get("activeGymId"), "gyms": state.get("gyms", [])})
@@ -2058,7 +2284,9 @@ def workout_gyms():
 
 @app.route("/api/workout/gyms/<gym_id>", methods=["PUT", "DELETE"])
 def workout_gym_detail(gym_id):
-    state = load_gym_state()
+    username = current_request_username()
+    user_id = current_request_user_id()
+    state = load_gym_state(username, user_id)
     gyms = state.get("gyms", [])
     gym = next((item for item in gyms if item.get("id") == gym_id), None)
 
@@ -2069,7 +2297,7 @@ def workout_gym_detail(gym_id):
         if state.get("activeGymId") == gym_id:
             state["activeGymId"] = state["gyms"][0]["id"]
         state["activeGymId"], state["gyms"] = normalize_gym_state(state["activeGymId"], state["gyms"])
-        save_gym_state(state)
+        save_gym_state(state, username, user_id)
         return jsonify({"success": True, "gyms": state["gyms"]})
 
     if gym is None:
@@ -2082,23 +2310,27 @@ def workout_gym_detail(gym_id):
         gym["availablePlates"] = clean_plates(body["availablePlates"])
     gym["dumbbellInterval"] = as_float(body.get("dumbbellInterval"), gym.get("dumbbellInterval", 2.0))
     state["activeGymId"], state["gyms"] = normalize_gym_state(state["activeGymId"], state["gyms"])
-    save_gym_state(state)
+    save_gym_state(state, username, user_id)
     return jsonify({"success": True, "activeGymId": state["activeGymId"], "gyms": state["gyms"], "activeGym": gym})
 
 
 @app.route("/api/workout/gyms/select/<gym_id>", methods=["POST"])
 def workout_gym_select(gym_id):
-    state = load_gym_state()
+    username = current_request_username()
+    user_id = current_request_user_id()
+    state = load_gym_state(username, user_id)
     if any(gym.get("id") == gym_id for gym in state.get("gyms", [])):
         state["activeGymId"] = gym_id
-        save_gym_state(state)
+        save_gym_state(state, username, user_id)
         return jsonify({"success": True, "activeGymId": state["activeGymId"], "gyms": state["gyms"], "activeGym": active_gym(state)})
     return jsonify({"success": False, "activeGymId": state.get("activeGymId"), "gyms": state.get("gyms", []), "activeGym": active_gym(state)})
 
 
 @app.route("/api/workout/gyms/<gym_id>/reset-machine", methods=["POST"])
 def workout_gym_reset_machine(gym_id):
-    state = load_gym_state()
+    username = current_request_username()
+    user_id = current_request_user_id()
+    state = load_gym_state(username, user_id)
     exercise = (request.args.get("exercise") or "").strip()
     for gym in state.get("gyms", []):
         if gym.get("id") == gym_id:
@@ -2107,7 +2339,7 @@ def workout_gym_reset_machine(gym_id):
                 machine_map.pop(exercise, None)
             else:
                 machine_map.clear()
-            save_gym_state(state)
+            save_gym_state(state, username, user_id)
             return jsonify({"success": True})
     return jsonify({"success": False}), 404
 

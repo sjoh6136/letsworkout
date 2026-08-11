@@ -3,6 +3,7 @@ __pycache__/
 .venv/
 target/
 data/app_state.json
+data/app_state_*.json
 data/auth_state.json
 data/*.tmp
 .tmp-local-data/

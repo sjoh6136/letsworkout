@@ -145,16 +145,26 @@ M/N are reserved identifiers:
 | Column | Field |
 |---|---|
 | M | SubmissionId |
-| N | UserId |
+| N | Username |
 
 Do not insert new columns before N. If more log metadata is needed later, append it after N.
+
+User-specific workout data is stored in username-suffixed tabs:
+
+- `Setting_1RM__{username}`
+- `Gym_Settings__{username}`
+- `Workout_Logs__{username}`
+- `Workout_Replacements__{username}`
+- `Workout_Submissions__{username}`
+
+Keep `User_Accounts` and `User_Sessions` shared. Do not create separate auth tables per user.
 
 Gym equipment settings are stored in a separate `Gym_Settings` tab. Keep it separate from `Workout_Logs` so workout log columns never shift.
 
 Workout replacement history is stored separately:
 
-- `Workout_Replacements`: one row per replaced exercise in a completed workout, with `UserId` in column O
-- `Workout_Submissions`: idempotency markers for completed workout submissions
+- `Workout_Replacements__{username}`: one row per replaced exercise in a completed workout, with `Username` in column O
+- `Workout_Submissions__{username}`: idempotency markers for completed workout submissions
 
 Do not add replacement metadata to `Workout_Logs`. A replaced workout still writes set logs under the actual exercise performed, while `Workout_Replacements` links `originalExercise` to the actual `exercise`.
 
