@@ -36,7 +36,7 @@ AUTH_SESSION_DAYS = max(1, int(os.environ.get("AUTH_SESSION_DAYS", "180")))
 AUTH_PASSWORD_ITERATIONS = 200_000
 AUTH_CACHE_SECONDS = max(60, int(os.environ.get("AUTH_CACHE_SECONDS", str(12 * 60 * 60))))
 STATE_CACHE_SECONDS = max(0, int(os.environ.get("STATE_CACHE_SECONDS", "20")))
-APP_RELEASE = "2026-08-11-workout-date-dedupe-v2"
+APP_RELEASE = "2026-08-11-workout-username-column-v2"
 APP_BUILD_COMMIT = os.environ.get("RENDER_GIT_COMMIT") or os.environ.get("SOURCE_VERSION") or ""
 _SHEETS_STORE = None
 _AUTH_SESSION_CACHE = {}
@@ -520,6 +520,14 @@ class GoogleSheetsStore:
         candidates = {normalize_username(username), str(user_id or "").strip()}
         return actor in {candidate for candidate in candidates if candidate}
 
+    @staticmethod
+    def looks_like_submission_id(value):
+        value = str(value or "").strip()
+        return bool(
+            value.startswith("submission_")
+            or re.fullmatch(r"[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}", value)
+        )
+
     def ensure_user_settings(self, settings, source_settings):
         source_values = source_settings.get("A2:E2")
         source_defaults = source_values[0] if source_values else [
@@ -556,13 +564,44 @@ class GoogleSheetsStore:
         submission_ids = []
         for row in source.get(source_range):
             padded = [str(value).strip() for value in row] + [""] * width
-            if not self.actor_matches(padded[actor_index], username, user_id):
+            is_new_log_row = (
+                source_title == self.LOGS_TAB
+                and width == 14
+                and padded[1]
+                and not re.fullmatch(r"-?\d+(?:\.\d+)?", padded[1])
+                and re.fullmatch(r"-?\d+(?:\.\d+)?", padded[2])
+            )
+            actor = padded[1] if is_new_log_row else padded[actor_index]
+            if not self.actor_matches(actor, username, user_id):
                 continue
-            new_row = padded[:width]
-            new_row[-1] = normalize_username(username)
+            if source_title == self.LOGS_TAB and width == 14:
+                if is_new_log_row:
+                    new_row = padded[:width]
+                    new_row[1] = normalize_username(username)
+                else:
+                    new_row = [
+                        padded[0],
+                        normalize_username(username),
+                        padded[1],
+                        padded[2],
+                        padded[3],
+                        padded[4],
+                        padded[5],
+                        padded[6],
+                        padded[7],
+                        padded[8],
+                        padded[9],
+                        padded[10],
+                        padded[11],
+                        padded[12],
+                    ]
+            else:
+                new_row = padded[:width]
+                new_row[-1] = normalize_username(username)
             migrated.append(new_row)
-            if width >= 13 and new_row[12]:
-                submission_ids.append(new_row[12])
+            submission_candidate = new_row[13] if source_title == self.LOGS_TAB and width == 14 else new_row[12]
+            if self.looks_like_submission_id(submission_candidate):
+                submission_ids.append(submission_candidate)
 
         if migrated:
             target.append_rows(migrated, value_input_option="RAW", table_range=table_range)
@@ -828,22 +867,39 @@ class GoogleSheetsStore:
         row = row + [""] * (start + 14 - len(row))
         if len(row) - start < 12 or not row[start]:
             return None
-        actor = row[start + 13]
+
+        def is_number_cell(value):
+            return bool(re.fullmatch(r"-?\d+(?:\.\d+)?", str(value or "").strip()))
+
+        has_new_actor_column = (
+            len(row) - start >= 14
+            and row[start + 1]
+            and not is_number_cell(row[start + 1])
+            and is_number_cell(row[start + 2])
+        )
+        if has_new_actor_column:
+            actor = row[start + 1]
+            base = start + 2
+            submission_id = row[start + 13]
+        else:
+            actor = row[start + 13]
+            base = start + 1
+            submission_id = row[start + 12]
         actor_username = normalize_username(username or ("" if actor.startswith("user_") else actor))
         return {
             "date": row[start],
-            "split": sheet_int(row[start + 1]),
-            "week": sheet_int(row[start + 2], 1),
-            "day": row[start + 3],
-            "exercise": row[start + 4],
-            "setNo": sheet_int(row[start + 5], 1),
-            "weight": sheet_float(row[start + 6]),
-            "reps": sheet_int(row[start + 7]),
-            "rpe": sheet_float(row[start + 8]),
-            "status": row[start + 9] or "FAIL",
-            "targetWeight": sheet_float(row[start + 10], sheet_float(row[start + 6])),
-            "targetReps": sheet_int(row[start + 11], sheet_int(row[start + 7])),
-            "submissionId": row[start + 12],
+            "split": sheet_int(row[base]),
+            "week": sheet_int(row[base + 1], 1),
+            "day": row[base + 2],
+            "exercise": row[base + 3],
+            "setNo": sheet_int(row[base + 4], 1),
+            "weight": sheet_float(row[base + 5]),
+            "reps": sheet_int(row[base + 6]),
+            "rpe": sheet_float(row[base + 7]),
+            "status": row[base + 8] or "FAIL",
+            "targetWeight": sheet_float(row[base + 9], sheet_float(row[base + 5])),
+            "targetReps": sheet_int(row[base + 10], sheet_int(row[base + 6])),
+            "submissionId": submission_id,
             "username": actor_username,
             "userId": actor if actor.startswith("user_") else "",
         }
@@ -858,6 +914,7 @@ class GoogleSheetsStore:
         for log in logs:
             rows.append([
                 log.get("date", ""),
+                normalize_username(log.get("username") or username),
                 log.get("split", ""),
                 log.get("week", ""),
                 log.get("day", ""),
@@ -870,7 +927,6 @@ class GoogleSheetsStore:
                 log.get("targetWeight", ""),
                 log.get("targetReps", ""),
                 log.get("submissionId", ""),
-                normalize_username(log.get("username") or username),
             ])
         worksheet.append_rows(rows, value_input_option="RAW", table_range="A1:N1")
         return True
@@ -878,8 +934,14 @@ class GoogleSheetsStore:
     def load_log_submission_ids(self, username="", user_id=""):
         self.ensure_user_tabs(username, user_id)
         worksheet = self.worksheet_for_user(self.LOGS_TAB, username, rows=1000, cols=14)
-        rows = worksheet.get("M2:M")
-        return {str(row[0]).strip() for row in rows if row and str(row[0]).strip()}
+        rows = worksheet.get("M2:N")
+        submission_ids = set()
+        for row in rows:
+            for value in row:
+                value = str(value or "").strip()
+                if self.looks_like_submission_id(value):
+                    submission_ids.add(value)
+        return submission_ids
 
     def load_replacements(self, username="", user_id=""):
         self.ensure_user_tabs(username, user_id)
