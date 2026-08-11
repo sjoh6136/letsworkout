@@ -36,7 +36,7 @@ AUTH_SESSION_DAYS = max(1, int(os.environ.get("AUTH_SESSION_DAYS", "180")))
 AUTH_PASSWORD_ITERATIONS = 200_000
 AUTH_CACHE_SECONDS = max(60, int(os.environ.get("AUTH_CACHE_SECONDS", str(12 * 60 * 60))))
 STATE_CACHE_SECONDS = max(0, int(os.environ.get("STATE_CACHE_SECONDS", "20")))
-APP_RELEASE = "2026-08-11-workout-log-without-submission-id-v1"
+APP_RELEASE = "2026-08-11-rpe-zero-guard-v1"
 APP_BUILD_COMMIT = os.environ.get("RENDER_GIT_COMMIT") or os.environ.get("SOURCE_VERSION") or ""
 _SHEETS_STORE = None
 _AUTH_SESSION_CACHE = {}
@@ -1736,7 +1736,7 @@ def log_checked(log):
 def set_succeeded(log, rpe_target=None):
     target_rpe = as_float(rpe_target if rpe_target is not None else log.get("targetRpe"), 8.0)
     rpe = as_float(log.get("rpe"))
-    rpe_ok = rpe <= target_rpe if rpe > 0 else str(log.get("status", "")).upper() == "SUCCESS"
+    rpe_ok = rpe > 0 and rpe <= target_rpe
     return (
         log_checked(log)
         and as_float(log.get("weight")) > 0
@@ -1890,6 +1890,8 @@ def normalize_logs(raw_logs, split, week, day_id, exercise_defs=None, submission
         log["rpe"] = as_float(log.get("rpe"))
         ex_def = exercise_defs.get(log.get("exercise"), {})
         log["targetRpe"] = as_float(log.get("targetRpe"), as_float(ex_def.get("rpeTarget"), 8.0))
+        if log_checked(log) and log["rpe"] <= 0:
+            log["rpe"] = log["targetRpe"]
         log["completed"] = log_checked(log)
         log["checked"] = log_checked(log)
         log["status"] = "SUCCESS" if set_succeeded(log, log["targetRpe"]) else "FAIL"

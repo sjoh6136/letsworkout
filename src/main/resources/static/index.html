@@ -4508,7 +4508,7 @@
         function logSucceededFrontend(log, rpeTarget) {
             const targetRpe = parseFloat(rpeTarget ?? log.targetRpe) || 8.0;
             const rpe = parseFloat(log.rpe) || 0;
-            const rpeOk = rpe > 0 ? rpe <= targetRpe : String(log.status || "").toUpperCase() === "SUCCESS";
+            const rpeOk = rpe > 0 && rpe <= targetRpe;
             return String(log.status || "").toUpperCase() === "SUCCESS"
                 && (parseFloat(log.weight) || 0) > 0
                 && (parseFloat(log.weight) || 0) + 0.001 >= (parseFloat(log.targetWeight) || 0)
@@ -5113,7 +5113,7 @@
                     
                     const rpeInput = row.querySelector(".rpe-input-field");
                     const parsedRpe = parseFloat(rpeInput?.value);
-                    const rpeVal = Number.isFinite(parsedRpe) ? parsedRpe : 0.0;
+                    const rpeVal = Number.isFinite(parsedRpe) && parsedRpe > 0 ? parsedRpe : (completed ? targetRpe : 0.0);
                     const setSuccess = setSucceededFrontend({
                         completed,
                         weight: weightVal,

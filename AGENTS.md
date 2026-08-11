@@ -103,6 +103,7 @@ Success requires:
 - target reps reached
 - set completed
 - actual RPE <= target RPE
+- actual RPE must be greater than 0; do not treat `RPE 0 + SUCCESS` as a valid successful set
 
 Current increment policy:
 
@@ -193,6 +194,7 @@ Never store plaintext passwords. Do not place auth/session columns in `Workout_L
 - `/api/workout/finish` saves workout logs and evaluates progression.
 - `/api/workout/finish` should store the workout start date sent by the frontend, not blindly overwrite with the server's current date.
 - Duplicate finish protection must cover repeated `SubmissionId` values in `Workout_Submissions` and identical saved workout content for the same username/date/split/week/day.
+- Completed sets with missing RPE should be saved with the target RPE, usually `8`, so new `SUCCESS + RPE 0` rows are never created.
 - `/api/auth/status`, `/api/auth/register`, `/api/auth/login`, and `/api/auth/logout` are public auth endpoints.
 - Other `/api/*` endpoints require the `lw_session` cookie.
 - Be careful around Google Sheets write paths. Column alignment regressions are high risk.
