@@ -1461,6 +1461,41 @@
             transform: scale(0.96);
         }
 
+        .set-swipe-wrap {
+            position: relative;
+            overflow: hidden;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.03);
+        }
+
+        .set-swipe-wrap .set-row {
+            position: relative;
+            z-index: 1;
+            border-bottom: 0;
+            background: rgb(27, 27, 35);
+            transition: opacity 0.25s ease, transform 0.16s ease;
+            touch-action: pan-y;
+        }
+
+        .set-swipe-wrap.open .set-row {
+            transform: translateX(-72px);
+        }
+
+        .delete-set-btn {
+            position: absolute;
+            inset: 0 0 0 auto;
+            width: 72px;
+            border: 0;
+            background: var(--fail-color);
+            color: #FFFFFF;
+            font-size: 13px;
+            font-weight: 900;
+            cursor: pointer;
+        }
+
+        .set-swipe-wrap:not(.deletable) .delete-set-btn {
+            display: none;
+        }
+
         .set-row {
             display: grid;
             grid-template-columns: 24px 1.3fr 1.3fr 0.9fr 0.9fr 0.8fr 34px;
@@ -2256,7 +2291,7 @@
             </div>
 
             <div class="settings-actions">
-                <button class="settings-primary-btn" type="button" onclick="saveSettings()">기준중량 저장</button>
+                <button class="settings-primary-btn" id="settings-save-btn" type="button" onclick="saveSettings()">기준중량 저장</button>
             </div>
         </div>
 
@@ -2508,6 +2543,7 @@
         let nextRecommendedDayId = "Day 1";
         let settingsSaveVersion = 0;
         let settingsSaveTimer = null;
+        let isSavingSettings = false;
         let activeWorkoutDraftSaveTimer = null;
         let isRestoringWorkoutDraft = false;
         let activeWorkoutDraftDisabled = false;
@@ -3378,6 +3414,13 @@
             scheduleActiveWorkoutHeaderSpaceUpdate();
         }
 
+        function setSettingsSaveButtonSaving(isSaving) {
+            const button = document.getElementById("settings-save-btn");
+            if (!button) return;
+            button.disabled = isSaving;
+            button.innerText = isSaving ? "저장중..." : "기준중량 저장";
+        }
+
         function getActiveRoutineDayCount() {
             const activeRoutine = routineData[String(oneRms.activeSplit)];
             return activeRoutine && activeRoutine.length ? activeRoutine.length : oneRms.activeSplit;
@@ -4109,7 +4152,30 @@
             });
         }
 
+        function getRoutineBaseSets(exIdx) {
+            const activeRoutine = routineData[String(oneRms.activeSplit)];
+            const routineDay = activeRoutine?.find(d => d.id === currentDayId);
+            const routineEx = routineDay?.exercises?.[exIdx];
+            return parseInt(routineEx?.sets, 10) || 0;
+        }
+
+        function ensureExerciseBaseSets(ex, exIdx) {
+            if (!ex) return 1;
+            const currentSets = parseInt(ex.sets, 10) || 1;
+            const baseSets = parseInt(ex.baseSets, 10) || getRoutineBaseSets(exIdx) || currentSets;
+            ex.baseSets = Math.min(baseSets, currentSets);
+            return ex.baseSets;
+        }
+
+        function updateExerciseMeta(exIdx, ex) {
+            const meta = document.getElementById(`exercise-meta-${exIdx}`);
+            if (meta && ex) {
+                meta.innerText = `${ex.sets}세트 × ${ex.repsRange}회 (RPE ${ex.rpeTarget})`;
+            }
+        }
+
         function createExerciseCard(ex, exIdx) {
+            ensureExerciseBaseSets(ex, exIdx);
             const card = document.createElement("div");
             card.className = "exercise-card";
             card.id = `exercise-card-${exIdx}`;
@@ -4198,6 +4264,63 @@
             return weight <= bar ? bar : bar + roundToStep((weight - bar) / 2.0, minPlate) * 2.0;
         }
 
+        function closeOpenSetSwipeRows(exceptWrap = null) {
+            document.querySelectorAll(".set-swipe-wrap.open").forEach(wrap => {
+                if (wrap !== exceptWrap) wrap.classList.remove("open");
+            });
+        }
+
+        function setSwipeDeleteState(wrap, exIdx, setNo, ex) {
+            const baseSets = ensureExerciseBaseSets(ex, exIdx);
+            const canDelete = setNo > baseSets;
+            wrap.classList.toggle("deletable", canDelete);
+            wrap.dataset.setNo = String(setNo);
+            const deleteBtn = wrap.querySelector(".delete-set-btn");
+            if (deleteBtn) {
+                deleteBtn.onclick = () => deleteSet(exIdx, setNo);
+                deleteBtn.setAttribute("aria-hidden", canDelete ? "false" : "true");
+            }
+            if (!canDelete) wrap.classList.remove("open");
+        }
+
+        function bindSetSwipeDelete(wrap) {
+            let startX = 0;
+            let startY = 0;
+            let movedX = 0;
+            let tracking = false;
+
+            wrap.addEventListener("touchstart", event => {
+                if (!wrap.classList.contains("deletable")) return;
+                const touch = event.touches[0];
+                startX = touch.clientX;
+                startY = touch.clientY;
+                movedX = 0;
+                tracking = true;
+            }, { passive: true });
+
+            wrap.addEventListener("touchmove", event => {
+                if (!tracking) return;
+                const touch = event.touches[0];
+                movedX = touch.clientX - startX;
+                const movedY = touch.clientY - startY;
+                if (Math.abs(movedY) > Math.abs(movedX)) {
+                    movedX = 0;
+                }
+            }, { passive: true });
+
+            wrap.addEventListener("touchend", () => {
+                if (!tracking) return;
+                if (movedX < -36) {
+                    closeOpenSetSwipeRows(wrap);
+                    wrap.classList.add("open");
+                } else if (movedX > 24) {
+                    wrap.classList.remove("open");
+                }
+                movedX = 0;
+                tracking = false;
+            });
+        }
+
         function createSetRow(ex, exIdx, setNo, copiedValues = {}) {
             const row = document.createElement("div");
             row.className = "set-row";
@@ -4234,7 +4357,21 @@
                     </svg>
                 </button>
             `;
-            return row;
+            const wrap = document.createElement("div");
+            wrap.className = "set-swipe-wrap";
+            wrap.dataset.exIdx = String(exIdx);
+            wrap.dataset.setNo = String(setNo);
+
+            const deleteBtn = document.createElement("button");
+            deleteBtn.className = "delete-set-btn";
+            deleteBtn.type = "button";
+            deleteBtn.innerText = "삭제";
+            wrap.appendChild(deleteBtn);
+            wrap.appendChild(row);
+
+            setSwipeDeleteState(wrap, exIdx, setNo, ex);
+            bindSetSwipeDelete(wrap);
+            return wrap;
         }
 
         function handleSetValueChange(exIdx, setNo, field, input) {
@@ -4265,6 +4402,48 @@
             calculateVolume();
         }
 
+        function renumberSetRows(exIdx, ex) {
+            const table = document.getElementById(`ex-${exIdx}`);
+            if (!table || !ex) return;
+            const rows = Array.from(table.querySelectorAll(".set-swipe-wrap .set-row"));
+            rows.forEach((row, idx) => {
+                const setNo = idx + 1;
+                const wrap = row.closest(".set-swipe-wrap");
+                row.id = `row-${exIdx}-${setNo}`;
+                const setNoEl = row.querySelector(".set-no");
+                if (setNoEl) setNoEl.innerText = setNo;
+
+                const weightInput = row.querySelector(".weight-input");
+                const repsInput = row.querySelector(".reps-input");
+                const checkBtn = row.querySelector(".check-btn");
+                if (weightInput) weightInput.setAttribute("onchange", `handleSetValueChange(${exIdx}, ${setNo}, 'weight', this)`);
+                if (repsInput) repsInput.setAttribute("onchange", `handleSetValueChange(${exIdx}, ${setNo}, 'reps', this)`);
+                if (checkBtn) checkBtn.setAttribute("onclick", `toggleSet(${exIdx}, ${setNo})`);
+                if (wrap) setSwipeDeleteState(wrap, exIdx, setNo, ex);
+            });
+        }
+
+        function deleteSet(exIdx, setNo) {
+            const dayObj = getActiveWorkoutDayObj();
+            const ex = dayObj?.exercises?.[exIdx];
+            if (!ex) return;
+
+            const baseSets = ensureExerciseBaseSets(ex, exIdx);
+            if (setNo <= baseSets || (parseInt(ex.sets, 10) || 0) <= baseSets) return;
+
+            const row = document.getElementById(`row-${exIdx}-${setNo}`);
+            const wrap = row?.closest(".set-swipe-wrap");
+            if (!wrap) return;
+
+            wrap.remove();
+            ex.sets = Math.max(baseSets, (parseInt(ex.sets, 10) || baseSets) - 1);
+            renumberSetRows(exIdx, ex);
+            updateExerciseMeta(exIdx, ex);
+            closeOpenSetSwipeRows();
+            calculateVolume();
+            scheduleActiveWorkoutDraftSave(0);
+        }
+
         function addSet(exIdx) {
             const currentSplitStr = String(oneRms.activeSplit);
             const activeRoutine = routineData[currentSplitStr];
@@ -4277,6 +4456,8 @@
             const table = document.getElementById(`ex-${exIdx}`);
             if (!ex || !table) return;
 
+            ensureExerciseBaseSets(ex, exIdx);
+            closeOpenSetSwipeRows();
             const lastSetNo = ex.sets;
             const lastRow = document.getElementById(`row-${exIdx}-${lastSetNo}`);
             const copiedValues = {
@@ -4288,11 +4469,9 @@
             ex.sets += 1;
             table.appendChild(createSetRow(ex, exIdx, ex.sets, copiedValues));
 
-            const meta = document.getElementById(`exercise-meta-${exIdx}`);
-            if (meta) {
-                meta.innerText = `${ex.sets}세트 × ${ex.repsRange}회 (RPE ${ex.rpeTarget})`;
-            }
+            updateExerciseMeta(exIdx, ex);
             calculateVolume();
+            scheduleActiveWorkoutDraftSave(0);
         }
 
         // Recalculate targets based on checkbox changes
@@ -5263,6 +5442,7 @@
 
         // Save Settings (Manual button click)
         async function saveSettings() {
+            if (isSavingSettings) return;
             if (settingsSaveTimer) {
                 clearTimeout(settingsSaveTimer);
                 settingsSaveTimer = null;
@@ -5275,6 +5455,8 @@
                 activeSplit: oneRms.activeSplit
             };
 
+            isSavingSettings = true;
+            setSettingsSaveButtonSaving(true);
             try {
                 const res = await apiFetch("/api/workout/settings", {
                     method: "POST",
@@ -5288,6 +5470,9 @@
                 }
             } catch (err) {
                 console.error("1RM 저장 실패", err);
+            } finally {
+                isSavingSettings = false;
+                setSettingsSaveButtonSaving(false);
             }
         }
 
