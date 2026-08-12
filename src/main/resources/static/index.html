@@ -2552,6 +2552,9 @@
         let activeWorkoutSubmissionId = null;
         let pendingActiveWorkoutDraft = null;
         let isFinishingWorkout = false;
+        let pendingWorkoutRetryTimer = null;
+        let pendingWorkoutRetryInFlight = false;
+        let activeFinishPendingSubmissionId = null;
         let activeHistoryExerciseName = "";
         let historyChartMetric = "weight";
         let activeHistoryPoints = [];
@@ -2601,8 +2604,11 @@
         document.addEventListener("visibilitychange", () => {
             if (document.visibilityState === "hidden") {
                 saveActiveWorkoutDraftSync();
+            } else {
+                schedulePendingWorkoutRetry(500);
             }
         });
+        window.addEventListener("online", () => schedulePendingWorkoutRetry(500));
 
         // Initialize WebApp
         window.addEventListener("DOMContentLoaded", async () => {
@@ -2645,6 +2651,9 @@
         const RETRYABLE_STATUS_CODES = new Set([408, 425, 429, 500, 502, 503, 504]);
         const DEFAULT_REQUEST_TIMEOUT_MS = 25000;
         const FINISH_REQUEST_TIMEOUT_MS = 75000;
+        const FINISH_ACTIVE_RETRY_ATTEMPTS = 3;
+        const PENDING_WORKOUT_RETRY_DELAY_MS = 4000;
+        const PENDING_WORKOUT_BACKGROUND_RETRY_MS = 15000;
 
         function delay(ms) {
             return new Promise(resolve => setTimeout(resolve, ms));
@@ -2889,18 +2898,32 @@
         }
 
         function savePendingWorkoutSubmissions(items) {
-            if (!items.length) {
-                localStorage.removeItem(PENDING_WORKOUT_SUBMISSIONS_KEY);
-                return;
+            try {
+                if (!items.length) {
+                    localStorage.removeItem(PENDING_WORKOUT_SUBMISSIONS_KEY);
+                    return true;
+                }
+                localStorage.setItem(PENDING_WORKOUT_SUBMISSIONS_KEY, JSON.stringify(items.slice(-5)));
+                return true;
+            } catch (err) {
+                console.error("pending 운동 기록 저장 실패", err);
+                return false;
             }
-            localStorage.setItem(PENDING_WORKOUT_SUBMISSIONS_KEY, JSON.stringify(items.slice(-5)));
         }
 
         function queuePendingWorkoutSubmission(payload) {
             const pending = loadPendingWorkoutSubmissions();
             const next = pending.filter(item => item.submissionId !== payload.submissionId);
-            next.push(payload);
-            savePendingWorkoutSubmissions(next);
+            next.push({
+                ...payload,
+                pendingQueuedAt: payload.pendingQueuedAt || Date.now(),
+                pendingAttempts: parseInt(payload.pendingAttempts, 10) || 0,
+                pendingLastAttemptAt: payload.pendingLastAttemptAt || 0,
+                pendingLastError: payload.pendingLastError || ""
+            });
+            const saved = savePendingWorkoutSubmissions(next);
+            if (saved) schedulePendingWorkoutRetry(PENDING_WORKOUT_RETRY_DELAY_MS);
+            return saved;
         }
 
         function removePendingWorkoutSubmission(submissionId) {
@@ -2908,37 +2931,114 @@
             savePendingWorkoutSubmissions(loadPendingWorkoutSubmissions().filter(item => item.submissionId !== submissionId));
         }
 
-        async function retryPendingWorkoutSubmissions() {
-            if (isFinishingWorkout) return;
+        function schedulePendingWorkoutRetry(delayMs = PENDING_WORKOUT_BACKGROUND_RETRY_MS) {
+            if (pendingWorkoutRetryTimer) {
+                clearTimeout(pendingWorkoutRetryTimer);
+                pendingWorkoutRetryTimer = null;
+            }
+            if (!loadPendingWorkoutSubmissions().length) return;
+            pendingWorkoutRetryTimer = setTimeout(() => {
+                pendingWorkoutRetryTimer = null;
+                retryPendingWorkoutSubmissions();
+            }, delayMs);
+        }
+
+        function finishErrorMessage(err) {
+            if (!err) return "저장 요청 실패";
+            return err.message || readNetworkError(err);
+        }
+
+        async function sendWorkoutFinishPayload(payload) {
+            const res = await apiFetch("/api/workout/finish", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify(payload),
+                timeoutMs: FINISH_REQUEST_TIMEOUT_MS
+            }, 0);
+            if (res.ok) return await res.json();
+
+            const message = await readApiError(res);
+            const err = new Error(message);
+            err.status = res.status;
+            err.retryable = RETRYABLE_STATUS_CODES.has(res.status);
+            throw err;
+        }
+
+        async function submitWorkoutPayloadWithRetry(payload, attempts = 1) {
+            let lastError = null;
+            for (let attempt = 0; attempt < attempts; attempt++) {
+                try {
+                    return await sendWorkoutFinishPayload(payload);
+                } catch (err) {
+                    lastError = err;
+                    if (err.retryable === false || attempt === attempts - 1) break;
+                    await delay(700 * (attempt + 1));
+                }
+            }
+            throw lastError || new Error("저장 요청 실패");
+        }
+
+        function handleWorkoutFinishSaved(data, submissionId) {
+            activeWorkoutDraftDisabled = true;
+            clearActiveWorkoutDraft();
+            activeWorkoutDay = null;
+            removePendingWorkoutSubmission(submissionId);
+            if (activeFinishPendingSubmissionId === submissionId) {
+                activeFinishPendingSubmissionId = null;
+            }
+            setFinishButtonSaving(false);
+            showFeedbackModal(data);
+        }
+
+        async function retryPendingWorkoutSubmissions(options = {}) {
+            if (pendingWorkoutRetryInFlight) return false;
+            if (isFinishingWorkout && !options.allowWhileFinishing) {
+                schedulePendingWorkoutRetry(PENDING_WORKOUT_RETRY_DELAY_MS);
+                return false;
+            }
             const pending = loadPendingWorkoutSubmissions();
             if (!pending.length) return;
-            if (DraftManager.hasDraftSignal()) return;
 
             const remaining = [];
             let savedAny = false;
-            for (const payload of pending) {
-                try {
-                    const res = await apiFetch("/api/workout/finish", {
-                        method: "POST",
-                        headers: { "Content-Type": "application/json" },
-                        body: JSON.stringify(payload),
-                        timeoutMs: FINISH_REQUEST_TIMEOUT_MS
-                    }, 0);
-                    if (res.ok) {
+            let handledActive = false;
+            const savedSubmissionIds = new Set();
+            pendingWorkoutRetryInFlight = true;
+            try {
+                for (const payload of pending) {
+                    try {
+                        const data = await submitWorkoutPayloadWithRetry(payload, options.attempts || 1);
                         savedAny = true;
-                    } else {
-                        remaining.push(payload);
+                        if (payload.submissionId) savedSubmissionIds.add(payload.submissionId);
+                        if (payload.submissionId && payload.submissionId === activeFinishPendingSubmissionId) {
+                            handledActive = true;
+                            handleWorkoutFinishSaved(data, payload.submissionId);
+                        }
+                    } catch (err) {
+                        console.warn("pending 운동 기록 재전송 실패", err);
+                        remaining.push({
+                            ...payload,
+                            pendingAttempts: (parseInt(payload.pendingAttempts, 10) || 0) + 1,
+                            pendingLastAttemptAt: Date.now(),
+                            pendingLastError: finishErrorMessage(err)
+                        });
                     }
-                } catch (err) {
-                    console.warn("pending 운동 기록 재전송 실패", err);
-                    remaining.push(payload);
                 }
-            }
 
-            savePendingWorkoutSubmissions(remaining);
-            if (savedAny) {
-                clearActiveWorkoutDraft();
-                await fetchBootstrap();
+                const savedRemaining = savePendingWorkoutSubmissions(remaining);
+                if (savedRemaining && remaining.length) {
+                    schedulePendingWorkoutRetry(PENDING_WORKOUT_BACKGROUND_RETRY_MS);
+                }
+                if (savedAny && !handledActive) {
+                    const draft = activeWorkoutDay ? null : await DraftManager.load();
+                    if (draft?.submissionId && savedSubmissionIds.has(draft.submissionId)) {
+                        clearActiveWorkoutDraft();
+                    }
+                    await fetchBootstrap();
+                }
+                return savedAny;
+            } finally {
+                pendingWorkoutRetryInFlight = false;
             }
         }
 
@@ -5342,38 +5442,22 @@
                 replacements
             };
 
+            queuePendingWorkoutSubmission(payload);
             saveActiveWorkoutDraftSync();
             isFinishingWorkout = true;
             setFinishButtonSaving(true);
             try {
-                const res = await apiFetch("/api/workout/finish", {
-                    method: "POST",
-                    headers: { "Content-Type": "application/json" },
-                    body: JSON.stringify(payload),
-                    timeoutMs: FINISH_REQUEST_TIMEOUT_MS
-                }, 0);
-
-                if (res.ok) {
-                    const data = await res.json();
-                    activeWorkoutDraftDisabled = true;
-                    clearActiveWorkoutDraft();
-                    activeWorkoutDay = null;
-                    savePendingWorkoutSubmissions(loadPendingWorkoutSubmissions().filter(item => item.submissionId !== submissionId));
-                    showFeedbackModal(data);
-                } else {
-                    const errorMessage = await readApiError(res);
-                    queuePendingWorkoutSubmission(payload);
-                    saveActiveWorkoutDraftSync();
-                    alert(`저장에 실패했습니다.\n\n원인: ${errorMessage}\n\n기록은 이 기기에 임시 보관했고 화면도 유지했습니다. 잠시 후 완료를 다시 눌러주세요.`);
-                }
+                const data = await submitWorkoutPayloadWithRetry(payload, FINISH_ACTIVE_RETRY_ATTEMPTS);
+                handleWorkoutFinishSaved(data, submissionId);
             } catch (err) {
-                console.error("기록 제출 실패", err);
-                queuePendingWorkoutSubmission(payload);
+                console.warn("운동 기록 저장 대기열 전환", err);
+                activeFinishPendingSubmissionId = submissionId;
                 saveActiveWorkoutDraftSync();
-                alert(`기록 저장에 실패했습니다.\n\n원인: ${readNetworkError(err)}\n\n기록은 이 기기에 임시 보관했고 화면도 유지했습니다. 잠시 후 완료를 다시 눌러주세요.`);
+                schedulePendingWorkoutRetry(PENDING_WORKOUT_RETRY_DELAY_MS);
             } finally {
                 isFinishingWorkout = false;
-                setFinishButtonSaving(false);
+                const stillPending = loadPendingWorkoutSubmissions().some(item => item.submissionId === submissionId);
+                setFinishButtonSaving(stillPending);
             }
         }
 

@@ -36,7 +36,7 @@ AUTH_SESSION_DAYS = max(1, int(os.environ.get("AUTH_SESSION_DAYS", "180")))
 AUTH_PASSWORD_ITERATIONS = 200_000
 AUTH_CACHE_SECONDS = max(60, int(os.environ.get("AUTH_CACHE_SECONDS", str(12 * 60 * 60))))
 STATE_CACHE_SECONDS = max(0, int(os.environ.get("STATE_CACHE_SECONDS", "20")))
-APP_RELEASE = "2026-08-12-set-delete-settings-save-v1"
+APP_RELEASE = "2026-08-12-finish-save-stabilization-v1"
 APP_BUILD_COMMIT = os.environ.get("RENDER_GIT_COMMIT") or os.environ.get("SOURCE_VERSION") or ""
 _SHEETS_STORE = None
 _AUTH_SESSION_CACHE = {}
@@ -1109,7 +1109,13 @@ def append_workout_logs_to_sheet(logs, username="", user_id=""):
         return store.append_logs(logs, username, user_id)
     except Exception as exc:
         print(f"[warn] failed to append workout logs to Google Sheets: {exc}")
-        return False
+        try:
+            if workout_logs_already_saved({"logs": store.load_logs(username, user_id)}, logs):
+                print("[warn] workout logs append response failed, but rows are already present in Google Sheets")
+                return True
+        except Exception as verify_exc:
+            print(f"[warn] failed to verify workout logs after append error: {verify_exc}")
+    return False
 
 
 def append_workout_replacements_to_sheet(replacements, username="", user_id=""):
