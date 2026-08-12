@@ -531,7 +531,7 @@ header {
     border-radius: 50%;
     background-color: var(--accent-color);
     position: absolute;
-    bottom: 4px;
+    top: 7px;
 }
 
 .calendar-day-label {
