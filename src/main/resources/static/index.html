@@ -491,11 +491,11 @@
             border: 1px solid rgba(255, 215, 0, 0.35);
             background: rgba(255, 215, 0, 0.1);
             color: var(--accent-color);
-            border-radius: 11px;
-            min-width: 62px;
-            height: 44px;
-            padding: 0 12px;
-            font-size: 16px;
+            border-radius: 8px;
+            min-width: 42px;
+            height: 30px;
+            padding: 0 8px;
+            font-size: 11px;
             font-weight: 900;
             cursor: pointer;
             white-space: nowrap;
@@ -522,10 +522,10 @@
 
             .calendar-today-btn {
                 right: 58px;
-                min-width: 54px;
-                height: 38px;
-                padding: 0 9px;
-                font-size: 14px;
+                min-width: 38px;
+                height: 28px;
+                padding: 0 7px;
+                font-size: 10px;
             }
         }
 
@@ -1488,7 +1488,7 @@
             background: var(--fail-color);
             color: #FFFFFF;
             font-size: 13px;
-            font-weight: 900;
+            font-weight: 400;
             cursor: pointer;
         }
 
@@ -2354,7 +2354,7 @@
             <div class="settings-section">
                 <div class="settings-action-pair">
                     <button class="settings-secondary-btn settings-delete-btn" type="button" onclick="deleteActiveGym()">삭제</button>
-                    <button class="settings-primary-btn" type="button" onclick="saveGymSettings()">헬스장 저장</button>
+                    <button class="settings-primary-btn" id="gym-save-btn" type="button" onclick="saveGymSettings()">헬스장 저장</button>
                 </div>
             </div>
         </div>
@@ -2544,6 +2544,7 @@
         let settingsSaveVersion = 0;
         let settingsSaveTimer = null;
         let isSavingSettings = false;
+        let isSavingGymSettings = false;
         let activeWorkoutDraftSaveTimer = null;
         let isRestoringWorkoutDraft = false;
         let activeWorkoutDraftDisabled = false;
@@ -2574,6 +2575,7 @@
         // Calendar state
         let currentYear = 2026;
         let currentMonth = 6; // 0-indexed (July)
+        let selectedCalendarDate = null;
 
         function updateActiveWorkoutHeaderSpace() {
             const header = document.getElementById("active-workout-header");
@@ -3521,6 +3523,13 @@
             button.innerText = isSaving ? "저장중..." : "기준중량 저장";
         }
 
+        function setGymSaveButtonSaving(isSaving) {
+            const button = document.getElementById("gym-save-btn");
+            if (!button) return;
+            button.disabled = isSaving;
+            button.innerText = isSaving ? "저장중..." : "헬스장 저장";
+        }
+
         function getActiveRoutineDayCount() {
             const activeRoutine = routineData[String(oneRms.activeSplit)];
             return activeRoutine && activeRoutine.length ? activeRoutine.length : oneRms.activeSplit;
@@ -3945,9 +3954,12 @@
         }
 
         async function saveGymSettings() {
+            if (isSavingGymSettings) return;
             const gym = getActiveGym();
             const body = collectGymForm();
 
+            isSavingGymSettings = true;
+            setGymSaveButtonSaving(true);
             try {
                 const res = await apiFetch(`/api/workout/gyms/${encodeURIComponent(gym.id)}`, {
                     method: "PUT",
@@ -3977,6 +3989,9 @@
                 }
             } catch (err) {
                 console.error("헬스장 저장 실패", err);
+            } finally {
+                isSavingGymSettings = false;
+                setGymSaveButtonSaving(false);
             }
         }
 
@@ -4164,7 +4179,15 @@
             document.querySelectorAll(".nav-item")[idx].classList.add("active");
 
             if (viewId === "calendar-view") {
-                renderCalendar();
+                if (selectedCalendarDate) {
+                    const selected = new Date(`${selectedCalendarDate}T00:00:00`);
+                    currentYear = selected.getFullYear();
+                    currentMonth = selected.getMonth();
+                    renderCalendar();
+                    selectCalendarDay(selectedCalendarDate, logsForDate(selectedCalendarDate));
+                } else {
+                    goToday();
+                }
             }
         }
 
@@ -5726,6 +5749,7 @@
 
         // Calendar Day selection logic
         function selectCalendarDay(dateStr, dayLogs) {
+            selectedCalendarDate = dateStr;
             document.querySelectorAll(".calendar-day").forEach(el => {
                 el.classList.remove("selected");
             });
