@@ -382,52 +382,152 @@
             gap: 10px;
         }
 
-        .split-select-btn {
+        .routine-select-card {
             background: rgba(255, 255, 255, 0.03);
             border: 1px solid var(--card-border);
             border-radius: 16px;
-            padding: 16px;
             color: var(--text-main);
-            font-weight: 700;
-            font-size: 14px;
-            text-align: left;
-            cursor: pointer;
-            transition: all 0.2s ease;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
+            overflow: hidden;
             backdrop-filter: blur(5px);
         }
 
-        .split-select-btn:active {
-            background: rgba(255, 255, 255, 0.07);
-            transform: scale(0.98);
+        .routine-select-row {
+            min-height: 76px;
+            display: grid;
+            grid-template-columns: minmax(0, 1fr) minmax(146px, 174px);
+            align-items: center;
+            gap: 12px;
+            padding: 13px 16px 13px 18px;
         }
 
-        .split-btn-meta {
+        .routine-select-card:active {
+            background: rgba(255, 255, 255, 0.07);
+        }
+
+        .routine-select-copy {
             display: flex;
             flex-direction: column;
-            gap: 4px;
+            justify-content: center;
+            align-items: flex-start;
+            gap: 0;
+            height: 46px;
+            min-width: 0;
+            position: relative;
         }
 
-        .split-btn-meta .tag {
-            font-size: 10px;
+        .routine-view-btn {
+            border: none;
+            background: transparent;
             color: var(--accent-color);
-            text-transform: uppercase;
-            font-weight: 800;
-            letter-spacing: 0.5px;
+            cursor: pointer;
+            display: inline-flex;
+            align-items: center;
+            gap: 3px;
+            font-family: inherit;
+            font-size: 11px;
+            font-weight: 700;
+            line-height: 1;
+            opacity: 0.92;
+            padding: 0;
+            position: absolute;
+            left: 0;
+            top: calc(50% + 12px);
+            white-space: nowrap;
         }
 
-        .split-btn-meta .subtitle {
-            font-size: 13px;
+        .routine-view-btn:focus,
+        .routine-start-btn:focus {
+            outline: none;
+        }
+
+        .routine-view-chevron {
+            font-size: 10px;
+            transform: translateY(-1px);
+        }
+
+        .routine-select-title {
+            font-size: 15px;
             color: var(--text-main);
+            font-weight: 900;
+            line-height: 1.25;
+            min-width: 0;
+        }
+
+        .routine-start-btn {
+            width: 100%;
+            height: 44px;
+            border: 1px solid rgba(255, 215, 0, 0.75);
+            border-radius: 12px;
+            background: rgba(255, 215, 0, 0.055);
+            color: var(--accent-color);
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 7px;
+            font-family: inherit;
+            font-size: 13px;
+            font-weight: 800;
+            line-height: 1;
+            white-space: nowrap;
+        }
+
+        .routine-start-play {
+            font-size: 13px;
+            transform: translateY(-1px);
+        }
+
+        .routine-summary {
+            display: none;
+            border-top: 1px solid rgba(255, 255, 255, 0.07);
+            padding: 12px 16px 14px;
+            background: rgba(0, 0, 0, 0.14);
+        }
+
+        .routine-select-card.open .routine-summary {
+            display: block;
+        }
+
+        .routine-summary-table {
+            display: grid;
+            grid-template-columns: minmax(0, 1fr) 38px 68px;
+            column-gap: 9px;
+            align-items: center;
+        }
+
+        .routine-summary-head {
+            color: var(--text-muted);
+            font-size: 10px;
+            font-weight: 800;
+            padding-bottom: 8px;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+        }
+
+        .routine-summary-head.title {
+            color: var(--accent-color);
+            font-size: 11px;
+        }
+
+        .routine-summary-cell {
+            min-height: 29px;
+            display: flex;
+            align-items: center;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.045);
+            font-size: 11px;
             font-weight: 700;
         }
 
-        .split-arrow {
-            color: var(--text-muted);
-            font-weight: 800;
-            font-size: 18px;
+        .routine-summary-cell.exercise {
+            color: var(--text-main);
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+
+        .routine-summary-cell.num,
+        .routine-summary-cell.top {
+            justify-content: center;
+            color: #dedce8;
         }
 
         /* Calendar View CSS Updates */
@@ -4098,6 +4198,62 @@
             }
         }
 
+        function escapeHtml(value) {
+            return String(value ?? "")
+                .replace(/&/g, "&amp;")
+                .replace(/</g, "&lt;")
+                .replace(/>/g, "&gt;")
+                .replace(/"/g, "&quot;")
+                .replace(/'/g, "&#39;");
+        }
+
+        function getRoutineDayNumber(dayId, fallbackIndex = 0) {
+            const match = String(dayId || "").match(/\d+/);
+            return match ? parseInt(match[0], 10) : fallbackIndex + 1;
+        }
+
+        function getRoutineTitle(day) {
+            return String(day?.name || day?.id || "")
+                .split("|")
+                .pop()
+                .trim();
+        }
+
+        function getTopSetLabel(exercise) {
+            const repsRange = String(exercise?.repsRange || "");
+            const rangeNums = repsRange
+                .split(/[~-]/)
+                .map(part => parseInt(part.trim(), 10))
+                .filter(value => Number.isFinite(value));
+            const topReps = rangeNums.length
+                ? Math.max(...rangeNums)
+                : parseInt(exercise?.targetReps || exercise?.reps || 0, 10);
+            return topReps > 0 ? `${topReps} reps` : "-";
+        }
+
+        function buildRoutineSummaryRows(day) {
+            return (day.exercises || []).map(exercise => {
+                const sets = parseInt(exercise.sets, 10) || 0;
+                return `
+                    <div class="routine-summary-cell exercise">${escapeHtml(exercise.name)}</div>
+                    <div class="routine-summary-cell num">${sets || "-"}</div>
+                    <div class="routine-summary-cell top">${escapeHtml(getTopSetLabel(exercise))}</div>
+                `;
+            }).join("");
+        }
+
+        function toggleRoutineSummary(card) {
+            const shouldOpen = !card.classList.contains("open");
+            document.querySelectorAll(".routine-select-card").forEach(item => {
+                item.classList.remove("open");
+                const icon = item.querySelector(".routine-view-chevron");
+                if (icon) icon.innerText = "▼";
+            });
+            card.classList.toggle("open", shouldOpen);
+            const icon = card.querySelector(".routine-view-chevron");
+            if (icon) icon.innerText = shouldOpen ? "▲" : "▼";
+        }
+
         // Render manual split selectors (Home Tab)
         function renderSplitSelectorGrid() {
             const grid = document.getElementById("split-grid");
@@ -4109,21 +4265,39 @@
 
             const currentWeek = getActiveWeekNum();
 
-            activeRoutine.forEach(day => {
-                const btn = document.createElement("button");
-                btn.className = "split-select-btn";
-                btn.onclick = () => startSelectedWorkout(day.id);
-                
-                let dayDetail = day.name.split("|")[1] || day.name;
-                
-                btn.innerHTML = `
-                    <div class="split-btn-meta">
-                        <span class="tag">${currentWeek}W ${day.id}</span>
-                        <span class="subtitle">${dayDetail.trim()}</span>
+            activeRoutine.forEach((day, idx) => {
+                const card = document.createElement("article");
+                card.className = "routine-select-card";
+                const dayNumber = getRoutineDayNumber(day.id, idx);
+                const title = getRoutineTitle(day);
+
+                card.innerHTML = `
+                    <div class="routine-select-row">
+                        <div class="routine-select-copy">
+                            <div class="routine-select-title">${escapeHtml(title)}</div>
+                            <button class="routine-view-btn" type="button">
+                                <span class="routine-view-chevron">▼</span>
+                                <span>루틴</span>
+                            </button>
+                        </div>
+                        <button class="routine-start-btn" type="button">
+                            <span class="routine-start-play">▶</span>
+                            <span>W${currentWeek} · D${dayNumber} 시작하기</span>
+                        </button>
                     </div>
-                    <span class="split-arrow">▶</span>
+                    <div class="routine-summary">
+                        <div class="routine-summary-table">
+                            <div class="routine-summary-head title">Week ${currentWeek} · Day ${dayNumber}</div>
+                            <div class="routine-summary-head">Set</div>
+                            <div class="routine-summary-head">Top set</div>
+                            ${buildRoutineSummaryRows(day)}
+                        </div>
+                    </div>
                 `;
-                grid.appendChild(btn);
+
+                card.querySelector(".routine-view-btn").onclick = () => toggleRoutineSummary(card);
+                card.querySelector(".routine-start-btn").onclick = () => startSelectedWorkout(day.id);
+                grid.appendChild(card);
             });
         }
 
