@@ -1537,8 +1537,9 @@ header {
 
 #active-workout-header .workout-metric {
     justify-content: flex-start;
-    height: 48px;
-    padding-top: 2px;
+    height: 44px;
+    padding-top: 0;
+    align-self: center;
     position: relative;
     z-index: 2;
 }
@@ -1551,21 +1552,27 @@ header {
 
 #active-workout-header .volume-metric strong {
     font-size: 12px;
+    line-height: 1;
+}
+
+#active-workout-header .volume-metric {
+    gap: 1px;
 }
 
 #active-workout-header .volume-metric svg {
-    margin-top: -2px;
+    margin-top: 0;
 }
 
 #active-workout-header .volume-metric .volume-value {
-    font-size: 9px;
+    font-size: 8px;
+    line-height: 1;
 }
 
 #active-workout-header .rest-timer-pill {
     position: absolute;
     left: 50%;
-    top: calc(var(--safe-top) + 8px);
-    transform: translateX(-50%);
+    top: 50%;
+    transform: translate(-50%, -50%);
     height: 44px;
     width: clamp(138px, 40vw, 168px);
     gap: 6px;
