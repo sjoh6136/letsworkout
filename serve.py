@@ -36,7 +36,7 @@ AUTH_SESSION_DAYS = max(1, int(os.environ.get("AUTH_SESSION_DAYS", "180")))
 AUTH_PASSWORD_ITERATIONS = 200_000
 AUTH_CACHE_SECONDS = max(60, int(os.environ.get("AUTH_CACHE_SECONDS", str(12 * 60 * 60))))
 STATE_CACHE_SECONDS = max(0, int(os.environ.get("STATE_CACHE_SECONDS", "20")))
-APP_RELEASE = "2026-08-12-home-routine-preview-v1"
+APP_RELEASE = "2026-08-13-no-store-html-v1"
 APP_BUILD_COMMIT = os.environ.get("RENDER_GIT_COMMIT") or os.environ.get("SOURCE_VERSION") or ""
 _SHEETS_STORE = None
 _AUTH_SESSION_CACHE = {}
@@ -71,6 +71,18 @@ def add_deployment_headers(response):
         response.headers["Access-Control-Allow-Origin"] = ALLOWED_ORIGIN
         response.headers["Access-Control-Allow-Headers"] = "Content-Type"
         response.headers["Access-Control-Allow-Methods"] = "GET,POST,PUT,DELETE,OPTIONS"
+    if request.method == "GET":
+        content_type = response.headers.get("Content-Type", "")
+        request_path = request.path or ""
+        is_html_shell = (
+            "text/html" in content_type
+            or request_path in {"/", "/index.html"}
+            or request_path.endswith(".html")
+        )
+        if is_html_shell:
+            response.headers["Cache-Control"] = "no-store, no-cache, must-revalidate, max-age=0"
+            response.headers["Pragma"] = "no-cache"
+            response.headers["Expires"] = "0"
     return response
 
 
