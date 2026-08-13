@@ -892,9 +892,15 @@ header {
 
 .draft-restore-actions {
     display: grid;
-    grid-template-columns: 0.85fr 1.15fr;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
     gap: 10px;
     margin-top: 14px;
+}
+
+.draft-restore-actions > button {
+    width: 100%;
+    min-width: 0;
+    margin-top: 0;
 }
 
 .draft-delete-btn {
@@ -1507,14 +1513,74 @@ header {
     }
 
     #active-workout-header .finish-btn {
-        width: 118px;
-        min-height: 42px;
+        width: 36px;
+        height: 26px;
+        min-height: 26px;
         justify-self: end;
-        padding: 6px 10px;
-        border-radius: 16px;
-        font-size: 13px;
-        flex: 0 0 118px;
+        padding: 0;
+        border-radius: 8px;
+        font-size: 10px;
+        line-height: 1;
+        flex: 0 0 36px;
     }
+}
+
+/* Final active-workout header layout. This stylesheet is loaded after the inline
+   page styles, so keep these values synchronized with index.html. */
+#active-workout-header .active-topbar-main {
+    grid-template-columns: 46px 54px minmax(0, 1fr) 36px;
+    gap: 6px;
+    padding: calc(var(--safe-top) + 8px) 10px 8px;
+}
+
+#active-workout-header .volume-metric strong {
+    font-size: 11px;
+}
+
+#active-workout-header .volume-metric .volume-value {
+    font-size: 9px;
+}
+
+#active-workout-header .rest-timer-pill {
+    height: 44px;
+    gap: 5px;
+    padding: 0 6px;
+    font-size: 18px;
+    min-width: 0;
+}
+
+#active-workout-header .rest-timer-pill .stopwatch-time {
+    min-width: 74px;
+    font-size: 17px;
+}
+
+#active-workout-header .rest-timer-pill .stopwatch-time.long-time {
+    min-width: 92px;
+    font-size: 13px;
+}
+
+#active-workout-header .rest-timer-pill .stopwatch-toggle {
+    width: 20px;
+    height: 20px;
+    flex: 0 0 20px;
+    border-radius: 8px;
+}
+
+#active-workout-header .rest-timer-pill .stopwatch-toggle svg {
+    width: 15px;
+    height: 15px;
+}
+
+#active-workout-header .finish-btn {
+    width: 36px;
+    height: 26px;
+    min-height: 26px;
+    padding: 0;
+    border-radius: 8px;
+    font-size: 10px;
+    line-height: 1;
+    justify-self: end;
+    flex: 0 0 36px;
 }
 
 /* Make repeated mobile taps feel immediate. */
