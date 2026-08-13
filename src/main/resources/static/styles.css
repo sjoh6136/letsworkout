@@ -1513,30 +1513,34 @@ header {
     }
 
     #active-workout-header .finish-btn {
-        width: 64px;
+        width: 76px;
         height: 44px;
         min-height: 44px;
+        grid-column: 4;
         justify-self: end;
-        padding: 0 10px;
+        padding: 0 12px;
         border-radius: 14px;
-        font-size: 13px;
+        font-size: 14px;
         line-height: 1;
-        flex: 0 0 64px;
+        flex: 0 0 76px;
     }
 }
 
 /* Final active-workout header layout. This stylesheet is loaded after the inline
    page styles, so keep these values synchronized with index.html. */
 #active-workout-header .active-topbar-main {
-    grid-template-columns: 46px 46px minmax(0, 1fr) 64px;
+    grid-template-columns: 46px 46px minmax(0, 1fr) 76px;
     gap: 8px;
     padding: calc(var(--safe-top) + 8px) 10px 8px;
+    position: relative;
 }
 
 #active-workout-header .workout-metric {
     justify-content: flex-start;
     height: 48px;
     padding-top: 2px;
+    position: relative;
+    z-index: 2;
 }
 
 #active-workout-header .workout-metric svg {
@@ -1558,13 +1562,17 @@ header {
 }
 
 #active-workout-header .rest-timer-pill {
+    position: absolute;
+    left: 50%;
+    top: calc(var(--safe-top) + 8px);
+    transform: translateX(-50%);
     height: 44px;
-    width: min(100%, 200px);
+    width: clamp(138px, 40vw, 168px);
     gap: 6px;
     padding: 0 8px;
     font-size: 18px;
     min-width: 0;
-    justify-self: center;
+    z-index: 1;
 }
 
 #active-workout-header .rest-timer-pill .stopwatch-time {
@@ -1590,16 +1598,19 @@ header {
 }
 
 #active-workout-header .finish-btn {
-    width: 64px;
+    width: 76px;
     height: 44px;
     min-height: 44px;
-    padding: 0 10px;
+    padding: 0 12px;
     border-radius: 14px;
-    font-size: 13px;
+    font-size: 14px;
     line-height: 1;
+    grid-column: 4;
     justify-self: end;
-    flex: 0 0 64px;
+    flex: 0 0 76px;
     box-shadow: 0 8px 18px rgba(255, 174, 0, 0.22);
+    position: relative;
+    z-index: 2;
 }
 
 /* Make repeated mobile taps feel immediate. */

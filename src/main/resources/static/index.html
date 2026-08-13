@@ -190,10 +190,11 @@
         #active-workout-header .active-topbar-main {
             min-height: 74px;
             display: grid;
-            grid-template-columns: 46px 46px minmax(0, 1fr) 64px;
+            grid-template-columns: 46px 46px minmax(0, 1fr) 76px;
             align-items: center;
             gap: 8px;
             padding: calc(var(--safe-top) + 8px) 10px 8px;
+            position: relative;
         }
 
         #active-workout-header .workout-metric {
@@ -208,6 +209,8 @@
             padding-top: 2px;
             font-weight: 900;
             line-height: 1;
+            position: relative;
+            z-index: 2;
         }
 
         #active-workout-header button.workout-metric {
@@ -277,8 +280,12 @@
         }
 
         #active-workout-header .rest-timer-pill {
+            position: absolute;
+            left: 50%;
+            top: calc(var(--safe-top) + 8px);
+            transform: translateX(-50%);
             height: 44px;
-            width: min(100%, 200px);
+            width: clamp(138px, 40vw, 168px);
             border: 1px solid rgba(255, 255, 255, 0.08);
             background: rgba(255, 255, 255, 0.08);
             border-radius: 13px;
@@ -292,7 +299,7 @@
             font-weight: 900;
             font-variant-numeric: tabular-nums;
             min-width: 0;
-            justify-self: center;
+            z-index: 1;
         }
 
         #active-workout-header .rest-timer-pill .stopwatch-time {
@@ -346,15 +353,18 @@
         }
 
         #active-workout-header .finish-btn {
-            width: 64px;
+            width: 76px;
             height: 44px;
             min-height: 44px;
             border-radius: 14px;
-            padding: 0 10px;
-            font-size: 13px;
+            padding: 0 12px;
+            font-size: 14px;
             line-height: 1;
+            grid-column: 4;
             justify-self: end;
             box-shadow: 0 8px 18px rgba(255, 174, 0, 0.22);
+            position: relative;
+            z-index: 2;
         }
 
         /* Bottom Sticky Tabbar */
@@ -2490,7 +2500,7 @@
         }
 
     </style>
-    <link rel="stylesheet" href="/styles.css?v=20260813-layout-3">
+    <link rel="stylesheet" href="/styles.css?v=20260813-layout-5">
 </head>
 <body>
     <!-- Login / First Account Setup -->
@@ -4677,7 +4687,7 @@
                             <div class="routine-select-title">${escapeHtml(title)}</div>
                             <button class="routine-view-btn" type="button">
                                 <span class="routine-view-chevron">▼</span>
-                                <span>루틴</span>
+                                <span>루틴 보기</span>
                             </button>
                         </div>
                         <button class="routine-start-btn" type="button">
