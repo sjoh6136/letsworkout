@@ -179,6 +179,173 @@
             will-change: transform;
         }
 
+        #active-workout-header .active-workout-topbar {
+            width: 100%;
+            background: rgba(7, 7, 9, 0.96);
+            border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+            backdrop-filter: blur(18px);
+            -webkit-backdrop-filter: blur(18px);
+        }
+
+        #active-workout-header .active-topbar-main {
+            min-height: 74px;
+            display: grid;
+            grid-template-columns: 52px 70px minmax(98px, 1fr) 76px;
+            align-items: center;
+            gap: 8px;
+            padding: calc(var(--safe-top) + 8px) 12px 8px;
+        }
+
+        #active-workout-header .workout-metric {
+            min-width: 0;
+            color: #FFFFFF;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            gap: 3px;
+            font-weight: 900;
+            line-height: 1;
+        }
+
+        #active-workout-header button.workout-metric {
+            border: 0;
+            background: transparent;
+            padding: 0;
+            font-family: inherit;
+            cursor: pointer;
+        }
+
+        #active-workout-header button.workout-metric:active {
+            transform: scale(0.96);
+        }
+
+        #active-workout-header .rest-metric.paused {
+            color: var(--accent-color);
+        }
+
+        #active-workout-header .workout-metric svg {
+            width: 21px;
+            height: 21px;
+            stroke: currentColor;
+            stroke-width: 2.2;
+            stroke-linecap: round;
+            stroke-linejoin: round;
+            fill: none;
+        }
+
+        #active-workout-header .workout-elapsed-time {
+            color: #FFFFFF;
+            font-family: 'Outfit', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+            font-size: 13px;
+            font-weight: 900;
+            font-variant-numeric: tabular-nums;
+            white-space: nowrap;
+        }
+
+        #active-workout-header .workout-elapsed-time.long-time {
+            font-size: 10px;
+        }
+
+        #active-workout-header .rest-timer-label {
+            color: #FFFFFF;
+            font-family: 'Outfit', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+            font-size: 13px;
+            font-weight: 900;
+            font-variant-numeric: tabular-nums;
+            white-space: nowrap;
+        }
+
+        #active-workout-header .volume-metric strong {
+            font-size: 12px;
+        }
+
+        #active-workout-header .volume-metric .volume-value {
+            margin-top: -1px;
+            color: rgba(255, 255, 255, 0.72);
+            font-size: 10px;
+            font-weight: 800;
+            font-variant-numeric: tabular-nums;
+            white-space: nowrap;
+        }
+
+        #active-workout-header .rest-timer-pill {
+            height: 48px;
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            background: rgba(255, 255, 255, 0.08);
+            border-radius: 13px;
+            color: #FFFFFF;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            font-size: 20px;
+            font-weight: 900;
+            font-variant-numeric: tabular-nums;
+            min-width: 0;
+        }
+
+        #active-workout-header .rest-timer-pill .stopwatch-time {
+            min-width: 86px;
+            color: #FFFFFF;
+            font-family: 'Outfit', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+            font-size: 20px;
+            font-weight: 900;
+            font-variant-numeric: tabular-nums;
+            line-height: 1;
+            white-space: nowrap;
+        }
+
+        #active-workout-header .rest-timer-pill .stopwatch-time.long-time {
+            min-width: 108px;
+            font-size: 15px;
+        }
+
+        #active-workout-header .rest-timer-toggle {
+            width: 24px;
+            height: 24px;
+            border: 0;
+            border-radius: 8px;
+            background: transparent;
+            color: #FFFFFF;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 0;
+            cursor: pointer;
+        }
+
+        #active-workout-header .rest-timer-toggle svg {
+            width: 18px;
+            height: 18px;
+            fill: currentColor;
+        }
+
+        #active-workout-header .active-rest-progress {
+            height: 4px;
+            width: 100%;
+            background: rgba(255, 255, 255, 0.08);
+            overflow: hidden;
+        }
+
+        #active-workout-header .active-rest-progress-fill {
+            width: 0%;
+            height: 100%;
+            background: linear-gradient(90deg, #FF453A, #FF7A00);
+            transition: width 0.18s linear;
+        }
+
+        #active-workout-header .finish-btn {
+            width: 76px;
+            height: 48px;
+            min-height: 48px;
+            border-radius: 13px;
+            padding: 0 8px;
+            font-size: 15px;
+            justify-self: stretch;
+            box-shadow: 0 8px 20px rgba(255, 174, 0, 0.22);
+        }
+
         /* Bottom Sticky Tabbar */
         .bottom-nav {
             position: fixed;
@@ -456,24 +623,28 @@
         .routine-start-btn {
             width: 100%;
             height: 44px;
-            border: 1px solid rgba(255, 215, 0, 0.75);
-            border-radius: 12px;
-            background: rgba(255, 215, 0, 0.055);
-            color: var(--accent-color);
+            border: 0;
+            border-radius: 11px;
+            background: var(--accent-color);
+            color: #111111;
             cursor: pointer;
             display: flex;
             align-items: center;
             justify-content: center;
-            gap: 7px;
+            gap: 5px;
             font-family: inherit;
-            font-size: 13px;
-            font-weight: 800;
+            font-size: 12px;
+            font-weight: 900;
             line-height: 1;
             white-space: nowrap;
+            box-shadow:
+                0 12px 24px rgba(255, 174, 0, 0.24),
+                0 0 0 1px rgba(255, 255, 255, 0.1) inset,
+                inset 0 -2px 0 rgba(0, 0, 0, 0.16);
         }
 
         .routine-start-play {
-            font-size: 13px;
+            font-size: 12px;
             transform: translateY(-1px);
         }
 
@@ -1522,11 +1693,41 @@
 
         .exercise-actions {
             display: flex;
-            align-items: flex-start;
+            align-items: center;
             gap: 6px;
             flex-shrink: 0;
             flex-wrap: wrap;
-            justify-content: flex-end;
+            justify-content: flex-start;
+            margin-top: 12px;
+        }
+
+        .exercise-rest-btn {
+            border: 1px solid rgba(255, 255, 255, 0.12);
+            background: rgba(255, 255, 255, 0.055);
+            color: #FFFFFF;
+            border-radius: 12px;
+            min-height: 42px;
+            padding: 0 10px;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 6px;
+            font-size: 13px;
+            font-weight: 900;
+            font-family: inherit;
+            font-variant-numeric: tabular-nums;
+            cursor: pointer;
+            flex-shrink: 0;
+        }
+
+        .exercise-rest-btn svg {
+            width: 17px;
+            height: 17px;
+            stroke: currentColor;
+            stroke-width: 2.4;
+            stroke-linecap: round;
+            stroke-linejoin: round;
+            fill: none;
         }
 
         .add-set-btn {
@@ -1792,6 +1993,111 @@
             grid-template-columns: 0.85fr 1.15fr;
             gap: 10px;
             margin-top: 14px;
+        }
+
+        .finish-choice-modal {
+            padding: 22px 18px 20px;
+        }
+
+        .finish-choice-modal .finish-title {
+            display: flex;
+            align-items: flex-start;
+            justify-content: space-between;
+            gap: 12px;
+            margin-bottom: 8px;
+        }
+
+        .finish-choice-modal h3 {
+            color: #FFFFFF;
+            font-size: 20px;
+            font-weight: 900;
+            line-height: 1.25;
+        }
+
+        .finish-choice-copy {
+            color: var(--text-muted);
+            font-size: 13px;
+            font-weight: 700;
+            line-height: 1.5;
+            margin: 0 0 18px;
+        }
+
+        .finish-choice-actions,
+        .finish-discard-actions {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 10px;
+        }
+
+        .finish-flow-btn {
+            min-height: 52px;
+            border-radius: 14px;
+            font-family: inherit;
+            font-size: 15px;
+            font-weight: 900;
+            cursor: pointer;
+        }
+
+        .finish-flow-btn.secondary {
+            border: 1px solid rgba(255, 255, 255, 0.12);
+            background: rgba(255, 255, 255, 0.055);
+            color: #FFFFFF;
+        }
+
+        .finish-flow-btn.primary {
+            border: 0;
+            background: var(--accent-gradient);
+            color: #000000;
+        }
+
+        .finish-flow-btn.danger {
+            border: 1px solid rgba(255, 69, 58, 0.45);
+            background: rgba(255, 69, 58, 0.14);
+            color: #ff8a82;
+        }
+
+        .finish-flow-view[hidden] {
+            display: none;
+        }
+
+        .rest-picker-panel {
+            padding-bottom: calc(var(--safe-bottom) + 24px);
+        }
+
+        .rest-picker-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 14px;
+            margin-top: 18px;
+        }
+
+        .rest-preset-btn {
+            aspect-ratio: 1;
+            border: 1px solid rgba(255, 255, 255, 0.09);
+            border-radius: 50%;
+            background:
+                repeating-conic-gradient(from 0deg, rgba(255, 255, 255, 0.16) 0deg 2deg, transparent 2deg 6deg),
+                radial-gradient(circle at center, #17171c 0 48%, rgba(255, 255, 255, 0.04) 49% 100%);
+            color: #FFFFFF;
+            font-family: inherit;
+            font-size: 16px;
+            font-weight: 900;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+        }
+
+        .rest-preset-btn.active {
+            color: #0b0b0d;
+            border-color: rgba(255, 215, 0, 0.78);
+            background:
+                repeating-conic-gradient(from 0deg, rgba(255, 215, 0, 0.55) 0deg 2deg, transparent 2deg 6deg),
+                radial-gradient(circle at center, var(--accent-color) 0 48%, rgba(255, 215, 0, 0.12) 49% 100%);
+        }
+
+        .rest-preset-btn.custom {
+            font-size: 14px;
         }
 
         .draft-delete-btn {
@@ -2236,21 +2542,41 @@
 
     <!-- Workout Sticky Header -->
     <header id="active-workout-header" style="display: none;">
-        <div class="header-left">
-            <button class="header-btn" onclick="abortWorkout()">✖ 중단</button>
-            <button class="header-btn vol-badge">💪 Vol: <span id="vol-counter">0</span> kg</button>
-        </div>
-        <div class="header-right">
-            <div class="stopwatch">
-                <span class="stopwatch-time" id="stopwatch-display">00:00:00</span>
-                <button class="stopwatch-toggle" id="stopwatch-toggle" type="button" onclick="toggleStopwatchPause()" aria-label="초시계 일시정지">
-                    <svg viewBox="0 0 24 24" aria-hidden="true">
-                        <rect x="7" y="5" width="3.5" height="14" rx="1"></rect>
-                        <rect x="13.5" y="5" width="3.5" height="14" rx="1"></rect>
-                    </svg>
+        <div class="active-workout-topbar">
+            <div class="active-topbar-main">
+                <button class="workout-metric rest-metric" id="rest-timer-toggle" type="button" onclick="toggleRestTimerPause()" aria-label="휴식 타이머">
+                    <span id="rest-timer-icon">
+                        <svg viewBox="0 0 24 24" aria-hidden="true">
+                            <circle cx="12" cy="13" r="8"></circle>
+                            <path d="M12 13V8"></path>
+                            <path d="M9 2h6"></path>
+                        </svg>
+                    </span>
+                    <span class="rest-timer-label" id="rest-timer-display">Rest</span>
                 </button>
+                <div class="workout-metric volume-metric" aria-label="총 운동 볼륨">
+                    <svg viewBox="0 0 24 24" aria-hidden="true">
+                        <path d="M6 20c3.1-1 4.6-3.2 4.6-6.5V9.2"></path>
+                        <path d="M10.6 9.2c0-2.8 1.5-4.8 4.6-5.9l1.1 2.7"></path>
+                        <path d="M14.1 8.4h2.4A3.5 3.5 0 0 1 20 11.9V19"></path>
+                        <path d="M6 20h14"></path>
+                        <path d="M10.8 13.2h4.8"></path>
+                    </svg>
+                    <strong>Vol</strong>
+                    <span class="volume-value"><span id="vol-counter">0</span>kg</span>
+                </div>
+                <div class="rest-timer-pill" aria-label="운동 경과 시간">
+                    <button class="rest-timer-toggle stopwatch-toggle" id="stopwatch-toggle" type="button" onclick="toggleStopwatchPause()" aria-label="초시계 일시정지">
+                        <svg viewBox="0 0 24 24" aria-hidden="true">
+                            <rect x="7" y="5" width="3.8" height="14" rx="1"></rect>
+                            <rect x="13.2" y="5" width="3.8" height="14" rx="1"></rect>
+                        </svg>
+                    </button>
+                    <span class="stopwatch-time" id="stopwatch-display">00:00:00</span>
+                </div>
+                <button class="finish-btn" id="finish-workout-btn" onclick="openFinishWorkoutModal()">완료</button>
             </div>
-            <button class="finish-btn" id="finish-workout-btn" onclick="finishWorkout()">완료</button>
+            <div class="active-rest-progress"><div class="active-rest-progress-fill" id="rest-progress-fill"></div></div>
         </div>
     </header>
 
@@ -2464,7 +2790,6 @@
     <section class="view-section" id="active-workout-view">
         <div class="day-info" id="active-day-info" style="margin-top: 12px; margin-bottom: 16px;">
             <h2 id="active-day-title" style="font-size: 20px; font-weight:900;">운동명</h2>
-            <p id="active-day-desc" style="font-size: 13px; color: var(--text-muted); margin-top:4px;">설명</p>
         </div>
 
         <div id="workout-container">
@@ -2487,6 +2812,54 @@
             <span>설정</span>
         </button>
     </nav>
+
+    <div class="overlay" id="finish-choice-overlay" onclick="closeFinishWorkoutModalOnBackdrop(event)">
+        <div class="modal finish-choice-modal">
+            <div class="finish-flow-view" id="finish-choice-view">
+                <div class="finish-title">
+                    <h3>운동을 마칠까요?</h3>
+                    <button class="close-btn" type="button" onclick="closeFinishWorkoutModal()">×</button>
+                </div>
+                <p class="finish-choice-copy">저장하면 운동 기록을 DB에 저장하고, 중단하면 현재 진행 중인 입력값을 삭제합니다.</p>
+                <div class="finish-choice-actions">
+                    <button class="finish-flow-btn secondary" type="button" onclick="showFinishDiscardConfirm()">중단</button>
+                    <button class="finish-flow-btn primary" type="button" onclick="saveWorkoutFromFinishModal()">저장</button>
+                </div>
+            </div>
+            <div class="finish-flow-view" id="finish-discard-view" hidden>
+                <div class="finish-title">
+                    <h3>정말 삭제할까요?</h3>
+                    <button class="close-btn" type="button" onclick="showFinishChoiceView()">×</button>
+                </div>
+                <p class="finish-choice-copy">현재 운동 체크, 입력한 무게/횟수/RPE, 타이머 기록이 모두 사라집니다.</p>
+                <div class="finish-discard-actions">
+                    <button class="finish-flow-btn secondary" type="button" onclick="showFinishChoiceView()">취소</button>
+                    <button class="finish-flow-btn danger" type="button" onclick="discardWorkoutFromFinishModal()">삭제</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="overlay bottom-sheet-modal" id="rest-picker-overlay" onclick="closeRestPickerOnBackdrop(event)">
+        <div class="bottom-sheet-panel rest-picker-panel">
+            <div class="sheet-handle"></div>
+            <div class="sheet-title-row">
+                <div>
+                    <h3>휴식 타이머</h3>
+                    <p id="rest-picker-subtitle">종목별 휴식 시간을 선택</p>
+                </div>
+                <button class="close-btn" type="button" onclick="closeRestPicker()">×</button>
+            </div>
+            <div class="rest-picker-grid">
+                <button class="rest-preset-btn" type="button" data-rest-seconds="30" onclick="chooseExerciseRestSeconds(30)">0:30</button>
+                <button class="rest-preset-btn" type="button" data-rest-seconds="60" onclick="chooseExerciseRestSeconds(60)">1:00</button>
+                <button class="rest-preset-btn" type="button" data-rest-seconds="90" onclick="chooseExerciseRestSeconds(90)">1:30</button>
+                <button class="rest-preset-btn" type="button" data-rest-seconds="120" onclick="chooseExerciseRestSeconds(120)">2:00</button>
+                <button class="rest-preset-btn" type="button" data-rest-seconds="180" onclick="chooseExerciseRestSeconds(180)">3:00</button>
+                <button class="rest-preset-btn custom" type="button" onclick="chooseCustomExerciseRestSeconds()">Custom</button>
+            </div>
+        </div>
+    </div>
 
     <div class="overlay bottom-sheet-modal" id="exercise-history-overlay" onclick="closeBottomSheetOnBackdrop(event)">
         <div class="bottom-sheet-panel">
@@ -2671,6 +3044,15 @@
         let stopwatchStartedAt = 0;
         let stopwatchInterval = null;
         let stopwatchPaused = false;
+
+        // Rest timer state
+        let restTimerTotalMs = 0;
+        let restTimerRemainingMs = 0;
+        let restTimerEndsAt = 0;
+        let restTimerInterval = null;
+        let restTimerPaused = false;
+        let activeRestExerciseIdx = null;
+        let restPickerExerciseIdx = null;
 
         // Calendar state
         let currentYear = 2026;
@@ -3597,6 +3979,7 @@
                 renderExercises(activeWorkoutDay);
                 applyDraftRows(draft);
                 restoreStopwatchFromDraft(draft);
+                stopRestTimer();
                 calculateVolume();
                 resetWorkoutScroll();
             } finally {
@@ -3612,7 +3995,7 @@
             const button = document.getElementById("finish-workout-btn");
             if (!button) return;
             button.disabled = isSaving;
-            button.innerText = isSaving ? "저장 중..." : "완료";
+            button.innerText = isSaving ? "저장중" : "완료";
             scheduleActiveWorkoutHeaderSpaceUpdate();
         }
 
@@ -4282,7 +4665,7 @@
                         </div>
                         <button class="routine-start-btn" type="button">
                             <span class="routine-start-play">▶</span>
-                            <span>W${currentWeek} · D${dayNumber} 시작하기</span>
+                            <span>W${currentWeek} · D${dayNumber} 시작</span>
                         </button>
                     </div>
                     <div class="routine-summary">
@@ -4434,6 +4817,7 @@
             renderExercises(activeWorkoutDay);
             
             // Start Timer
+            stopRestTimer();
             startStopwatch();
             calculateVolume();
             resetWorkoutScroll();
@@ -4469,6 +4853,41 @@
             if (meta && ex) {
                 meta.innerText = `${ex.sets}세트 × ${ex.repsRange}회 (RPE ${ex.rpeTarget})`;
             }
+            const restLabel = document.getElementById(`exercise-rest-label-${exIdx}`);
+            if (restLabel && ex) {
+                restLabel.innerText = formatRestSeconds(getExerciseRestSeconds(ex));
+            }
+        }
+
+        function formatRestSeconds(seconds) {
+            const safeSeconds = Math.max(0, parseInt(seconds, 10) || 0);
+            const minutes = Math.floor(safeSeconds / 60);
+            const restSeconds = safeSeconds % 60;
+            return `${minutes}:${String(restSeconds).padStart(2, "0")}`;
+        }
+
+        function inferDefaultRestSeconds(ex) {
+            const [minReps] = parseRepsRangeFrontend(ex?.repsRange);
+            const name = normalizeExerciseText(ex?.name);
+            const compoundTokens = [
+                "스쿼트", "데드리프트", "벤치프레스", "오버헤드", "로우",
+                "풀업", "랫 풀", "레그 프레스", "shoulder press", "bench", "squat", "deadlift", "row"
+            ];
+            const isCompound = compoundTokens.some(token => name.includes(normalizeExerciseText(token)))
+                || (exerciseDefinitions.large_muscles || []).includes(ex?.name);
+            if (isCompound && minReps <= 8) return 180;
+            if (isCompound) return 120;
+            if (minReps <= 8) return 120;
+            if (minReps <= 10) return 90;
+            return 60;
+        }
+
+        function getExerciseRestSeconds(ex) {
+            const current = parseInt(ex?.restSeconds, 10);
+            if (Number.isFinite(current) && current > 0) return current;
+            const inferred = inferDefaultRestSeconds(ex);
+            if (ex) ex.restSeconds = inferred;
+            return inferred;
         }
 
         function createExerciseCard(ex, exIdx) {
@@ -4486,10 +4905,14 @@
                         <button class="exercise-name-btn" type="button" onclick="openExerciseHistory(${exIdx})">${ex.name} ${badge}</button>
                         <span class="exercise-meta" id="exercise-meta-${exIdx}">${ex.sets}세트 × ${ex.repsRange}회 (RPE ${ex.rpeTarget})</span>
                     </div>
-                    <div class="exercise-actions">
-                        <button class="replace-exercise-btn" type="button" onclick="openExerciseReplacement(${exIdx})">↔ 교체</button>
-                        <button class="add-set-btn" type="button" onclick="addSet(${exIdx})">+ 세트</button>
-                    </div>
+                    <button class="exercise-rest-btn" type="button" onclick="openExerciseRestPicker(${exIdx})" aria-label="${ex.name} 휴식 시간 설정">
+                        <svg viewBox="0 0 24 24" aria-hidden="true">
+                            <circle cx="12" cy="13" r="8"></circle>
+                            <path d="M12 13V8"></path>
+                            <path d="M9 2h6"></path>
+                        </svg>
+                        <span id="exercise-rest-label-${exIdx}">${formatRestSeconds(getExerciseRestSeconds(ex))}</span>
+                    </button>
                 </div>
                 <div class="sets-table" id="ex-${exIdx}">
                     <div class="set-row" style="font-weight:700; color:var(--text-main); border-bottom: 1px solid rgba(255, 255, 255, 0.08);">
@@ -4501,6 +4924,10 @@
                         <div class="set-target-info">RPE</div>
                         <div style="width: 34px;"></div>
                     </div>
+                </div>
+                <div class="exercise-actions">
+                    <button class="replace-exercise-btn" type="button" onclick="openExerciseReplacement(${exIdx})">↔ 교체</button>
+                    <button class="add-set-btn" type="button" onclick="addSet(${exIdx})">⊕ 세트</button>
                 </div>
             `;
 
@@ -4927,6 +5354,127 @@
             scheduleActiveWorkoutDraftSave(0);
         }
 
+        function updateRestTimerToggle() {
+            const btn = document.getElementById("rest-timer-toggle");
+            const icon = document.getElementById("rest-timer-icon");
+            if (!btn) return;
+            const hasActiveRest = restTimerInterval || restTimerRemainingMs > 0;
+            btn.classList.toggle("paused", !!restTimerPaused);
+
+            if (!hasActiveRest) {
+                btn.setAttribute("aria-label", "휴식 타이머 대기");
+                if (icon) {
+                    icon.innerHTML = `
+                        <svg viewBox="0 0 24 24" aria-hidden="true">
+                            <circle cx="12" cy="13" r="8"></circle>
+                            <path d="M12 13V8"></path>
+                            <path d="M9 2h6"></path>
+                        </svg>
+                    `;
+                }
+                return;
+            }
+
+            if (restTimerPaused) {
+                btn.setAttribute("aria-label", "휴식 타이머 재개");
+                if (icon) {
+                    icon.innerHTML = `
+                        <svg viewBox="0 0 24 24" aria-hidden="true">
+                            <path d="M8 5v14l11-7z"></path>
+                        </svg>
+                    `;
+                }
+            } else {
+                btn.setAttribute("aria-label", "휴식 타이머 일시정지");
+                if (icon) {
+                    icon.innerHTML = `
+                        <svg viewBox="0 0 24 24" aria-hidden="true">
+                            <rect x="7" y="5" width="3.8" height="14" rx="1"></rect>
+                            <rect x="13.2" y="5" width="3.8" height="14" rx="1"></rect>
+                        </svg>
+                    `;
+                }
+            }
+        }
+
+        function paintRestTimer() {
+            const display = document.getElementById("rest-timer-display");
+            const fill = document.getElementById("rest-progress-fill");
+            if (!display || !fill) return;
+
+            if (restTimerInterval && !restTimerPaused) {
+                restTimerRemainingMs = Math.max(0, restTimerEndsAt - Date.now());
+            }
+
+            if (restTimerRemainingMs <= 0 && !restTimerInterval) {
+                display.innerText = "Rest";
+            } else {
+                const totalSeconds = Math.ceil(restTimerRemainingMs / 1000);
+                const minutes = Math.floor(totalSeconds / 60);
+                const seconds = totalSeconds % 60;
+                display.innerText = `${String(minutes).padStart(2, "0")}:${String(seconds).padStart(2, "0")}`;
+            }
+
+            const progress = restTimerTotalMs > 0 ? (restTimerRemainingMs / restTimerTotalMs) * 100 : 0;
+            fill.style.width = `${Math.min(100, Math.max(0, progress))}%`;
+        }
+
+        function stopRestTimer() {
+            if (restTimerInterval) clearInterval(restTimerInterval);
+            restTimerInterval = null;
+            restTimerTotalMs = 0;
+            restTimerRemainingMs = 0;
+            restTimerEndsAt = 0;
+            restTimerPaused = false;
+            activeRestExerciseIdx = null;
+            updateRestTimerToggle();
+            paintRestTimer();
+        }
+
+        function startRestTimerForExercise(exIdx) {
+            const dayObj = getActiveWorkoutDayObj();
+            const ex = dayObj?.exercises?.[exIdx];
+            const seconds = getExerciseRestSeconds(ex);
+            if (!seconds) return;
+
+            if (restTimerInterval) clearInterval(restTimerInterval);
+            restTimerTotalMs = seconds * 1000;
+            restTimerRemainingMs = restTimerTotalMs;
+            restTimerEndsAt = Date.now() + restTimerTotalMs;
+            restTimerPaused = false;
+            activeRestExerciseIdx = exIdx;
+            updateRestTimerToggle();
+            paintRestTimer();
+            restTimerInterval = setInterval(() => {
+                paintRestTimer();
+                if (restTimerRemainingMs <= 0) {
+                    stopRestTimer();
+                }
+            }, 250);
+        }
+
+        function toggleRestTimerPause() {
+            if (!restTimerInterval && restTimerRemainingMs <= 0) return;
+            if (restTimerPaused) {
+                restTimerEndsAt = Date.now() + restTimerRemainingMs;
+                restTimerPaused = false;
+                restTimerInterval = setInterval(() => {
+                    paintRestTimer();
+                    if (restTimerRemainingMs <= 0) {
+                        stopRestTimer();
+                    }
+                }, 250);
+            } else {
+                restTimerRemainingMs = Math.max(0, restTimerEndsAt - Date.now());
+                restTimerPaused = true;
+                if (restTimerInterval) clearInterval(restTimerInterval);
+                restTimerInterval = null;
+            }
+            updateRestTimerToggle();
+            paintRestTimer();
+            scheduleActiveWorkoutDraftSave(0);
+        }
+
         // Check button click logic
         function toggleSet(exIdx, setNo) {
             const row = document.getElementById(`row-${exIdx}-${setNo}`);
@@ -4938,6 +5486,7 @@
             } else {
                 row.classList.add("checked");
                 btn.classList.add("checked");
+                startRestTimerForExercise(exIdx);
             }
 
             calculateVolume();
@@ -5378,6 +5927,49 @@
             renderHistoryChart();
         }
 
+        function openExerciseRestPicker(exIdx) {
+            const dayObj = getActiveWorkoutDayObj();
+            const ex = dayObj?.exercises?.[exIdx];
+            if (!ex) return;
+
+            restPickerExerciseIdx = exIdx;
+            const currentSeconds = getExerciseRestSeconds(ex);
+            document.getElementById("rest-picker-subtitle").innerText = `${ex.name} · 현재 ${formatRestSeconds(currentSeconds)}`;
+            document.querySelectorAll(".rest-preset-btn").forEach(button => {
+                button.classList.toggle("active", button.dataset.restSeconds === String(currentSeconds));
+            });
+            document.getElementById("rest-picker-overlay").classList.add("active");
+        }
+
+        function closeRestPicker() {
+            document.getElementById("rest-picker-overlay").classList.remove("active");
+            restPickerExerciseIdx = null;
+        }
+
+        function closeRestPickerOnBackdrop(event) {
+            if (event.target.classList.contains("overlay")) closeRestPicker();
+        }
+
+        function chooseExerciseRestSeconds(seconds) {
+            const dayObj = getActiveWorkoutDayObj();
+            const ex = dayObj?.exercises?.[restPickerExerciseIdx];
+            const safeSeconds = parseInt(seconds, 10);
+            if (!ex || !Number.isFinite(safeSeconds) || safeSeconds <= 0) return;
+
+            ex.restSeconds = safeSeconds;
+            updateExerciseMeta(restPickerExerciseIdx, ex);
+            scheduleActiveWorkoutDraftSave(0);
+            closeRestPicker();
+        }
+
+        function chooseCustomExerciseRestSeconds() {
+            const raw = window.prompt("휴식 시간을 초 단위로 입력하세요. 예: 75", "90");
+            if (raw == null) return;
+            const seconds = parseInt(raw, 10);
+            if (!Number.isFinite(seconds) || seconds <= 0) return;
+            chooseExerciseRestSeconds(seconds);
+        }
+
         function openExerciseHistory(exIdx) {
             const dayObj = getActiveWorkoutDayObj();
             const ex = dayObj?.exercises?.[exIdx];
@@ -5507,15 +6099,57 @@
             closeExerciseReplacement();
         }
 
+        function showFinishChoiceView() {
+            const choiceView = document.getElementById("finish-choice-view");
+            const discardView = document.getElementById("finish-discard-view");
+            if (choiceView) choiceView.hidden = false;
+            if (discardView) discardView.hidden = true;
+        }
+
+        function showFinishDiscardConfirm() {
+            const choiceView = document.getElementById("finish-choice-view");
+            const discardView = document.getElementById("finish-discard-view");
+            if (choiceView) choiceView.hidden = true;
+            if (discardView) discardView.hidden = false;
+        }
+
+        function openFinishWorkoutModal() {
+            if (isFinishingWorkout) return;
+            showFinishChoiceView();
+            document.getElementById("finish-choice-overlay").classList.add("active");
+        }
+
+        function closeFinishWorkoutModal() {
+            document.getElementById("finish-choice-overlay").classList.remove("active");
+        }
+
+        function closeFinishWorkoutModalOnBackdrop(event) {
+            if (event.target.classList.contains("overlay")) closeFinishWorkoutModal();
+        }
+
+        function discardActiveWorkout() {
+            stopStopwatch();
+            stopRestTimer();
+            activeWorkoutDay = null;
+            clearActiveWorkoutDraft();
+            setActiveWorkoutHeaderVisible(false);
+            document.getElementById("bottom-nav").style.display = "flex";
+            switchTab("home-view");
+        }
+
+        function discardWorkoutFromFinishModal() {
+            closeFinishWorkoutModal();
+            discardActiveWorkout();
+        }
+
+        function saveWorkoutFromFinishModal() {
+            closeFinishWorkoutModal();
+            finishWorkout();
+        }
+
         function abortWorkout() {
-            if (confirm("훈련 기록 작성을 취소하시겠습니까? 현재까지의 기록은 저장되지 않습니다.")) {
-                stopStopwatch();
-                activeWorkoutDay = null;
-                clearActiveWorkoutDraft();
-                setActiveWorkoutHeaderVisible(false);
-                document.getElementById("bottom-nav").style.display = "flex";
-                switchTab("home-view");
-            }
+            openFinishWorkoutModal();
+            showFinishDiscardConfirm();
         }
 
         function summarizeReplacementRows(rows) {
@@ -5660,6 +6294,7 @@
 
         function showFeedbackModal(data) {
             stopStopwatch();
+            stopRestTimer();
             setActiveWorkoutHeaderVisible(false);
             document.getElementById("bottom-nav").style.display = "flex";
 
