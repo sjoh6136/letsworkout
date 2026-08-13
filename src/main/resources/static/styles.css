@@ -1513,28 +1513,44 @@ header {
     }
 
     #active-workout-header .finish-btn {
-        width: 36px;
-        height: 26px;
-        min-height: 26px;
+        width: 64px;
+        height: 44px;
+        min-height: 44px;
         justify-self: end;
-        padding: 0;
-        border-radius: 8px;
-        font-size: 10px;
+        padding: 0 10px;
+        border-radius: 14px;
+        font-size: 13px;
         line-height: 1;
-        flex: 0 0 36px;
+        flex: 0 0 64px;
     }
 }
 
 /* Final active-workout header layout. This stylesheet is loaded after the inline
    page styles, so keep these values synchronized with index.html. */
 #active-workout-header .active-topbar-main {
-    grid-template-columns: 46px 54px minmax(0, 1fr) 36px;
-    gap: 6px;
+    grid-template-columns: 46px 46px minmax(0, 1fr) 64px;
+    gap: 8px;
     padding: calc(var(--safe-top) + 8px) 10px 8px;
 }
 
+#active-workout-header .workout-metric {
+    justify-content: flex-start;
+    height: 48px;
+    padding-top: 2px;
+}
+
+#active-workout-header .workout-metric svg {
+    width: 22px;
+    height: 22px;
+    flex: 0 0 22px;
+}
+
 #active-workout-header .volume-metric strong {
-    font-size: 11px;
+    font-size: 12px;
+}
+
+#active-workout-header .volume-metric svg {
+    margin-top: -2px;
 }
 
 #active-workout-header .volume-metric .volume-value {
@@ -1543,10 +1559,12 @@ header {
 
 #active-workout-header .rest-timer-pill {
     height: 44px;
-    gap: 5px;
-    padding: 0 6px;
+    width: min(100%, 200px);
+    gap: 6px;
+    padding: 0 8px;
     font-size: 18px;
     min-width: 0;
+    justify-self: center;
 }
 
 #active-workout-header .rest-timer-pill .stopwatch-time {
@@ -1572,15 +1590,16 @@ header {
 }
 
 #active-workout-header .finish-btn {
-    width: 36px;
-    height: 26px;
-    min-height: 26px;
-    padding: 0;
-    border-radius: 8px;
-    font-size: 10px;
+    width: 64px;
+    height: 44px;
+    min-height: 44px;
+    padding: 0 10px;
+    border-radius: 14px;
+    font-size: 13px;
     line-height: 1;
     justify-self: end;
-    flex: 0 0 36px;
+    flex: 0 0 64px;
+    box-shadow: 0 8px 18px rgba(255, 174, 0, 0.22);
 }
 
 /* Make repeated mobile taps feel immediate. */
