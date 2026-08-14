@@ -71,8 +71,8 @@ If an exercise name appears in a routine but not in the exercise dictionary, pro
 
 ## Routine Rules
 
-- All routine `rpeTarget` values must be `8.0`.
-- Do not reintroduce `8.5` or `9.0` unless the user explicitly asks.
+- Routine `rpeTarget` values must follow the source routine exactly.
+- Do not normalize every exercise to RPE 8. Preserve source values such as RPE 7, 8, or 9 when the routine provides them.
 - SBD is the only 1RM-based target system. OHP must progress from previous workout history, not from an OHP 1RM input.
 - 2-day split means a 4-day upper/lower rotation:
   - Day 1: upper A
@@ -210,7 +210,7 @@ Never store plaintext passwords. Do not place auth/session columns in `Workout_L
 - `/api/workout/finish` saves workout logs and evaluates progression.
 - `/api/workout/finish` should store the workout start date sent by the frontend, not blindly overwrite with the server's current date.
 - Duplicate finish protection must cover repeated `SubmissionId` values in `Workout_Submissions__{username}` and identical saved workout content for the same username/date/split/week/day.
-- Completed sets with missing RPE should be saved with the target RPE, usually `8`, so new `SUCCESS + RPE 0` rows are never created.
+- Completed sets with missing RPE should be saved with that exercise's routine target RPE, so new `SUCCESS + RPE 0` rows are never created.
 - `/api/auth/status`, `/api/auth/register`, `/api/auth/login`, and `/api/auth/logout` are public auth endpoints.
 - Other `/api/*` endpoints require the `lw_session` cookie.
 - Be careful around Google Sheets write paths. Column alignment regressions are high risk.
@@ -242,7 +242,7 @@ For split selection and similar actions, update UI first and save in the backgro
 When editing `data/routines.json`:
 
 - Keep valid JSON.
-- Keep `rpeTarget` as `8.0`.
+- Keep `rpeTarget` aligned with the source routine. Do not normalize all RPE values unless the user explicitly asks.
 - Make sure each exercise name exists in both exercise definition JSON files.
 - Make sure each routine exercise has a `muscle_groups` entry, except exercises intentionally excluded from routines.
 - Update `data/routines.md` so the user can review routines easily.
@@ -326,7 +326,7 @@ Routine data expectations when checking with an authenticated API session or loc
 Expected RPE values:
 
 ```text
-8.0 only
+Must match the source routine. Multiple RPE values are allowed.
 ```
 
 ## Deployment Checklist
@@ -361,7 +361,7 @@ For routine changes, verify the live API contains the new exercise names and no 
 ## Do Not
 
 - Do not add exercises to routines without adding them to the exercise dictionaries.
-- Do not change `rpeTarget` away from `8.0` without explicit instruction.
+- Do not change `rpeTarget` away from the source routine value without explicit instruction.
 - Do not reintroduce `딥스 (Dips)`, `풀업`, or `풀업 또는 랫 풀 다운` into routines.
 - Do not shift Google Sheets columns.
 - Do not make UI changes that slow down workout logging.
