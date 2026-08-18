@@ -1341,6 +1341,14 @@
             font-size: 13px;
         }
 
+        .settings-row-action {
+            width: 142px;
+            padding: 0 10px;
+            font-family: inherit;
+            white-space: normal;
+            line-height: 1.2;
+        }
+
         .settings-delete-btn {
             color: #ff8f88;
         }
@@ -2849,6 +2857,25 @@
                 </div>
             </div>
 
+            <div class="settings-section">
+                <div class="settings-section-heading">
+                    <div>
+                        <h3>프로그램 진행</h3>
+                        <p class="settings-helper">기존 운동 기록은 유지하고, 현재 선택한 분할의 진행 위치만 W1D1로 다시 시작합니다.</p>
+                    </div>
+                </div>
+
+                <div class="settings-group">
+                    <div class="settings-row">
+                        <span>
+                            <span class="settings-name" id="routine-progress-title">현재 진행</span>
+                            <span class="settings-desc" id="routine-progress-desc">현재 분할 진행 상태를 불러오는 중입니다.</span>
+                        </span>
+                        <button class="settings-secondary-btn settings-row-action" id="routine-progress-reset-btn" type="button" onclick="resetActiveRoutineProgress()">W1D1로 다시 시작</button>
+                    </div>
+                </div>
+            </div>
+
             <div class="settings-actions">
                 <button class="settings-primary-btn" id="settings-save-btn" type="button" onclick="saveSettings()">기준중량 저장</button>
             </div>
@@ -3141,6 +3168,7 @@
         let sheetsConnected = false;
         let routineData = {}; // Keyed by split ("2", "3", "4", "5")
         let exerciseDefinitions = { large_muscles: [], small_muscles: [], muscle_groups: {} };
+        let routineProgress = {};
         let twoDayProgram = { version: "ver.1", nextVersion: "ver.2", week: 1, blockLength: 12, baselineLogCount: 0, phase: "training" };
         let completedLogs = [];
         let replacementLogs = [];
@@ -4152,15 +4180,44 @@
             return activeRoutine && activeRoutine.length ? activeRoutine.length : oneRms.activeSplit;
         }
 
+        function getRoutineProgress(split = oneRms.activeSplit) {
+            const splitKey = String(parseInt(split, 10) || 5);
+            const defaults = {
+                split: parseInt(splitKey, 10),
+                version: splitKey === "2" ? "ver.1" : "",
+                nextVersion: splitKey === "2" ? "ver.2" : "",
+                blockLength: 12,
+                baselineLogCount: 0,
+                week: 1,
+                phase: "training",
+                nextRecommendedDay: "Day 1"
+            };
+            return { ...defaults, ...(routineProgress[splitKey] || {}), ...(splitKey === "2" ? twoDayProgram : {}) };
+        }
+
+        function applyRoutineProgressPayload(data = {}) {
+            if (data.routineProgress) {
+                routineProgress = { ...routineProgress, ...data.routineProgress };
+            }
+            if (data.progress) {
+                routineProgress = { ...routineProgress, ...data.progress };
+            }
+            if (data.twoDayProgram || data.status?.twoDayProgram) {
+                routineProgress["2"] = { ...(routineProgress["2"] || {}), ...(data.twoDayProgram || data.status.twoDayProgram) };
+            }
+            if (routineProgress["2"]) {
+                twoDayProgram = { ...twoDayProgram, ...routineProgress["2"] };
+            }
+        }
+
         // Calculate current active week number based on logs for the active split
         function getActiveWeekNum() {
             const activeSplit = oneRms.activeSplit;
             const activeDayCount = getActiveRoutineDayCount();
-            const relevantLogs = activeSplit === 2
-                ? (completedLogs || [])
-                    .filter(log => log.split === activeSplit)
-                    .slice(parseInt(twoDayProgram.baselineLogCount, 10) || 0)
-                : completedLogs;
+            const baseline = parseInt(getRoutineProgress(activeSplit).baselineLogCount, 10) || 0;
+            const relevantLogs = (completedLogs || [])
+                .filter(log => parseInt(log.split, 10) === activeSplit)
+                .slice(baseline);
             
             if (!relevantLogs || relevantLogs.length === 0) {
                 return 1;
@@ -4170,7 +4227,7 @@
             let lastLog = null;
             for (let i = relevantLogs.length - 1; i >= 0; i--) {
                 const log = relevantLogs[i];
-                if (log.split === activeSplit) {
+                if (parseInt(log.split, 10) === activeSplit) {
                     lastLog = log;
                     break;
                 }
@@ -4188,6 +4245,80 @@
                 return lastW + 1;
             }
             return lastW;
+        }
+
+        function getNextRoutineDayIdForSplit(split = oneRms.activeSplit) {
+            const splitNum = parseInt(split, 10) || oneRms.activeSplit;
+            const splitKey = String(splitNum);
+            const progress = getRoutineProgress(splitNum);
+            if (progress.nextRecommendedDay) {
+                return progress.nextRecommendedDay;
+            }
+
+            const activeRoutine = routineData[splitKey] || [];
+            const dayCount = activeRoutine.length || splitNum;
+            const baseline = parseInt(progress.baselineLogCount, 10) || 0;
+            const logs = (completedLogs || [])
+                .filter(log => parseInt(log.split, 10) === splitNum)
+                .slice(baseline);
+            if (!logs.length) return "Day 1";
+
+            const lastLog = logs[logs.length - 1];
+            const lastDay = getRoutineDayNumber(lastLog.day, 0);
+            const nextDay = lastDay >= dayCount ? 1 : lastDay + 1;
+            return `Day ${nextDay}`;
+        }
+
+        function renderRoutineProgressSettings() {
+            const titleEl = document.getElementById("routine-progress-title");
+            const descEl = document.getElementById("routine-progress-desc");
+            if (!titleEl || !descEl) return;
+
+            const splitNum = parseInt(oneRms.activeSplit, 10) || 5;
+            const progress = getRoutineProgress(splitNum);
+            const versionLabel = splitNum === 2 && progress.version ? ` · ${progress.version}` : "";
+            const week = getActiveWeekNum();
+            const dayId = getNextRoutineDayIdForSplit(splitNum);
+            const dayNum = getRoutineDayNumber(dayId, 0);
+            titleEl.innerText = `현재 ${splitNum}분할${versionLabel} · W${week}D${dayNum}`;
+            descEl.innerText = "리셋해도 운동 기록과 Previous, 과부하 기준은 그대로 유지됩니다.";
+        }
+
+        async function resetActiveRoutineProgress() {
+            const splitNum = parseInt(oneRms.activeSplit, 10) || 5;
+            const ok = confirm(`기존 운동 기록은 삭제되지 않습니다.\n${splitNum}분할 진행 위치만 W1D1로 다시 시작합니다.\nPrevious와 과부하 기준은 기존 기록을 참고합니다.`);
+            if (!ok) return;
+
+            const button = document.getElementById("routine-progress-reset-btn");
+            const originalText = button ? button.innerText : "";
+            if (button) {
+                button.disabled = true;
+                button.innerText = "처리 중...";
+            }
+            try {
+                const res = await apiFetch("/api/routine-progress", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ split: splitNum, reset: true })
+                });
+                if (!res.ok) throw new Error(`Routine progress reset failed: ${res.status}`);
+                const data = await res.json();
+                applyRoutineProgressPayload(data);
+                nextRecommendedDayId = data.active?.nextRecommendedDay || "Day 1";
+                updateRecommendationUI();
+                renderTwoDayProgramPanel();
+                renderRoutineProgressSettings();
+                renderSplitSelectorGrid();
+                alert("W1D1로 다시 시작합니다.");
+            } catch (err) {
+                console.error("진행 위치 리셋 실패", err);
+                alert("진행 위치 리셋에 실패했습니다. 잠시 후 다시 시도해주세요.");
+            } finally {
+                if (button) {
+                    button.disabled = false;
+                    button.innerText = originalText || "W1D1로 다시 시작";
+                }
+            }
         }
 
         function normalizeExerciseDefinitionsPayload(data = {}) {
@@ -4211,9 +4342,7 @@
             if (Array.isArray(data.replacements)) {
                 replacementLogs = data.replacements;
             }
-            if (data.twoDayProgram || data.status?.twoDayProgram) {
-                twoDayProgram = { ...twoDayProgram, ...(data.twoDayProgram || data.status.twoDayProgram) };
-            }
+            applyRoutineProgressPayload(data);
 
             if (data.status) {
                 nextRecommendedDayId = data.status.nextRecommendedDay || "Day 1";
@@ -4226,6 +4355,7 @@
             renderCalendar();
             updateRecommendationUI();
             renderTwoDayProgramPanel();
+            renderRoutineProgressSettings();
             renderSplitSelectorGrid();
         }
 
@@ -4247,7 +4377,7 @@
                     fetchGyms(),
                     fetchExerciseDefinitions(),
                     fetchRoutine(),
-                    fetchTwoDayProgramStatus(),
+                    fetchRoutineProgressStatus(),
                     fetchStatus(),
                     fetchLogs(),
                     fetchReplacementLogs()
@@ -4290,14 +4420,15 @@
             }
         }
 
-        async function fetchTwoDayProgramStatus() {
+        async function fetchRoutineProgressStatus() {
             try {
-                const res = await apiFetch("/api/two-day-program");
+                const res = await apiFetch("/api/routine-progress");
                 const data = await res.json();
-                twoDayProgram = { ...twoDayProgram, ...data };
+                applyRoutineProgressPayload(data);
                 renderTwoDayProgramPanel();
+                renderRoutineProgressSettings();
             } catch (err) {
-                console.error("2분할 프로그램 상태 조회 실패", err);
+                console.error("프로그램 진행 상태 조회 실패", err);
             }
         }
 
@@ -4324,6 +4455,7 @@
             updateSbdPreview();
             renderGymSettingsUI();
             setActiveSplitSegmentUI();
+            renderRoutineProgressSettings();
         }
 
         function formatKg(value) {
@@ -4680,10 +4812,9 @@
                 const res = await apiFetch("/api/workout/status");
                 const data = await res.json();
                 nextRecommendedDayId = data.nextRecommendedDay || "Day 1";
-                if (data.twoDayProgram) {
-                    twoDayProgram = { ...twoDayProgram, ...data.twoDayProgram };
-                    renderTwoDayProgramPanel();
-                }
+                applyRoutineProgressPayload(data);
+                renderTwoDayProgramPanel();
+                renderRoutineProgressSettings();
             } catch (err) {
                 console.error("추천 정보 조회 실패", err);
             }
@@ -4704,13 +4835,14 @@
 
             if (nextDay) {
                 const currentWeek = getActiveWeekNum();
+                const activeProgress = getRoutineProgress(oneRms.activeSplit);
                 const startButton = document.getElementById("recommend-start-btn");
                 if (startButton) {
                     startButton.innerHTML = "⚡ 추천 운동 시작하기";
                     startButton.onclick = startRecommendedWorkout;
                 }
-                if (oneRms.activeSplit === 2 && currentWeek > (parseInt(twoDayProgram.blockLength, 10) || 12)) {
-                    const nextVersion = twoDayProgram.nextVersion || (twoDayProgram.version === "ver.1" ? "ver.2" : "ver.1");
+                if (oneRms.activeSplit === 2 && currentWeek > (parseInt(activeProgress.blockLength, 10) || 12)) {
+                    const nextVersion = activeProgress.nextVersion || (activeProgress.version === "ver.1" ? "ver.2" : "ver.1");
                     document.getElementById("recommend-name").innerText = `Week ${currentWeek} - 1RM 측정 / 휴식 주간`;
                     document.getElementById("recommend-desc").innerText = `SBD 1RM을 다시 확인하고 회복한 뒤 ${nextVersion} 12주 블록으로 넘어갑니다.`;
                     if (startButton) {
@@ -4810,10 +4942,11 @@
             }
 
             const currentWeek = getActiveWeekNum();
-            const blockLength = parseInt(twoDayProgram.blockLength, 10) || 12;
-            const activeVersion = twoDayProgram.version || "ver.1";
-            const nextVersion = twoDayProgram.nextVersion || (activeVersion === "ver.1" ? "ver.2" : "ver.1");
-            const isRestWeek = currentWeek > blockLength || twoDayProgram.phase === "rest";
+            const activeProgress = getRoutineProgress(2);
+            const blockLength = parseInt(activeProgress.blockLength, 10) || 12;
+            const activeVersion = activeProgress.version || "ver.1";
+            const nextVersion = activeProgress.nextVersion || (activeVersion === "ver.1" ? "ver.2" : "ver.1");
+            const isRestWeek = currentWeek > blockLength || activeProgress.phase === "rest";
 
             panel.innerHTML = `
                 <div class="two-day-program-top">
@@ -4835,18 +4968,19 @@
         }
 
         async function setTwoDayVersion(version) {
-            if (!version || version === twoDayProgram.version) return;
+            if (!version || version === getRoutineProgress(2).version) return;
             try {
-                const res = await apiFetch("/api/two-day-program", {
+                const res = await apiFetch("/api/routine-progress", {
                     method: "POST",
                     headers: { "Content-Type": "application/json" },
-                    body: JSON.stringify({ version })
+                    body: JSON.stringify({ split: 2, version })
                 });
-                twoDayProgram = { ...twoDayProgram, ...(await res.json()) };
+                applyRoutineProgressPayload(await res.json());
                 await fetchRoutine();
                 await fetchStatus();
                 updateRecommendationUI();
                 renderTwoDayProgramPanel();
+                renderRoutineProgressSettings();
                 renderSplitSelectorGrid();
             } catch (err) {
                 console.error("2분할 버전 변경 실패", err);
@@ -4923,6 +5057,7 @@
             if (oneRms.activeSplit === splitNum) return;
 
             oneRms.activeSplit = splitNum;
+            nextRecommendedDayId = getNextRoutineDayIdForSplit(splitNum);
 
             setActiveSplitSegmentUI();
             updateSettingsUI();
@@ -4942,6 +5077,7 @@
                 renderCalendar();
                 updateRecommendationUI();
                 renderTwoDayProgramPanel();
+                renderRoutineProgressSettings();
                 renderSplitSelectorGrid();
             } catch (err) {
                 console.error("로그 리스트 조회 실패", err);

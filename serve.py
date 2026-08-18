@@ -22,7 +22,7 @@ STATE_DIR = Path(os.environ.get("APP_DATA_DIR", ROOT / "data")).resolve()
 ROUTINES_FILE = DATA_DIR / "routines.json"
 TWO_DAY_VERSIONS_FILE = DATA_DIR / "two_day_versions.json"
 EXERCISE_DEFINITIONS_FILE = DATA_DIR / "exercise_definitions.json"
-TWO_DAY_PROGRAM_FILE = STATE_DIR / "two_day_program.json"
+ROUTINE_PROGRESS_FILE = STATE_DIR / "routine_progress.json"
 STATE_FILE = STATE_DIR / "app_state.json"
 AUTH_FILE = STATE_DIR / "auth_state.json"
 GYM_SETTINGS_FILE = ROOT / "gym_settings.json"
@@ -38,7 +38,7 @@ AUTH_SESSION_DAYS = max(1, int(os.environ.get("AUTH_SESSION_DAYS", "180")))
 AUTH_PASSWORD_ITERATIONS = 200_000
 AUTH_CACHE_SECONDS = max(60, int(os.environ.get("AUTH_CACHE_SECONDS", str(12 * 60 * 60))))
 STATE_CACHE_SECONDS = max(0, int(os.environ.get("STATE_CACHE_SECONDS", "20")))
-APP_RELEASE = "2026-08-18-two-day-program-v1"
+APP_RELEASE = "2026-08-18-routine-progress-v1"
 APP_BUILD_COMMIT = os.environ.get("RENDER_GIT_COMMIT") or os.environ.get("SOURCE_VERSION") or ""
 _SHEETS_STORE = None
 _AUTH_SESSION_CACHE = {}
@@ -336,11 +336,11 @@ class GoogleSheetsStore:
     GYM_SETTINGS_TAB = "Gym_Settings"
     REPLACEMENTS_TAB = "Workout_Replacements"
     SUBMISSIONS_TAB = "Workout_Submissions"
-    TWO_DAY_PROGRAM_TAB = "Two_Day_Program"
+    ROUTINE_PROGRESS_TAB = "Routine_Progress"
     USER_ACCOUNTS_TAB = "User_Accounts"
     USER_SESSIONS_TAB = "User_Sessions"
     SETTINGS_HEADER = ["Squat", "Bench", "Deadlift", "OHP", "ActiveSplit"]
-    TWO_DAY_PROGRAM_HEADER = ["Version", "BlockLength", "BaselineLogCount", "UpdatedAt"]
+    ROUTINE_PROGRESS_HEADER = ["Split", "Version", "BlockLength", "BaselineLogCount", "StartedAt", "UpdatedAt"]
     GYM_SETTINGS_HEADER = [
         "Active",
         "GymId",
@@ -526,14 +526,14 @@ class GoogleSheetsStore:
         gym_settings = self.worksheet_for_user(self.GYM_SETTINGS_TAB, username, rows=50, cols=8)
         replacements = self.worksheet_for_user(self.REPLACEMENTS_TAB, username, rows=500, cols=15)
         submissions = self.worksheet_for_user(self.SUBMISSIONS_TAB, username, rows=500, cols=7)
-        two_day_program = self.worksheet_for_user(self.TWO_DAY_PROGRAM_TAB, username, rows=2, cols=4)
+        routine_progress = self.worksheet_for_user(self.ROUTINE_PROGRESS_TAB, username, rows=10, cols=6)
 
         self.ensure_user_settings(settings)
         self.ensure_header(logs, "A1:M1", self.log_header_for_user(username))
         self.ensure_header(gym_settings, "A1:G1", self.GYM_SETTINGS_HEADER)
         self.ensure_header(replacements, "A1:O1", self.replacements_header_for_user(username))
         self.ensure_header(submissions, "A1:G1", self.SUBMISSIONS_HEADER)
-        self.ensure_header(two_day_program, "A1:D1", self.TWO_DAY_PROGRAM_HEADER)
+        self.ensure_header(routine_progress, "A1:F1", self.ROUTINE_PROGRESS_HEADER)
         self._ensured_user_tabs.add(username)
 
     def load_one_rms(self, username="", user_id=""):
@@ -561,29 +561,41 @@ class GoogleSheetsStore:
             sheet_int(one_rms.get("activeSplit"), DEFAULT_ONE_RMS["activeSplit"]),
         ]], range_name="A2:E2")
 
-    def load_two_day_program(self, username="", user_id=""):
+    def load_routine_progress(self, username="", user_id=""):
         self.ensure_user_tabs(username, user_id)
-        program = self.worksheet_for_user(self.TWO_DAY_PROGRAM_TAB, username, rows=2, cols=4)
-        row = (program.get("A2:D2") or [[]])[0]
-        row = row + [""] * 4
-        if not row[0]:
-            return None
-        return {
-            "version": str(row[0]).strip(),
-            "blockLength": sheet_int(row[1], DEFAULT_TWO_DAY_PROGRAM["blockLength"]),
-            "baselineLogCount": sheet_int(row[2], DEFAULT_TWO_DAY_PROGRAM["baselineLogCount"]),
-        }
+        progress_sheet = self.worksheet_for_user(self.ROUTINE_PROGRESS_TAB, username, rows=10, cols=6)
+        values = progress_sheet.get("A2:F") or []
+        progress = {}
+        for row in values:
+            row = row + [""] * 6
+            split = str(sheet_int(row[0], 0))
+            if split not in ROUTINE_SPLITS:
+                continue
+            progress[split] = {
+                "version": str(row[1]).strip(),
+                "blockLength": sheet_int(row[2], DEFAULT_ROUTINE_PROGRESS_ENTRY["blockLength"]),
+                "baselineLogCount": sheet_int(row[3], DEFAULT_ROUTINE_PROGRESS_ENTRY["baselineLogCount"]),
+                "startedAt": str(row[4]).strip(),
+            }
+        return progress
 
-    def save_two_day_program(self, two_day_program, username="", user_id=""):
+    def save_routine_progress(self, progress, username="", user_id=""):
         self.ensure_user_tabs(username, user_id)
-        program = self.worksheet_for_user(self.TWO_DAY_PROGRAM_TAB, username, rows=2, cols=4)
-        program.update(values=[self.TWO_DAY_PROGRAM_HEADER], range_name="A1:D1")
-        program.update(values=[[
-            two_day_program.get("version", DEFAULT_TWO_DAY_PROGRAM["version"]),
-            as_int(two_day_program.get("blockLength"), DEFAULT_TWO_DAY_PROGRAM["blockLength"]),
-            as_int(two_day_program.get("baselineLogCount"), DEFAULT_TWO_DAY_PROGRAM["baselineLogCount"]),
-            now_iso(),
-        ]], range_name="A2:D2")
+        progress_sheet = self.worksheet_for_user(self.ROUTINE_PROGRESS_TAB, username, rows=10, cols=6)
+        self.ensure_header(progress_sheet, "A1:F1", self.ROUTINE_PROGRESS_HEADER)
+        rows = []
+        updated_at = now_iso()
+        for split in ROUTINE_SPLITS:
+            entry = normalize_routine_progress_entry((progress or {}).get(split), split)
+            rows.append([
+                split,
+                entry.get("version", ""),
+                as_int(entry.get("blockLength"), DEFAULT_ROUTINE_PROGRESS_ENTRY["blockLength"]),
+                as_int(entry.get("baselineLogCount"), DEFAULT_ROUTINE_PROGRESS_ENTRY["baselineLogCount"]),
+                entry.get("startedAt", ""),
+                updated_at,
+            ])
+        progress_sheet.update(values=rows, range_name="A2:F5")
 
     def load_gyms(self, username="", user_id=""):
         self.ensure_user_tabs(username, user_id)
@@ -1539,109 +1551,168 @@ def as_int(value, default=0):
         return default
 
 
-DEFAULT_TWO_DAY_PROGRAM = {
-    "version": "ver.1",
+ROUTINE_SPLITS = ("2", "3", "4", "5")
+DEFAULT_ROUTINE_PROGRESS_ENTRY = {
+    "version": "",
     "blockLength": 12,
     "baselineLogCount": 0,
+    "startedAt": "",
 }
 
 
-def two_day_program_key(username="", user_id=""):
+def routine_progress_key(username="", user_id=""):
     username = normalize_username(username)
     return username or str(user_id or "").strip() or "_default"
 
 
-def normalize_two_day_program(program):
-    versions = load_two_day_versions()
-    names = [name for name in ["ver.1", "ver.2"] if name in versions] or list(versions.keys())
-    normalized = copy.deepcopy(DEFAULT_TWO_DAY_PROGRAM)
-    if isinstance(program, dict):
-        normalized.update(program)
+def normalize_split_key(split):
+    split_key = str(as_int(split, 0))
+    return split_key if split_key in ROUTINE_SPLITS else "5"
 
-    if normalized.get("version") not in names:
-        normalized["version"] = names[0] if names else "ver.1"
-    if normalized.get("version") == "ver.1" and "ver.2" in names:
-        normalized["nextVersion"] = "ver.2"
-    elif normalized.get("version") == "ver.2" and "ver.1" in names:
-        normalized["nextVersion"] = "ver.1"
+
+def default_routine_progress_entry(split):
+    split = normalize_split_key(split)
+    entry = copy.deepcopy(DEFAULT_ROUTINE_PROGRESS_ENTRY)
+    if split == "2":
+        versions = load_two_day_versions()
+        names = [name for name in ["ver.1", "ver.2"] if name in versions] or list(versions.keys())
+        entry["version"] = names[0] if names else "ver.1"
+    return entry
+
+
+def normalize_routine_progress_entry(entry, split):
+    split = normalize_split_key(split)
+    normalized = default_routine_progress_entry(split)
+    if isinstance(entry, dict):
+        normalized.update(entry)
+
+    if split == "2":
+        versions = load_two_day_versions()
+        names = [name for name in ["ver.1", "ver.2"] if name in versions] or list(versions.keys())
+        if normalized.get("version") not in names:
+            normalized["version"] = names[0] if names else "ver.1"
+        if normalized.get("version") == "ver.1" and "ver.2" in names:
+            normalized["nextVersion"] = "ver.2"
+        elif normalized.get("version") == "ver.2" and "ver.1" in names:
+            normalized["nextVersion"] = "ver.1"
+        else:
+            normalized["nextVersion"] = names[0] if names else normalized["version"]
     else:
-        normalized["nextVersion"] = names[0] if names else normalized["version"]
-    normalized["blockLength"] = max(1, as_int(normalized.get("blockLength"), DEFAULT_TWO_DAY_PROGRAM["blockLength"]))
+        normalized["version"] = str(normalized.get("version") or "").strip()
+        normalized["nextVersion"] = ""
+
+    normalized["blockLength"] = max(1, as_int(normalized.get("blockLength"), DEFAULT_ROUTINE_PROGRESS_ENTRY["blockLength"]))
     normalized["baselineLogCount"] = max(0, as_int(normalized.get("baselineLogCount"), 0))
+    normalized["startedAt"] = str(normalized.get("startedAt") or "").strip()
     return normalized
 
 
-def load_two_day_program(username="", user_id=""):
+def normalize_routine_progress(progress):
+    normalized = {}
+    if not isinstance(progress, dict):
+        progress = {}
+    for split in ROUTINE_SPLITS:
+        normalized[split] = normalize_routine_progress_entry(progress.get(split), split)
+    return normalized
+
+
+def load_routine_progress(username="", user_id=""):
     username = normalize_username(username)
-    all_settings = load_json(TWO_DAY_PROGRAM_FILE, {})
+    all_settings = load_json(ROUTINE_PROGRESS_FILE, {})
     if not isinstance(all_settings, dict):
         all_settings = {}
-    key = two_day_program_key(username, user_id)
-    program = all_settings.get(key, DEFAULT_TWO_DAY_PROGRAM)
+    key = routine_progress_key(username, user_id)
+    progress = all_settings.get(key, {})
     store = sheets_store()
     if store.connected and username:
         try:
-            sheet_program = store.load_two_day_program(username, user_id)
-            if sheet_program:
-                program = {**program, **sheet_program} if isinstance(program, dict) else sheet_program
+            sheet_progress = store.load_routine_progress(username, user_id)
+            if sheet_progress:
+                progress = {**progress, **sheet_progress} if isinstance(progress, dict) else sheet_progress
         except Exception as exc:
-            print(f"[warn] failed to load 2-day program from Google Sheets: {exc}")
-    return normalize_two_day_program(program)
+            print(f"[warn] failed to load routine progress from Google Sheets: {exc}")
+    return normalize_routine_progress(progress)
 
 
-def save_two_day_program(program, username="", user_id=""):
+def save_routine_progress(progress, username="", user_id=""):
     username = normalize_username(username)
-    all_settings = load_json(TWO_DAY_PROGRAM_FILE, {})
+    all_settings = load_json(ROUTINE_PROGRESS_FILE, {})
     if not isinstance(all_settings, dict):
         all_settings = {}
-    key = two_day_program_key(username, user_id)
-    all_settings[key] = normalize_two_day_program(program)
+    key = routine_progress_key(username, user_id)
+    all_settings[key] = normalize_routine_progress(progress)
     store = sheets_store()
     if store.connected and username:
         try:
-            store.save_two_day_program(all_settings[key], username, user_id)
+            store.save_routine_progress(all_settings[key], username, user_id)
         except Exception as exc:
-            print(f"[warn] failed to save 2-day program to Google Sheets: {exc}")
-    save_json(TWO_DAY_PROGRAM_FILE, all_settings)
+            print(f"[warn] failed to save routine progress to Google Sheets: {exc}")
+    save_json(ROUTINE_PROGRESS_FILE, all_settings)
     return all_settings[key]
 
 
-def routines_for_program(program=None):
+def active_routine_progress(progress, split):
+    progress = normalize_routine_progress(progress)
+    return progress[normalize_split_key(split)]
+
+
+def routines_for_progress(progress=None):
     routines = load_routines()
     versions = load_two_day_versions()
     if versions:
-        active = normalize_two_day_program(program).get("version")
+        selected_progress = active_routine_progress(progress, 2)
+        active = selected_progress.get("version")
         selected = versions.get(active) or next(iter(versions.values()))
         routines["2"] = copy.deepcopy(selected)
     return routines
 
 
-def two_day_log_count(state):
-    return sum(1 for log in state.get("logs", []) if as_int(log.get("split")) == 2)
+def split_log_count(state, split):
+    split = as_int(split, 0)
+    return sum(1 for log in state.get("logs", []) if as_int(log.get("split")) == split)
 
 
-def two_day_program_payload(state, username="", user_id=""):
-    program = load_two_day_program(username, user_id)
-    active_week = 1
-    routine_day_count = 4
-    split_logs = [log for log in state.get("logs", []) if as_int(log.get("split")) == 2]
-    baseline = min(max(0, as_int(program.get("baselineLogCount"), 0)), len(split_logs))
-    tracked_logs = split_logs[baseline:]
-    if tracked_logs:
-        last_log = tracked_logs[-1]
-        last_day = day_number(last_log.get("day"))
-        last_week = as_int(last_log.get("week"), 1)
-        active_week = last_week + 1 if last_day >= routine_day_count else last_week
+def routine_progress_payload(state, username="", user_id="", progress=None, routines=None):
+    progress = normalize_routine_progress(progress or load_routine_progress(username, user_id))
+    routines = routines or routines_for_progress(progress)
+    payload = {}
+    for split in ROUTINE_SPLITS:
+        entry = normalize_routine_progress_entry(progress.get(split), split)
+        routine_day_count = len(routines.get(split, [])) or as_int(split, 1)
+        split_logs = [log for log in state.get("logs", []) if as_int(log.get("split")) == as_int(split)]
+        baseline = min(max(0, as_int(entry.get("baselineLogCount"), 0)), len(split_logs))
+        tracked_logs = split_logs[baseline:]
+        active_week = 1
+        next_recommended = "Day 1"
+        last_completed = None
+        if tracked_logs:
+            last_log = tracked_logs[-1]
+            last_day = day_number(last_log.get("day"))
+            last_week = as_int(last_log.get("week"), 1)
+            active_week = last_week + 1 if last_day >= routine_day_count else last_week
+            last_completed = f"Day {last_day}"
+            next_num = last_day + 1 if last_day < routine_day_count else 1
+            next_recommended = f"Day {next_num}"
 
-    block_length = max(1, as_int(program.get("blockLength"), 12))
-    return {
-        "version": program.get("version", "ver.1"),
-        "nextVersion": program.get("nextVersion", "ver.2"),
-        "blockLength": block_length,
-        "baselineLogCount": baseline,
-        "week": active_week,
-        "phase": "rest" if active_week > block_length else "training",
-    }
+        block_length = max(1, as_int(entry.get("blockLength"), 12))
+        payload[split] = {
+            "split": as_int(split),
+            "version": entry.get("version", ""),
+            "nextVersion": entry.get("nextVersion", ""),
+            "blockLength": block_length,
+            "baselineLogCount": baseline,
+            "startedAt": entry.get("startedAt", ""),
+            "week": active_week,
+            "phase": "rest" if active_week > block_length else "training",
+            "lastCompletedDay": last_completed,
+            "nextRecommendedDay": next_recommended,
+            "routineDayCount": routine_day_count,
+        }
+    return payload
+
+
+def two_day_program_payload(state, username="", user_id="", progress=None, routines=None):
+    return routine_progress_payload(state, username, user_id, progress, routines)["2"]
 
 
 def parse_reps_range(reps_range):
@@ -1830,25 +1901,25 @@ def apply_progression(routines, state):
     return result
 
 
-def workout_status_payload(state, routines=None, program=None):
+def workout_status_payload(state, routines=None, progress=None):
     active_split = as_int(state["oneRms"].get("activeSplit"), 5)
     routines = routines or load_routines()
     routine_days = routines.get(str(active_split), [])
     routine_day_count = len(routine_days) or active_split
     logs = state.get("logs", [])
-    if active_split == 2:
-        program = normalize_two_day_program(program or load_two_day_program())
-        baseline = max(0, as_int(program.get("baselineLogCount"), 0))
-        split_seen = 0
-        scoped_logs = []
-        for log in logs:
-            if as_int(log.get("split")) != 2:
-                scoped_logs.append(log)
-                continue
-            if split_seen >= baseline:
-                scoped_logs.append(log)
-            split_seen += 1
-        logs = scoped_logs
+    progress = normalize_routine_progress(progress or {})
+    active_progress = active_routine_progress(progress, active_split)
+    baseline = max(0, as_int(active_progress.get("baselineLogCount"), 0))
+    split_seen = 0
+    scoped_logs = []
+    for log in logs:
+        if as_int(log.get("split")) != active_split:
+            scoped_logs.append(log)
+            continue
+        if split_seen >= baseline:
+            scoped_logs.append(log)
+        split_seen += 1
+    logs = scoped_logs
     next_recommended = "Day 1"
     last_completed = None
 
@@ -1992,7 +2063,6 @@ def day_number(day_id):
 def evaluate_and_update(state, logs, split, week, day_id, routines=None):
     routines = routines or load_routines()
     exercise_defs = routine_exercise_lookup(routines, split)
-    one_rms = state["oneRms"]
 
     logs_by_exercise = {}
     for log in logs:
@@ -2003,7 +2073,6 @@ def evaluate_and_update(state, logs, split, week, day_id, routines=None):
     has_failure = False
     total_rpe = 0.0
     rpe_count = 0
-    lifted_core_types = set()
 
     for exercise_name, ex_logs in logs_by_exercise.items():
         ex_def = exercise_defs.get(exercise_name, {})
@@ -2027,10 +2096,6 @@ def evaluate_and_update(state, logs, split, week, day_id, routines=None):
                 progress_report.append(f"🔼 {exercise_name}: 다음 목표 {prev_target_reps + 1}회")
             else:
                 progress_report.append(f"⚡ {exercise_name}: 다음 목표 +{get_increment(exercise_name)}kg, {min_reps}회")
-
-            core_type = ex_def.get("coreLiftType") if ex_def.get("coreLift") else None
-            if core_type in {"squat", "bench", "deadlift"}:
-                lifted_core_types.add(core_type)
         else:
             progress_report.append(f"❄️ {exercise_name}: 유지")
 
@@ -2040,14 +2105,9 @@ def evaluate_and_update(state, logs, split, week, day_id, routines=None):
         status = "FAIL"
         feedback = f"⚠️ 목표를 채우지 못한 세트가 있습니다. 평균 RPE는 {avg_rpe:.1f}이고, 다음에는 같은 목표로 재도전합니다."
     else:
-        for core_type in lifted_core_types:
-            one_rms[core_type] = as_float(one_rms.get(core_type)) + 2.5
         status = "SUCCESS"
-        if lifted_core_types:
-            changed = ", ".join(f"{key.upper()} {one_rms[key]:.1f}kg" for key in sorted(lifted_core_types))
-            feedback = f"🎉 목표와 RPE 기준을 만족했습니다. 핵심 리프트 1RM을 업데이트했습니다: {changed}"
-        elif all_sets_success:
-            feedback = "🎉 목표와 RPE 기준을 만족했습니다. 보조 운동은 다음 목표로 진행합니다."
+        if all_sets_success:
+            feedback = "🎉 목표와 RPE 기준을 만족했습니다. 다음 목표로 진행합니다."
         else:
             feedback = "훈련을 저장했습니다."
 
@@ -2238,8 +2298,9 @@ def workout_bootstrap():
     username = current_request_username()
     user_id = current_request_user_id()
     state = load_state(username=username, user_id=user_id)
-    program = load_two_day_program(username, user_id)
-    routines = routines_for_program(program)
+    progress = load_routine_progress(username, user_id)
+    routines = routines_for_progress(progress)
+    progress_payload = routine_progress_payload(state, username, user_id, progress, routines)
     return jsonify({
         "oneRms": state["oneRms"],
         "sheetsConnected": sheets_connected(),
@@ -2247,8 +2308,9 @@ def workout_bootstrap():
         "activeGymId": state.get("activeGymId"),
         "exerciseDefinitions": load_json(EXERCISE_DEFINITIONS_FILE, {}),
         "routine": apply_progression(routines, state),
-        "status": workout_status_payload(state, routines, program),
-        "twoDayProgram": two_day_program_payload(state, username, user_id),
+        "status": workout_status_payload(state, routines, progress),
+        "routineProgress": progress_payload,
+        "twoDayProgram": progress_payload["2"],
         "logs": state.get("logs", []),
         "replacements": state.get("replacements", []),
     })
@@ -2259,7 +2321,7 @@ def workout_routine():
     username = current_request_username()
     user_id = current_request_user_id()
     state = load_state(username=username, user_id=user_id)
-    return jsonify(apply_progression(routines_for_program(load_two_day_program(username, user_id)), state))
+    return jsonify(apply_progression(routines_for_progress(load_routine_progress(username, user_id)), state))
 
 
 @app.route("/api/workout/status")
@@ -2267,11 +2329,45 @@ def workout_status():
     username = current_request_username()
     user_id = current_request_user_id()
     state = load_state(username=username, user_id=user_id)
-    program = load_two_day_program(username, user_id)
-    routines = routines_for_program(program)
-    payload = workout_status_payload(state, routines, program)
-    payload["twoDayProgram"] = two_day_program_payload(state, username, user_id)
+    progress = load_routine_progress(username, user_id)
+    routines = routines_for_progress(progress)
+    progress_payload = routine_progress_payload(state, username, user_id, progress, routines)
+    payload = workout_status_payload(state, routines, progress)
+    payload["routineProgress"] = progress_payload
+    payload["twoDayProgram"] = progress_payload["2"]
     return jsonify(payload)
+
+
+@app.route("/api/routine-progress", methods=["GET", "POST"])
+def routine_progress():
+    username = current_request_username()
+    user_id = current_request_user_id()
+    state = load_state(username=username, user_id=user_id)
+    progress = load_routine_progress(username, user_id)
+    if request.method == "POST":
+        body = request.get_json(silent=True) or {}
+        split = normalize_split_key(body.get("split", state["oneRms"].get("activeSplit", 5)))
+        current = normalize_routine_progress_entry(progress.get(split), split)
+        if body.get("reset"):
+            current["baselineLogCount"] = split_log_count(state, split)
+            current["startedAt"] = today_iso()
+        if split == "2" and "version" in body:
+            next_version = str(body.get("version") or current.get("version"))
+            if next_version != current.get("version"):
+                current["baselineLogCount"] = split_log_count(state, split)
+                current["startedAt"] = today_iso()
+            current["version"] = next_version
+        if "blockLength" in body:
+            current["blockLength"] = as_int(body.get("blockLength"), current.get("blockLength", 12))
+        progress[split] = normalize_routine_progress_entry(current, split)
+        progress = save_routine_progress(progress, username, user_id)
+    routines = routines_for_progress(progress)
+    payload = routine_progress_payload(state, username, user_id, progress, routines)
+    return jsonify({
+        "progress": payload,
+        "active": payload[normalize_split_key(state["oneRms"].get("activeSplit", 5))],
+        "twoDayProgram": payload["2"],
+    })
 
 
 @app.route("/api/two-day-program", methods=["GET", "POST"])
@@ -2279,18 +2375,22 @@ def two_day_program():
     username = current_request_username()
     user_id = current_request_user_id()
     state = load_state(username=username, user_id=user_id)
+    progress = load_routine_progress(username, user_id)
     if request.method == "POST":
         body = request.get_json(silent=True) or {}
-        current = load_two_day_program(username, user_id)
+        current = normalize_routine_progress_entry(progress.get("2"), 2)
         if "version" in body:
             next_version = str(body.get("version") or current.get("version"))
             if next_version != current.get("version"):
-                current["baselineLogCount"] = two_day_log_count(state)
+                current["baselineLogCount"] = split_log_count(state, 2)
+                current["startedAt"] = today_iso()
             current["version"] = next_version
         if "blockLength" in body:
             current["blockLength"] = as_int(body.get("blockLength"), current.get("blockLength", 12))
-        save_two_day_program(current, username, user_id)
-    return jsonify(two_day_program_payload(state, username, user_id))
+        progress["2"] = normalize_routine_progress_entry(current, 2)
+        progress = save_routine_progress(progress, username, user_id)
+    routines = routines_for_progress(progress)
+    return jsonify(two_day_program_payload(state, username, user_id, progress, routines))
 
 
 @app.route("/api/workout/logs")
@@ -2316,7 +2416,7 @@ def workout_finish():
     day_id = body.get("day") or "Day 1"
     submission_id = str(body.get("submissionId") or "").strip()
     date = normalize_workout_date(body.get("date"))
-    active_routines = routines_for_program(load_two_day_program(username, user_id))
+    active_routines = routines_for_progress(load_routine_progress(username, user_id))
     exercise_defs = routine_exercise_lookup(active_routines, split)
     logs = normalize_logs(body.get("logs", []), split, week, day_id, exercise_defs, submission_id, username, user_id)
     for log in logs:
@@ -2381,11 +2481,7 @@ def workout_finish():
         replacements_saved_to_sheet = append_workout_replacements_to_sheet(replacements, username, user_id)
         replacements_sheet_ms = int((time.perf_counter() - replacements_started_at) * 1000)
 
-    one_rms_before = copy.deepcopy(state.get("oneRms", {}))
-    scoped_state = copy.deepcopy(state)
-    feedback = evaluate_and_update(scoped_state, logs, split, week, day_id, active_routines)
-    state["oneRms"] = scoped_state.get("oneRms", state.get("oneRms", {}))
-    one_rms_changed = state.get("oneRms", {}) != one_rms_before
+    feedback = evaluate_and_update(copy.deepcopy(state), logs, split, week, day_id, active_routines)
     state["logs"].extend(logs)
     state["replacements"] = merge_replacements(state.get("replacements", []), replacements)
     submission_sheet_ms = 0
@@ -2395,7 +2491,7 @@ def workout_finish():
         submission_started_at = time.perf_counter()
         append_workout_submission_to_sheet(submission, username, user_id)
         submission_sheet_ms = int((time.perf_counter() - submission_started_at) * 1000)
-    save_state(state, sync_one_rms=one_rms_changed, sync_gyms=False, username=username, user_id=user_id)
+    save_state(state, sync_one_rms=False, sync_gyms=False, username=username, user_id=user_id)
     feedback["sheetsConnected"] = logs_saved_to_sheet if store.connected else sheets_connected()
     feedback["replacementHistorySaved"] = replacements_saved_to_sheet if replacements else True
     feedback["submissionId"] = submission_id

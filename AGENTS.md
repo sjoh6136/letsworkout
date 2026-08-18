@@ -163,7 +163,7 @@ Workout data is stored only in username-suffixed tabs:
 - `Workout_Logs__{username}`
 - `Workout_Replacements__{username}`
 - `Workout_Submissions__{username}`
-- `Two_Day_Program__{username}`
+- `Routine_Progress__{username}`
 
 Do not create, read, migrate from, or write to unsuffixed workout tabs:
 
@@ -172,7 +172,7 @@ Do not create, read, migrate from, or write to unsuffixed workout tabs:
 - `Workout_Logs`
 - `Workout_Replacements`
 - `Workout_Submissions`
-- `Two_Day_Program`
+- `Routine_Progress`
 
 Keep `User_Accounts` and `User_Sessions` shared. Do not create separate auth tables per user.
 
@@ -185,11 +185,11 @@ Workout replacement history is stored separately:
 
 Do not add replacement metadata to `Workout_Logs`. A replaced workout still writes set logs under the actual exercise performed, while `Workout_Replacements` links `originalExercise` to the actual `exercise`.
 
-2-split block state is stored separately:
+Routine progress state is stored separately:
 
-- `Two_Day_Program__{username}`: selected `ver.1`/`ver.2`, block length, and baseline log count for restarting week calculation after a version swap
+- `Routine_Progress__{username}`: one row per split, with selected 2-split `ver.1`/`ver.2`, block length, and baseline log count for restarting W1D1 without deleting workout logs
 
-Do not store 2-split version state in `Workout_Logs` or `Setting_1RM`.
+Do not store routine progress state in `Workout_Logs` or `Setting_1RM`.
 
 Login data is stored separately:
 
@@ -215,10 +215,12 @@ Never store plaintext passwords. Do not place auth/session columns in `Workout_L
 - `/api/workout/routine` returns routines with progression-applied targets.
 - `/api/workout/status` recommends the next workout day.
 - Recommendation logic must use the actual routine day count, not the split number.
+- `/api/routine-progress` owns W1D1 reset state for all splits. Resetting progress must update only the split baseline and must not delete or edit workout logs.
 - `/api/workout/finish` saves workout logs and evaluates progression.
 - `/api/workout/finish` should store the workout start date sent by the frontend, not blindly overwrite with the server's current date.
 - Duplicate finish protection must cover repeated `SubmissionId` values in `Workout_Submissions__{username}` and identical saved workout content for the same username/date/split/week/day.
 - Completed sets with missing RPE should be saved with that exercise's routine target RPE, so new `SUCCESS + RPE 0` rows are never created.
+- SBD 1RM values are user-entered settings. Workout finish/progressive overload must not automatically increase `squat`, `bench`, or `deadlift` in `Setting_1RM`.
 - `/api/auth/status`, `/api/auth/register`, `/api/auth/login`, and `/api/auth/logout` are public auth endpoints.
 - Other `/api/*` endpoints require the `lw_session` cookie.
 - Be careful around Google Sheets write paths. Column alignment regressions are high risk.
