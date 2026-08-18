@@ -517,6 +517,27 @@
             background: var(--accent-gradient);
         }
 
+        .recommend-card {
+            overflow: visible;
+            z-index: 5;
+        }
+
+        .recommend-card::before {
+            top: 12px;
+            bottom: 12px;
+            height: auto;
+            border-radius: 0 4px 4px 0;
+        }
+
+        .recommend-header {
+            position: relative;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 12px;
+            margin-bottom: 8px;
+        }
+
         .recommend-title {
             font-size: 11px;
             text-transform: uppercase;
@@ -524,6 +545,76 @@
             color: var(--accent-color);
             margin-bottom: 8px;
             font-weight: 800;
+        }
+
+        .recommend-header .recommend-title {
+            margin-bottom: 0;
+            line-height: 32px;
+        }
+
+        .recommend-menu-wrap {
+            position: relative;
+            flex-shrink: 0;
+        }
+
+        .recommend-more-btn {
+            width: 32px;
+            height: 32px;
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            border-radius: 10px;
+            background: rgba(255, 255, 255, 0.055);
+            color: #FFFFFF;
+            font-family: inherit;
+            font-size: 18px;
+            font-weight: 900;
+            line-height: 1;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+        }
+
+        .recommend-more-btn.active {
+            border-color: rgba(255, 215, 0, 0.42);
+            background: rgba(255, 215, 0, 0.1);
+            color: var(--accent-color);
+        }
+
+        .recommend-menu {
+            position: absolute;
+            right: 0;
+            top: 38px;
+            width: 176px;
+            padding: 7px;
+            border-radius: 12px;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            background: #20212a;
+            box-shadow: 0 18px 42px rgba(0, 0, 0, 0.48);
+            z-index: 20;
+            display: none;
+        }
+
+        .recommend-menu.open {
+            display: block;
+        }
+
+        .recommend-menu button {
+            width: 100%;
+            min-height: 40px;
+            border: 0;
+            border-radius: 9px;
+            background: transparent;
+            color: var(--text-main);
+            font-family: inherit;
+            font-size: 13px;
+            font-weight: 900;
+            text-align: left;
+            padding: 0 11px;
+            cursor: pointer;
+        }
+
+        .recommend-menu button:active {
+            background: rgba(255, 255, 255, 0.07);
         }
 
         .recommend-name {
@@ -825,57 +916,6 @@
         .routine-summary-cell.top {
             justify-content: center;
             color: #dedce8;
-        }
-
-        .routine-progress-panel {
-            margin: 10px 0 0;
-            padding: 13px 14px;
-            border: 1px solid rgba(255, 215, 0, 0.2);
-            border-radius: 14px;
-            background: rgba(255, 255, 255, 0.03);
-        }
-
-        .routine-progress-panel:empty {
-            display: none;
-        }
-
-        .routine-progress-top {
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            gap: 12px;
-        }
-
-        .routine-progress-label {
-            color: var(--text-muted);
-            font-size: 11px;
-            font-weight: 800;
-            margin-bottom: 4px;
-        }
-
-        .routine-progress-current {
-            color: #FFFFFF;
-            font-size: 14px;
-            font-weight: 900;
-        }
-
-        .routine-progress-reset-btn {
-            width: 126px;
-            height: 40px;
-            border-radius: 10px;
-            border: 1px solid rgba(255, 215, 0, 0.36);
-            background: rgba(255, 215, 0, 0.08);
-            color: var(--accent-color);
-            font-family: inherit;
-            font-size: 12px;
-            font-weight: 900;
-            cursor: pointer;
-            line-height: 1.15;
-        }
-
-        .routine-progress-reset-btn:disabled {
-            opacity: 0.58;
-            cursor: wait;
         }
 
         /* Calendar View CSS Updates */
@@ -2221,6 +2261,11 @@
             cursor: pointer;
         }
 
+        .finish-flow-btn:disabled {
+            opacity: 0.58;
+            cursor: wait;
+        }
+
         .finish-flow-btn.secondary {
             border: 1px solid rgba(255, 255, 255, 0.12);
             background: rgba(255, 255, 255, 0.055);
@@ -2783,8 +2828,16 @@
         <div class="two-day-program-panel" id="two-day-program-panel"></div>
 
         <!-- Recommended Workout Card -->
-        <div class="card-premium">
-            <div class="recommend-title">오늘의 추천 트레이닝</div>
+        <div class="card-premium recommend-card">
+            <div class="recommend-header">
+                <div class="recommend-title">오늘의 추천 트레이닝</div>
+                <div class="recommend-menu-wrap">
+                    <button class="recommend-more-btn" id="recommend-menu-btn" type="button" onclick="toggleRecommendMenu(event)" aria-label="추천 트레이닝 메뉴">···</button>
+                    <div class="recommend-menu" id="recommend-menu">
+                        <button type="button" onclick="openRoutineRestartModal()">프로그램 다시 시작</button>
+                    </div>
+                </div>
+            </div>
             <div class="recommend-name" id="recommend-name">Day 1 - Loading...</div>
             <div class="recommend-desc" id="recommend-desc">
                 루틴 정보를 불러오는 중입니다...
@@ -2802,7 +2855,6 @@
         <div class="split-grid" id="split-grid">
             <!-- Populated via JavaScript -->
         </div>
-        <div class="routine-progress-panel" id="routine-progress-panel"></div>
     </section>
 
     <!-- 2. CALENDAR VIEW SECTION -->
@@ -3025,6 +3077,24 @@
         </div>
     </div>
 
+    <div class="overlay" id="routine-restart-overlay" onclick="closeRoutineRestartModalOnBackdrop(event)">
+        <div class="modal finish-choice-modal">
+            <div class="finish-title">
+                <h3>프로그램을 다시 시작할까요?</h3>
+                <button class="close-btn" type="button" onclick="closeRoutineRestartModal()">×</button>
+            </div>
+            <p class="finish-choice-copy" id="routine-restart-copy">
+                기존 운동 기록은 삭제되지 않습니다.<br>
+                현재 분할 진행 위치만 W1D1로 다시 시작합니다.<br>
+                Previous와 과부하 기준은 기존 기록을 참고합니다.
+            </p>
+            <div class="finish-choice-actions">
+                <button class="finish-flow-btn secondary" type="button" onclick="closeRoutineRestartModal()">취소</button>
+                <button class="finish-flow-btn primary" id="routine-restart-confirm-btn" type="button" onclick="confirmRoutineRestart()">확인</button>
+            </div>
+        </div>
+    </div>
+
     <div class="overlay bottom-sheet-modal" id="rest-picker-overlay" onclick="closeRestPickerOnBackdrop(event)">
         <div class="bottom-sheet-panel rest-picker-panel">
             <div class="sheet-handle"></div>
@@ -3194,6 +3264,7 @@
         let routineData = {}; // Keyed by split ("2", "3", "4", "5")
         let exerciseDefinitions = { large_muscles: [], small_muscles: [], muscle_groups: {} };
         let routineProgress = {};
+        let pendingRoutineRestartSplit = null;
         let twoDayProgram = { version: "ver.1", nextVersion: "ver.2", week: 1, blockLength: 12, baselineLogCount: 0, phase: "training" };
         let completedLogs = [];
         let replacementLogs = [];
@@ -4294,40 +4365,59 @@
             return `Day ${nextDay}`;
         }
 
-        function renderRoutineProgressPanel() {
-            const panel = document.getElementById("routine-progress-panel");
-            if (!panel) return;
-
-            const splitNum = parseInt(oneRms.activeSplit, 10) || 5;
-            const splitKey = String(splitNum);
-            if (!routineData[splitKey]) {
-                panel.innerHTML = "";
-                return;
-            }
-
-            const progress = getRoutineProgress(splitNum);
-            const versionLabel = splitNum === 2 && progress.version ? ` · ${escapeHtml(progress.version)}` : "";
-            const week = getActiveWeekNum();
-            const dayId = getNextRoutineDayIdForSplit(splitNum);
-            const dayNum = getRoutineDayNumber(dayId, 1);
-
-            panel.innerHTML = `
-                <div class="routine-progress-top">
-                    <div>
-                        <div class="routine-progress-label">프로그램 진행</div>
-                        <div class="routine-progress-current">${splitNum}분할${versionLabel} · W${week}D${dayNum}</div>
-                    </div>
-                    <button class="routine-progress-reset-btn" id="routine-progress-reset-btn" type="button" onclick="resetRoutineProgress(${splitNum})">W1D1로<br>다시 시작</button>
-                </div>
-            `;
+        function closeRecommendMenu() {
+            const menu = document.getElementById("recommend-menu");
+            const button = document.getElementById("recommend-menu-btn");
+            if (menu) menu.classList.remove("open");
+            if (button) button.classList.remove("active");
         }
 
-        async function resetRoutineProgress(split) {
-            const splitNum = parseInt(split, 10) || parseInt(oneRms.activeSplit, 10) || 5;
-            const ok = confirm(`기존 운동 기록은 삭제되지 않습니다.\n${splitNum}분할 진행 위치만 W1D1로 다시 시작합니다.\nPrevious와 과부하 기준은 기존 기록을 참고합니다.`);
-            if (!ok) return;
+        function toggleRecommendMenu(event) {
+            event?.stopPropagation();
+            const menu = document.getElementById("recommend-menu");
+            const button = document.getElementById("recommend-menu-btn");
+            if (!menu || !button) return;
+            const isOpen = menu.classList.toggle("open");
+            button.classList.toggle("active", isOpen);
+        }
 
-            const button = document.getElementById("routine-progress-reset-btn");
+        function openRoutineRestartModal() {
+            const splitNum = parseInt(oneRms.activeSplit, 10) || 5;
+            const progress = getRoutineProgress(splitNum);
+            const versionLabel = splitNum === 2 && progress.version ? ` ${escapeHtml(progress.version)}` : "";
+            const copy = document.getElementById("routine-restart-copy");
+            pendingRoutineRestartSplit = splitNum;
+            closeRecommendMenu();
+            if (copy) {
+                copy.innerHTML = `기존 운동 기록은 삭제되지 않습니다.<br>현재 ${splitNum}분할${versionLabel} 진행 위치만 W1D1로 다시 시작합니다.<br>Previous와 과부하 기준은 기존 기록을 참고합니다.`;
+            }
+            document.getElementById("routine-restart-overlay")?.classList.add("active");
+        }
+
+        function closeRoutineRestartModal() {
+            document.getElementById("routine-restart-overlay")?.classList.remove("active");
+        }
+
+        function closeRoutineRestartModalOnBackdrop(event) {
+            if (event.target.classList.contains("overlay")) closeRoutineRestartModal();
+        }
+
+        function confirmRoutineRestart() {
+            return resetRoutineProgress(pendingRoutineRestartSplit || oneRms.activeSplit, {
+                skipConfirm: true,
+                button: document.getElementById("routine-restart-confirm-btn"),
+                onSuccess: closeRoutineRestartModal
+            });
+        }
+
+        async function resetRoutineProgress(split, options = {}) {
+            const splitNum = parseInt(split, 10) || parseInt(oneRms.activeSplit, 10) || 5;
+            if (!options.skipConfirm) {
+                const ok = confirm(`기존 운동 기록은 삭제되지 않습니다.\n${splitNum}분할 진행 위치만 W1D1로 다시 시작합니다.\nPrevious와 과부하 기준은 기존 기록을 참고합니다.`);
+                if (!ok) return;
+            }
+
+            const button = options.button || document.getElementById("routine-restart-confirm-btn");
             const originalText = button ? button.innerText : "";
             if (button) {
                 button.disabled = true;
@@ -4348,6 +4438,7 @@
                 updateRecommendationUI();
                 renderTwoDayProgramPanel();
                 renderSplitSelectorGrid();
+                if (typeof options.onSuccess === "function") options.onSuccess();
                 alert("W1D1로 다시 시작합니다.");
             } catch (err) {
                 console.error("진행 위치 리셋 실패", err);
@@ -4361,8 +4452,19 @@
         }
 
         function resetActiveRoutineProgress() {
-            return resetRoutineProgress(oneRms.activeSplit);
+            openRoutineRestartModal();
         }
+
+        Object.assign(window, {
+            closeRecommendMenu,
+            toggleRecommendMenu,
+            openRoutineRestartModal,
+            closeRoutineRestartModal,
+            closeRoutineRestartModalOnBackdrop,
+            confirmRoutineRestart,
+            resetRoutineProgress,
+            resetActiveRoutineProgress
+        });
 
         function normalizeExerciseDefinitionsPayload(data = {}) {
             return {
@@ -4398,7 +4500,6 @@
             renderCalendar();
             updateRecommendationUI();
             renderTwoDayProgramPanel();
-            renderRoutineProgressPanel();
             renderSplitSelectorGrid();
         }
 
@@ -4469,7 +4570,6 @@
                 const data = await res.json();
                 applyRoutineProgressPayload(data);
                 renderTwoDayProgramPanel();
-                renderRoutineProgressPanel();
             } catch (err) {
                 console.error("프로그램 진행 상태 조회 실패", err);
             }
@@ -4498,7 +4598,6 @@
             updateSbdPreview();
             renderGymSettingsUI();
             setActiveSplitSegmentUI();
-            renderRoutineProgressPanel();
         }
 
         function formatKg(value) {
@@ -4857,7 +4956,6 @@
                 nextRecommendedDayId = data.nextRecommendedDay || "Day 1";
                 applyRoutineProgressPayload(data);
                 renderTwoDayProgramPanel();
-                renderRoutineProgressPanel();
             } catch (err) {
                 console.error("추천 정보 조회 실패", err);
             }
@@ -5023,7 +5121,6 @@
                 await fetchStatus();
                 updateRecommendationUI();
                 renderTwoDayProgramPanel();
-                renderRoutineProgressPanel();
                 renderSplitSelectorGrid();
             } catch (err) {
                 console.error("2분할 버전 변경 실패", err);
@@ -5034,6 +5131,12 @@
             const button = event.target.closest("[data-two-day-version]");
             if (!button) return;
             setTwoDayVersion(button.dataset.twoDayVersion);
+        });
+
+        document.addEventListener("click", event => {
+            if (!event.target.closest(".recommend-menu-wrap")) {
+                closeRecommendMenu();
+            }
         });
 
         function toggleRoutineSummary(card) {
@@ -5055,10 +5158,7 @@
 
             const currentSplitStr = String(oneRms.activeSplit);
             const activeRoutine = routineData[currentSplitStr];
-            if (!activeRoutine) {
-                renderRoutineProgressPanel();
-                return;
-            }
+            if (!activeRoutine) return;
 
             const currentWeek = getActiveWeekNum();
 
@@ -5096,7 +5196,6 @@
                 card.querySelector(".routine-start-btn").onclick = () => startSelectedWorkout(day.id);
                 grid.appendChild(card);
             });
-            renderRoutineProgressPanel();
         }
 
         // Select a split segment
@@ -5124,7 +5223,6 @@
                 renderCalendar();
                 updateRecommendationUI();
                 renderTwoDayProgramPanel();
-                renderRoutineProgressPanel();
                 renderSplitSelectorGrid();
             } catch (err) {
                 console.error("로그 리스트 조회 실패", err);
