@@ -827,6 +827,57 @@
             color: #dedce8;
         }
 
+        .routine-progress-panel {
+            margin: 10px 0 0;
+            padding: 13px 14px;
+            border: 1px solid rgba(255, 215, 0, 0.2);
+            border-radius: 14px;
+            background: rgba(255, 255, 255, 0.03);
+        }
+
+        .routine-progress-panel:empty {
+            display: none;
+        }
+
+        .routine-progress-top {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 12px;
+        }
+
+        .routine-progress-label {
+            color: var(--text-muted);
+            font-size: 11px;
+            font-weight: 800;
+            margin-bottom: 4px;
+        }
+
+        .routine-progress-current {
+            color: #FFFFFF;
+            font-size: 14px;
+            font-weight: 900;
+        }
+
+        .routine-progress-reset-btn {
+            width: 126px;
+            height: 40px;
+            border-radius: 10px;
+            border: 1px solid rgba(255, 215, 0, 0.36);
+            background: rgba(255, 215, 0, 0.08);
+            color: var(--accent-color);
+            font-family: inherit;
+            font-size: 12px;
+            font-weight: 900;
+            cursor: pointer;
+            line-height: 1.15;
+        }
+
+        .routine-progress-reset-btn:disabled {
+            opacity: 0.58;
+            cursor: wait;
+        }
+
         /* Calendar View CSS Updates */
         .calendar-header-row {
             position: relative;
@@ -1339,14 +1390,6 @@
             background: transparent;
             color: var(--text-muted);
             font-size: 13px;
-        }
-
-        .settings-row-action {
-            width: 142px;
-            padding: 0 10px;
-            font-family: inherit;
-            white-space: normal;
-            line-height: 1.2;
         }
 
         .settings-delete-btn {
@@ -2759,6 +2802,7 @@
         <div class="split-grid" id="split-grid">
             <!-- Populated via JavaScript -->
         </div>
+        <div class="routine-progress-panel" id="routine-progress-panel"></div>
     </section>
 
     <!-- 2. CALENDAR VIEW SECTION -->
@@ -2854,25 +2898,6 @@
             <div class="settings-section">
                 <div class="settings-info-strip">
                     <span>오버헤드 프레스는 1RM을 따로 입력하지 않고, 이전 세션의 무게와 반복수를 기준으로 점진적 과부하를 적용합니다.</span>
-                </div>
-            </div>
-
-            <div class="settings-section">
-                <div class="settings-section-heading">
-                    <div>
-                        <h3>프로그램 진행</h3>
-                        <p class="settings-helper">기존 운동 기록은 유지하고, 현재 선택한 분할의 진행 위치만 W1D1로 다시 시작합니다.</p>
-                    </div>
-                </div>
-
-                <div class="settings-group">
-                    <div class="settings-row">
-                        <span>
-                            <span class="settings-name" id="routine-progress-title">현재 진행</span>
-                            <span class="settings-desc" id="routine-progress-desc">현재 분할 진행 상태를 불러오는 중입니다.</span>
-                        </span>
-                        <button class="settings-secondary-btn settings-row-action" id="routine-progress-reset-btn" type="button" onclick="resetActiveRoutineProgress()">W1D1로 다시 시작</button>
-                    </div>
                 </div>
             </div>
 
@@ -4269,23 +4294,36 @@
             return `Day ${nextDay}`;
         }
 
-        function renderRoutineProgressSettings() {
-            const titleEl = document.getElementById("routine-progress-title");
-            const descEl = document.getElementById("routine-progress-desc");
-            if (!titleEl || !descEl) return;
+        function renderRoutineProgressPanel() {
+            const panel = document.getElementById("routine-progress-panel");
+            if (!panel) return;
 
             const splitNum = parseInt(oneRms.activeSplit, 10) || 5;
+            const splitKey = String(splitNum);
+            if (!routineData[splitKey]) {
+                panel.innerHTML = "";
+                return;
+            }
+
             const progress = getRoutineProgress(splitNum);
-            const versionLabel = splitNum === 2 && progress.version ? ` · ${progress.version}` : "";
+            const versionLabel = splitNum === 2 && progress.version ? ` · ${escapeHtml(progress.version)}` : "";
             const week = getActiveWeekNum();
             const dayId = getNextRoutineDayIdForSplit(splitNum);
-            const dayNum = getRoutineDayNumber(dayId, 0);
-            titleEl.innerText = `현재 ${splitNum}분할${versionLabel} · W${week}D${dayNum}`;
-            descEl.innerText = "리셋해도 운동 기록과 Previous, 과부하 기준은 그대로 유지됩니다.";
+            const dayNum = getRoutineDayNumber(dayId, 1);
+
+            panel.innerHTML = `
+                <div class="routine-progress-top">
+                    <div>
+                        <div class="routine-progress-label">프로그램 진행</div>
+                        <div class="routine-progress-current">${splitNum}분할${versionLabel} · W${week}D${dayNum}</div>
+                    </div>
+                    <button class="routine-progress-reset-btn" id="routine-progress-reset-btn" type="button" onclick="resetRoutineProgress(${splitNum})">W1D1로<br>다시 시작</button>
+                </div>
+            `;
         }
 
-        async function resetActiveRoutineProgress() {
-            const splitNum = parseInt(oneRms.activeSplit, 10) || 5;
+        async function resetRoutineProgress(split) {
+            const splitNum = parseInt(split, 10) || parseInt(oneRms.activeSplit, 10) || 5;
             const ok = confirm(`기존 운동 기록은 삭제되지 않습니다.\n${splitNum}분할 진행 위치만 W1D1로 다시 시작합니다.\nPrevious와 과부하 기준은 기존 기록을 참고합니다.`);
             if (!ok) return;
 
@@ -4304,10 +4342,11 @@
                 if (!res.ok) throw new Error(`Routine progress reset failed: ${res.status}`);
                 const data = await res.json();
                 applyRoutineProgressPayload(data);
-                nextRecommendedDayId = data.active?.nextRecommendedDay || "Day 1";
+                if (splitNum === parseInt(oneRms.activeSplit, 10)) {
+                    nextRecommendedDayId = data.progress?.[String(splitNum)]?.nextRecommendedDay || data.active?.nextRecommendedDay || "Day 1";
+                }
                 updateRecommendationUI();
                 renderTwoDayProgramPanel();
-                renderRoutineProgressSettings();
                 renderSplitSelectorGrid();
                 alert("W1D1로 다시 시작합니다.");
             } catch (err) {
@@ -4319,6 +4358,10 @@
                     button.innerText = originalText || "W1D1로 다시 시작";
                 }
             }
+        }
+
+        function resetActiveRoutineProgress() {
+            return resetRoutineProgress(oneRms.activeSplit);
         }
 
         function normalizeExerciseDefinitionsPayload(data = {}) {
@@ -4355,7 +4398,7 @@
             renderCalendar();
             updateRecommendationUI();
             renderTwoDayProgramPanel();
-            renderRoutineProgressSettings();
+            renderRoutineProgressPanel();
             renderSplitSelectorGrid();
         }
 
@@ -4426,7 +4469,7 @@
                 const data = await res.json();
                 applyRoutineProgressPayload(data);
                 renderTwoDayProgramPanel();
-                renderRoutineProgressSettings();
+                renderRoutineProgressPanel();
             } catch (err) {
                 console.error("프로그램 진행 상태 조회 실패", err);
             }
@@ -4455,7 +4498,7 @@
             updateSbdPreview();
             renderGymSettingsUI();
             setActiveSplitSegmentUI();
-            renderRoutineProgressSettings();
+            renderRoutineProgressPanel();
         }
 
         function formatKg(value) {
@@ -4814,7 +4857,7 @@
                 nextRecommendedDayId = data.nextRecommendedDay || "Day 1";
                 applyRoutineProgressPayload(data);
                 renderTwoDayProgramPanel();
-                renderRoutineProgressSettings();
+                renderRoutineProgressPanel();
             } catch (err) {
                 console.error("추천 정보 조회 실패", err);
             }
@@ -4980,7 +5023,7 @@
                 await fetchStatus();
                 updateRecommendationUI();
                 renderTwoDayProgramPanel();
-                renderRoutineProgressSettings();
+                renderRoutineProgressPanel();
                 renderSplitSelectorGrid();
             } catch (err) {
                 console.error("2분할 버전 변경 실패", err);
@@ -5012,7 +5055,10 @@
 
             const currentSplitStr = String(oneRms.activeSplit);
             const activeRoutine = routineData[currentSplitStr];
-            if (!activeRoutine) return;
+            if (!activeRoutine) {
+                renderRoutineProgressPanel();
+                return;
+            }
 
             const currentWeek = getActiveWeekNum();
 
@@ -5050,6 +5096,7 @@
                 card.querySelector(".routine-start-btn").onclick = () => startSelectedWorkout(day.id);
                 grid.appendChild(card);
             });
+            renderRoutineProgressPanel();
         }
 
         // Select a split segment
@@ -5077,7 +5124,7 @@
                 renderCalendar();
                 updateRecommendationUI();
                 renderTwoDayProgramPanel();
-                renderRoutineProgressSettings();
+                renderRoutineProgressPanel();
                 renderSplitSelectorGrid();
             } catch (err) {
                 console.error("로그 리스트 조회 실패", err);
