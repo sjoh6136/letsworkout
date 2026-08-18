@@ -580,6 +580,100 @@
             gap: 10px;
         }
 
+        .two-day-program-panel {
+            display: none;
+            margin: -4px 0 18px;
+            padding: 13px 14px;
+            border: 1px solid rgba(255, 215, 0, 0.22);
+            border-radius: 14px;
+            background: rgba(255, 215, 0, 0.055);
+        }
+
+        .two-day-program-panel.active {
+            display: block;
+        }
+
+        .two-day-program-top {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 10px;
+            margin-bottom: 10px;
+        }
+
+        .two-day-program-title {
+            color: #FFFFFF;
+            font-size: 13px;
+            font-weight: 900;
+        }
+
+        .two-day-program-meta {
+            color: var(--accent-color);
+            font-size: 11px;
+            font-weight: 900;
+            white-space: nowrap;
+        }
+
+        .two-day-version-row {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 8px;
+        }
+
+        .two-day-version-btn {
+            height: 36px;
+            border-radius: 10px;
+            border: 1px solid rgba(255, 255, 255, 0.09);
+            background: rgba(0, 0, 0, 0.25);
+            color: var(--text-muted);
+            font-family: inherit;
+            font-size: 12px;
+            font-weight: 900;
+            cursor: pointer;
+        }
+
+        .two-day-version-btn.active {
+            background: var(--accent-color);
+            border-color: var(--accent-color);
+            color: #111111;
+        }
+
+        .two-day-rest-panel {
+            margin-top: 10px;
+            padding: 12px;
+            border-radius: 12px;
+            background: rgba(255, 255, 255, 0.045);
+            border: 1px solid rgba(255, 255, 255, 0.07);
+        }
+
+        .two-day-rest-title {
+            color: #FFFFFF;
+            font-size: 13px;
+            font-weight: 900;
+            margin-bottom: 4px;
+        }
+
+        .two-day-rest-copy {
+            color: var(--text-muted);
+            font-size: 11px;
+            font-weight: 700;
+            line-height: 1.45;
+            margin-bottom: 10px;
+        }
+
+        .two-day-next-btn {
+            width: 100%;
+            height: 38px;
+            border-radius: 10px;
+            border: 0;
+            background: var(--accent-gradient);
+            color: #111111;
+            font-family: inherit;
+            font-size: 12px;
+            font-weight: 900;
+            cursor: pointer;
+        }
+
         .routine-select-card {
             background: rgba(255, 255, 255, 0.03);
             border: 1px solid var(--card-border);
@@ -2635,6 +2729,7 @@
             <button class="split-segment-btn" id="split-btn-4" onclick="selectSplit(4)">4분할</button>
             <button class="split-segment-btn" id="split-btn-5" onclick="selectSplit(5)">5분할</button>
         </div>
+        <div class="two-day-program-panel" id="two-day-program-panel"></div>
 
         <!-- Recommended Workout Card -->
         <div class="card-premium">
@@ -2643,7 +2738,7 @@
             <div class="recommend-desc" id="recommend-desc">
                 루틴 정보를 불러오는 중입니다...
             </div>
-            <button class="start-btn" onclick="startRecommendedWorkout()">
+            <button class="start-btn" id="recommend-start-btn" onclick="startRecommendedWorkout()">
                 ⚡ 추천 운동 시작하기
             </button>
         </div>
@@ -3046,6 +3141,7 @@
         let sheetsConnected = false;
         let routineData = {}; // Keyed by split ("2", "3", "4", "5")
         let exerciseDefinitions = { large_muscles: [], small_muscles: [], muscle_groups: {} };
+        let twoDayProgram = { version: "ver.1", nextVersion: "ver.2", week: 1, blockLength: 12, baselineLogCount: 0, phase: "training" };
         let completedLogs = [];
         let replacementLogs = [];
         let currentDayId = "Day 1";
@@ -4060,15 +4156,20 @@
         function getActiveWeekNum() {
             const activeSplit = oneRms.activeSplit;
             const activeDayCount = getActiveRoutineDayCount();
+            const relevantLogs = activeSplit === 2
+                ? (completedLogs || [])
+                    .filter(log => log.split === activeSplit)
+                    .slice(parseInt(twoDayProgram.baselineLogCount, 10) || 0)
+                : completedLogs;
             
-            if (!completedLogs || completedLogs.length === 0) {
+            if (!relevantLogs || relevantLogs.length === 0) {
                 return 1;
             }
             
             // Find the latest logged entry that belongs specifically to this active split size
             let lastLog = null;
-            for (let i = completedLogs.length - 1; i >= 0; i--) {
-                const log = completedLogs[i];
+            for (let i = relevantLogs.length - 1; i >= 0; i--) {
+                const log = relevantLogs[i];
                 if (log.split === activeSplit) {
                     lastLog = log;
                     break;
@@ -4110,6 +4211,9 @@
             if (Array.isArray(data.replacements)) {
                 replacementLogs = data.replacements;
             }
+            if (data.twoDayProgram || data.status?.twoDayProgram) {
+                twoDayProgram = { ...twoDayProgram, ...(data.twoDayProgram || data.status.twoDayProgram) };
+            }
 
             if (data.status) {
                 nextRecommendedDayId = data.status.nextRecommendedDay || "Day 1";
@@ -4121,6 +4225,7 @@
             updateSettingsUI();
             renderCalendar();
             updateRecommendationUI();
+            renderTwoDayProgramPanel();
             renderSplitSelectorGrid();
         }
 
@@ -4142,6 +4247,7 @@
                     fetchGyms(),
                     fetchExerciseDefinitions(),
                     fetchRoutine(),
+                    fetchTwoDayProgramStatus(),
                     fetchStatus(),
                     fetchLogs(),
                     fetchReplacementLogs()
@@ -4181,6 +4287,17 @@
             } catch (err) {
                 console.error("운동 사전 로드 실패", err);
                 exerciseDefinitions = { large_muscles: [], small_muscles: [], muscle_groups: {} };
+            }
+        }
+
+        async function fetchTwoDayProgramStatus() {
+            try {
+                const res = await apiFetch("/api/two-day-program");
+                const data = await res.json();
+                twoDayProgram = { ...twoDayProgram, ...data };
+                renderTwoDayProgramPanel();
+            } catch (err) {
+                console.error("2분할 프로그램 상태 조회 실패", err);
             }
         }
 
@@ -4563,6 +4680,10 @@
                 const res = await apiFetch("/api/workout/status");
                 const data = await res.json();
                 nextRecommendedDayId = data.nextRecommendedDay || "Day 1";
+                if (data.twoDayProgram) {
+                    twoDayProgram = { ...twoDayProgram, ...data.twoDayProgram };
+                    renderTwoDayProgramPanel();
+                }
             } catch (err) {
                 console.error("추천 정보 조회 실패", err);
             }
@@ -4583,16 +4704,31 @@
 
             if (nextDay) {
                 const currentWeek = getActiveWeekNum();
+                const startButton = document.getElementById("recommend-start-btn");
+                if (startButton) {
+                    startButton.innerHTML = "⚡ 추천 운동 시작하기";
+                    startButton.onclick = startRecommendedWorkout;
+                }
+                if (oneRms.activeSplit === 2 && currentWeek > (parseInt(twoDayProgram.blockLength, 10) || 12)) {
+                    const nextVersion = twoDayProgram.nextVersion || (twoDayProgram.version === "ver.1" ? "ver.2" : "ver.1");
+                    document.getElementById("recommend-name").innerText = `Week ${currentWeek} - 1RM 측정 / 휴식 주간`;
+                    document.getElementById("recommend-desc").innerText = `SBD 1RM을 다시 확인하고 회복한 뒤 ${nextVersion} 12주 블록으로 넘어갑니다.`;
+                    if (startButton) {
+                        startButton.innerHTML = `⚡ ${nextVersion} 시작`;
+                        startButton.onclick = () => setTwoDayVersion(nextVersion);
+                    }
+                    return;
+                }
                 let recommendName = nextDay.name;
                 recommendName = recommendName.replace(/Day\s*\d+/i, `Week ${currentWeek} ${nextDay.id}`);
                 document.getElementById("recommend-name").innerText = recommendName;
                 
                 const descriptions = {
                     2: {
-                        "Day 1": "상체 A: 벤치/인클라인과 로우/풀다운으로 가슴과 등을 균형 있게 진행합니다.",
-                        "Day 2": "하체 A: 스쿼트와 힙힌지 패턴을 같이 가져가는 기본 하체 세션입니다.",
-                        "Day 3": "상체 B: OHP, 덤벨 벤치, 수직/수평 당기기로 상체 볼륨을 보완합니다.",
-                        "Day 4": "하체 B: 데드리프트와 단측 하체 운동으로 후면 사슬을 보강합니다."
+                        "Day 1": "하체 #1: 스쿼트/힌지/고립 하체로 첫 하체 세션을 구성합니다.",
+                        "Day 2": "상체 #1: 벤치, 풀다운, OHP, 로우와 팔 보조를 진행합니다.",
+                        "Day 3": "하체 #2: 데드리프트 또는 스쿼트 변형과 단측 하체를 보강합니다.",
+                        "Day 4": "상체 #2: 프레스와 당기기, 어깨/팔 보조를 균형 있게 채웁니다."
                     },
                     3: {
                         "Day 1": "Push: 가슴, 어깨, 삼두를 한 번에 묶는 밀기 세션입니다.",
@@ -4663,6 +4799,66 @@
             }).join("");
         }
 
+        function renderTwoDayProgramPanel() {
+            const panel = document.getElementById("two-day-program-panel");
+            if (!panel) return;
+            const show = parseInt(oneRms.activeSplit, 10) === 2;
+            panel.classList.toggle("active", show);
+            if (!show) {
+                panel.innerHTML = "";
+                return;
+            }
+
+            const currentWeek = getActiveWeekNum();
+            const blockLength = parseInt(twoDayProgram.blockLength, 10) || 12;
+            const activeVersion = twoDayProgram.version || "ver.1";
+            const nextVersion = twoDayProgram.nextVersion || (activeVersion === "ver.1" ? "ver.2" : "ver.1");
+            const isRestWeek = currentWeek > blockLength || twoDayProgram.phase === "rest";
+
+            panel.innerHTML = `
+                <div class="two-day-program-top">
+                    <div class="two-day-program-title">2분할 프로그램</div>
+                    <div class="two-day-program-meta">${escapeHtml(activeVersion)} · W${Math.min(currentWeek, blockLength)}/${blockLength}</div>
+                </div>
+                <div class="two-day-version-row">
+                    <button class="two-day-version-btn ${activeVersion === "ver.1" ? "active" : ""}" type="button" data-two-day-version="ver.1">ver.1</button>
+                    <button class="two-day-version-btn ${activeVersion === "ver.2" ? "active" : ""}" type="button" data-two-day-version="ver.2">ver.2</button>
+                </div>
+                ${isRestWeek ? `
+                    <div class="two-day-rest-panel">
+                        <div class="two-day-rest-title">1RM 측정 / 휴식 주간</div>
+                        <div class="two-day-rest-copy">12주 블록이 끝났습니다. SBD 1RM을 다시 확인하고 회복 주간을 가진 뒤 ${escapeHtml(nextVersion)}로 넘어갑니다.</div>
+                        <button class="two-day-next-btn" type="button" data-two-day-version="${escapeHtml(nextVersion)}">${escapeHtml(nextVersion)} 시작</button>
+                    </div>
+                ` : ""}
+            `;
+        }
+
+        async function setTwoDayVersion(version) {
+            if (!version || version === twoDayProgram.version) return;
+            try {
+                const res = await apiFetch("/api/two-day-program", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ version })
+                });
+                twoDayProgram = { ...twoDayProgram, ...(await res.json()) };
+                await fetchRoutine();
+                await fetchStatus();
+                updateRecommendationUI();
+                renderTwoDayProgramPanel();
+                renderSplitSelectorGrid();
+            } catch (err) {
+                console.error("2분할 버전 변경 실패", err);
+            }
+        }
+
+        document.addEventListener("click", event => {
+            const button = event.target.closest("[data-two-day-version]");
+            if (!button) return;
+            setTwoDayVersion(button.dataset.twoDayVersion);
+        });
+
         function toggleRoutineSummary(card) {
             const shouldOpen = !card.classList.contains("open");
             document.querySelectorAll(".routine-select-card").forEach(item => {
@@ -4731,6 +4927,7 @@
             setActiveSplitSegmentUI();
             updateSettingsUI();
             updateRecommendationUI();
+            renderTwoDayProgramPanel();
             renderSplitSelectorGrid();
 
             const saveVersion = ++settingsSaveVersion;
@@ -4743,6 +4940,9 @@
                 const res = await apiFetch("/api/workout/logs");
                 completedLogs = await res.json();
                 renderCalendar();
+                updateRecommendationUI();
+                renderTwoDayProgramPanel();
+                renderSplitSelectorGrid();
             } catch (err) {
                 console.error("로그 리스트 조회 실패", err);
             }

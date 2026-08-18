@@ -163,6 +163,7 @@ Workout data is stored only in username-suffixed tabs:
 - `Workout_Logs__{username}`
 - `Workout_Replacements__{username}`
 - `Workout_Submissions__{username}`
+- `Two_Day_Program__{username}`
 
 Do not create, read, migrate from, or write to unsuffixed workout tabs:
 
@@ -171,6 +172,7 @@ Do not create, read, migrate from, or write to unsuffixed workout tabs:
 - `Workout_Logs`
 - `Workout_Replacements`
 - `Workout_Submissions`
+- `Two_Day_Program`
 
 Keep `User_Accounts` and `User_Sessions` shared. Do not create separate auth tables per user.
 
@@ -182,6 +184,12 @@ Workout replacement history is stored separately:
 - `Workout_Submissions__{username}`: idempotency markers for completed workout submissions
 
 Do not add replacement metadata to `Workout_Logs`. A replaced workout still writes set logs under the actual exercise performed, while `Workout_Replacements` links `originalExercise` to the actual `exercise`.
+
+2-split block state is stored separately:
+
+- `Two_Day_Program__{username}`: selected `ver.1`/`ver.2`, block length, and baseline log count for restarting week calculation after a version swap
+
+Do not store 2-split version state in `Workout_Logs` or `Setting_1RM`.
 
 Login data is stored separately:
 

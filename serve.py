@@ -20,7 +20,9 @@ STATIC_DIR = ROOT / "src" / "main" / "resources" / "static"
 DATA_DIR = ROOT / "data"
 STATE_DIR = Path(os.environ.get("APP_DATA_DIR", ROOT / "data")).resolve()
 ROUTINES_FILE = DATA_DIR / "routines.json"
+TWO_DAY_VERSIONS_FILE = DATA_DIR / "two_day_versions.json"
 EXERCISE_DEFINITIONS_FILE = DATA_DIR / "exercise_definitions.json"
+TWO_DAY_PROGRAM_FILE = STATE_DIR / "two_day_program.json"
 STATE_FILE = STATE_DIR / "app_state.json"
 AUTH_FILE = STATE_DIR / "auth_state.json"
 GYM_SETTINGS_FILE = ROOT / "gym_settings.json"
@@ -36,12 +38,13 @@ AUTH_SESSION_DAYS = max(1, int(os.environ.get("AUTH_SESSION_DAYS", "180")))
 AUTH_PASSWORD_ITERATIONS = 200_000
 AUTH_CACHE_SECONDS = max(60, int(os.environ.get("AUTH_CACHE_SECONDS", str(12 * 60 * 60))))
 STATE_CACHE_SECONDS = max(0, int(os.environ.get("STATE_CACHE_SECONDS", "20")))
-APP_RELEASE = "2026-08-13-no-store-html-v1"
+APP_RELEASE = "2026-08-18-two-day-program-v1"
 APP_BUILD_COMMIT = os.environ.get("RENDER_GIT_COMMIT") or os.environ.get("SOURCE_VERSION") or ""
 _SHEETS_STORE = None
 _AUTH_SESSION_CACHE = {}
 _STATE_CACHE = {}
 _ROUTINES_CACHE = None
+_TWO_DAY_VERSIONS_CACHE = None
 _EXERCISE_DEFINITIONS_CACHE = None
 
 DEFAULT_ONE_RMS = {
@@ -333,9 +336,11 @@ class GoogleSheetsStore:
     GYM_SETTINGS_TAB = "Gym_Settings"
     REPLACEMENTS_TAB = "Workout_Replacements"
     SUBMISSIONS_TAB = "Workout_Submissions"
+    TWO_DAY_PROGRAM_TAB = "Two_Day_Program"
     USER_ACCOUNTS_TAB = "User_Accounts"
     USER_SESSIONS_TAB = "User_Sessions"
     SETTINGS_HEADER = ["Squat", "Bench", "Deadlift", "OHP", "ActiveSplit"]
+    TWO_DAY_PROGRAM_HEADER = ["Version", "BlockLength", "BaselineLogCount", "UpdatedAt"]
     GYM_SETTINGS_HEADER = [
         "Active",
         "GymId",
@@ -521,12 +526,14 @@ class GoogleSheetsStore:
         gym_settings = self.worksheet_for_user(self.GYM_SETTINGS_TAB, username, rows=50, cols=8)
         replacements = self.worksheet_for_user(self.REPLACEMENTS_TAB, username, rows=500, cols=15)
         submissions = self.worksheet_for_user(self.SUBMISSIONS_TAB, username, rows=500, cols=7)
+        two_day_program = self.worksheet_for_user(self.TWO_DAY_PROGRAM_TAB, username, rows=2, cols=4)
 
         self.ensure_user_settings(settings)
         self.ensure_header(logs, "A1:M1", self.log_header_for_user(username))
         self.ensure_header(gym_settings, "A1:G1", self.GYM_SETTINGS_HEADER)
         self.ensure_header(replacements, "A1:O1", self.replacements_header_for_user(username))
         self.ensure_header(submissions, "A1:G1", self.SUBMISSIONS_HEADER)
+        self.ensure_header(two_day_program, "A1:D1", self.TWO_DAY_PROGRAM_HEADER)
         self._ensured_user_tabs.add(username)
 
     def load_one_rms(self, username="", user_id=""):
@@ -553,6 +560,30 @@ class GoogleSheetsStore:
             sheet_float(one_rms.get("ohp"), DEFAULT_ONE_RMS["ohp"]),
             sheet_int(one_rms.get("activeSplit"), DEFAULT_ONE_RMS["activeSplit"]),
         ]], range_name="A2:E2")
+
+    def load_two_day_program(self, username="", user_id=""):
+        self.ensure_user_tabs(username, user_id)
+        program = self.worksheet_for_user(self.TWO_DAY_PROGRAM_TAB, username, rows=2, cols=4)
+        row = (program.get("A2:D2") or [[]])[0]
+        row = row + [""] * 4
+        if not row[0]:
+            return None
+        return {
+            "version": str(row[0]).strip(),
+            "blockLength": sheet_int(row[1], DEFAULT_TWO_DAY_PROGRAM["blockLength"]),
+            "baselineLogCount": sheet_int(row[2], DEFAULT_TWO_DAY_PROGRAM["baselineLogCount"]),
+        }
+
+    def save_two_day_program(self, two_day_program, username="", user_id=""):
+        self.ensure_user_tabs(username, user_id)
+        program = self.worksheet_for_user(self.TWO_DAY_PROGRAM_TAB, username, rows=2, cols=4)
+        program.update(values=[self.TWO_DAY_PROGRAM_HEADER], range_name="A1:D1")
+        program.update(values=[[
+            two_day_program.get("version", DEFAULT_TWO_DAY_PROGRAM["version"]),
+            as_int(two_day_program.get("blockLength"), DEFAULT_TWO_DAY_PROGRAM["blockLength"]),
+            as_int(two_day_program.get("baselineLogCount"), DEFAULT_TWO_DAY_PROGRAM["baselineLogCount"]),
+            now_iso(),
+        ]], range_name="A2:D2")
 
     def load_gyms(self, username="", user_id=""):
         self.ensure_user_tabs(username, user_id)
@@ -1464,6 +1495,18 @@ def load_routines():
     return copy.deepcopy(_ROUTINES_CACHE)
 
 
+def load_two_day_versions():
+    global _TWO_DAY_VERSIONS_CACHE
+    if _TWO_DAY_VERSIONS_CACHE is not None:
+        return copy.deepcopy(_TWO_DAY_VERSIONS_CACHE)
+
+    versions = load_json(TWO_DAY_VERSIONS_FILE, {})
+    if not isinstance(versions, dict):
+        versions = {}
+    _TWO_DAY_VERSIONS_CACHE = versions
+    return copy.deepcopy(_TWO_DAY_VERSIONS_CACHE)
+
+
 def load_exercise_definitions():
     global _EXERCISE_DEFINITIONS_CACHE
     if _EXERCISE_DEFINITIONS_CACHE is not None:
@@ -1494,6 +1537,111 @@ def as_int(value, default=0):
         return int(value)
     except (TypeError, ValueError):
         return default
+
+
+DEFAULT_TWO_DAY_PROGRAM = {
+    "version": "ver.1",
+    "blockLength": 12,
+    "baselineLogCount": 0,
+}
+
+
+def two_day_program_key(username="", user_id=""):
+    username = normalize_username(username)
+    return username or str(user_id or "").strip() or "_default"
+
+
+def normalize_two_day_program(program):
+    versions = load_two_day_versions()
+    names = [name for name in ["ver.1", "ver.2"] if name in versions] or list(versions.keys())
+    normalized = copy.deepcopy(DEFAULT_TWO_DAY_PROGRAM)
+    if isinstance(program, dict):
+        normalized.update(program)
+
+    if normalized.get("version") not in names:
+        normalized["version"] = names[0] if names else "ver.1"
+    if normalized.get("version") == "ver.1" and "ver.2" in names:
+        normalized["nextVersion"] = "ver.2"
+    elif normalized.get("version") == "ver.2" and "ver.1" in names:
+        normalized["nextVersion"] = "ver.1"
+    else:
+        normalized["nextVersion"] = names[0] if names else normalized["version"]
+    normalized["blockLength"] = max(1, as_int(normalized.get("blockLength"), DEFAULT_TWO_DAY_PROGRAM["blockLength"]))
+    normalized["baselineLogCount"] = max(0, as_int(normalized.get("baselineLogCount"), 0))
+    return normalized
+
+
+def load_two_day_program(username="", user_id=""):
+    username = normalize_username(username)
+    all_settings = load_json(TWO_DAY_PROGRAM_FILE, {})
+    if not isinstance(all_settings, dict):
+        all_settings = {}
+    key = two_day_program_key(username, user_id)
+    program = all_settings.get(key, DEFAULT_TWO_DAY_PROGRAM)
+    store = sheets_store()
+    if store.connected and username:
+        try:
+            sheet_program = store.load_two_day_program(username, user_id)
+            if sheet_program:
+                program = {**program, **sheet_program} if isinstance(program, dict) else sheet_program
+        except Exception as exc:
+            print(f"[warn] failed to load 2-day program from Google Sheets: {exc}")
+    return normalize_two_day_program(program)
+
+
+def save_two_day_program(program, username="", user_id=""):
+    username = normalize_username(username)
+    all_settings = load_json(TWO_DAY_PROGRAM_FILE, {})
+    if not isinstance(all_settings, dict):
+        all_settings = {}
+    key = two_day_program_key(username, user_id)
+    all_settings[key] = normalize_two_day_program(program)
+    store = sheets_store()
+    if store.connected and username:
+        try:
+            store.save_two_day_program(all_settings[key], username, user_id)
+        except Exception as exc:
+            print(f"[warn] failed to save 2-day program to Google Sheets: {exc}")
+    save_json(TWO_DAY_PROGRAM_FILE, all_settings)
+    return all_settings[key]
+
+
+def routines_for_program(program=None):
+    routines = load_routines()
+    versions = load_two_day_versions()
+    if versions:
+        active = normalize_two_day_program(program).get("version")
+        selected = versions.get(active) or next(iter(versions.values()))
+        routines["2"] = copy.deepcopy(selected)
+    return routines
+
+
+def two_day_log_count(state):
+    return sum(1 for log in state.get("logs", []) if as_int(log.get("split")) == 2)
+
+
+def two_day_program_payload(state, username="", user_id=""):
+    program = load_two_day_program(username, user_id)
+    active_week = 1
+    routine_day_count = 4
+    split_logs = [log for log in state.get("logs", []) if as_int(log.get("split")) == 2]
+    baseline = min(max(0, as_int(program.get("baselineLogCount"), 0)), len(split_logs))
+    tracked_logs = split_logs[baseline:]
+    if tracked_logs:
+        last_log = tracked_logs[-1]
+        last_day = day_number(last_log.get("day"))
+        last_week = as_int(last_log.get("week"), 1)
+        active_week = last_week + 1 if last_day >= routine_day_count else last_week
+
+    block_length = max(1, as_int(program.get("blockLength"), 12))
+    return {
+        "version": program.get("version", "ver.1"),
+        "nextVersion": program.get("nextVersion", "ver.2"),
+        "blockLength": block_length,
+        "baselineLogCount": baseline,
+        "week": active_week,
+        "phase": "rest" if active_week > block_length else "training",
+    }
 
 
 def parse_reps_range(reps_range):
@@ -1682,16 +1830,30 @@ def apply_progression(routines, state):
     return result
 
 
-def workout_status_payload(state, routines=None):
+def workout_status_payload(state, routines=None, program=None):
     active_split = as_int(state["oneRms"].get("activeSplit"), 5)
     routines = routines or load_routines()
     routine_days = routines.get(str(active_split), [])
     routine_day_count = len(routine_days) or active_split
+    logs = state.get("logs", [])
+    if active_split == 2:
+        program = normalize_two_day_program(program or load_two_day_program())
+        baseline = max(0, as_int(program.get("baselineLogCount"), 0))
+        split_seen = 0
+        scoped_logs = []
+        for log in logs:
+            if as_int(log.get("split")) != 2:
+                scoped_logs.append(log)
+                continue
+            if split_seen >= baseline:
+                scoped_logs.append(log)
+            split_seen += 1
+        logs = scoped_logs
     next_recommended = "Day 1"
     last_completed = None
 
-    for log in reversed(state.get("logs", [])):
-        if log.get("split") == active_split:
+    for log in reversed(logs):
+        if as_int(log.get("split")) == active_split:
             last_num = day_number(log.get("day"))
             last_completed = f"Day {last_num}"
             next_num = last_num + 1 if last_num < routine_day_count else 1
@@ -1827,8 +1989,8 @@ def day_number(day_id):
     return int(match.group(0)) if match else 1
 
 
-def evaluate_and_update(state, logs, split, week, day_id):
-    routines = load_routines()
+def evaluate_and_update(state, logs, split, week, day_id, routines=None):
+    routines = routines or load_routines()
     exercise_defs = routine_exercise_lookup(routines, split)
     one_rms = state["oneRms"]
 
@@ -2073,8 +2235,11 @@ def workout_settings():
 
 @app.route("/api/workout/bootstrap")
 def workout_bootstrap():
-    state = load_state(username=current_request_username(), user_id=current_request_user_id())
-    routines = load_routines()
+    username = current_request_username()
+    user_id = current_request_user_id()
+    state = load_state(username=username, user_id=user_id)
+    program = load_two_day_program(username, user_id)
+    routines = routines_for_program(program)
     return jsonify({
         "oneRms": state["oneRms"],
         "sheetsConnected": sheets_connected(),
@@ -2082,7 +2247,8 @@ def workout_bootstrap():
         "activeGymId": state.get("activeGymId"),
         "exerciseDefinitions": load_json(EXERCISE_DEFINITIONS_FILE, {}),
         "routine": apply_progression(routines, state),
-        "status": workout_status_payload(state, routines),
+        "status": workout_status_payload(state, routines, program),
+        "twoDayProgram": two_day_program_payload(state, username, user_id),
         "logs": state.get("logs", []),
         "replacements": state.get("replacements", []),
     })
@@ -2090,14 +2256,41 @@ def workout_bootstrap():
 
 @app.route("/api/workout/routine")
 def workout_routine():
-    state = load_state(username=current_request_username(), user_id=current_request_user_id())
-    return jsonify(apply_progression(load_routines(), state))
+    username = current_request_username()
+    user_id = current_request_user_id()
+    state = load_state(username=username, user_id=user_id)
+    return jsonify(apply_progression(routines_for_program(load_two_day_program(username, user_id)), state))
 
 
 @app.route("/api/workout/status")
 def workout_status():
-    state = load_state(username=current_request_username(), user_id=current_request_user_id())
-    return jsonify(workout_status_payload(state))
+    username = current_request_username()
+    user_id = current_request_user_id()
+    state = load_state(username=username, user_id=user_id)
+    program = load_two_day_program(username, user_id)
+    routines = routines_for_program(program)
+    payload = workout_status_payload(state, routines, program)
+    payload["twoDayProgram"] = two_day_program_payload(state, username, user_id)
+    return jsonify(payload)
+
+
+@app.route("/api/two-day-program", methods=["GET", "POST"])
+def two_day_program():
+    username = current_request_username()
+    user_id = current_request_user_id()
+    state = load_state(username=username, user_id=user_id)
+    if request.method == "POST":
+        body = request.get_json(silent=True) or {}
+        current = load_two_day_program(username, user_id)
+        if "version" in body:
+            next_version = str(body.get("version") or current.get("version"))
+            if next_version != current.get("version"):
+                current["baselineLogCount"] = two_day_log_count(state)
+            current["version"] = next_version
+        if "blockLength" in body:
+            current["blockLength"] = as_int(body.get("blockLength"), current.get("blockLength", 12))
+        save_two_day_program(current, username, user_id)
+    return jsonify(two_day_program_payload(state, username, user_id))
 
 
 @app.route("/api/workout/logs")
@@ -2123,7 +2316,8 @@ def workout_finish():
     day_id = body.get("day") or "Day 1"
     submission_id = str(body.get("submissionId") or "").strip()
     date = normalize_workout_date(body.get("date"))
-    exercise_defs = routine_exercise_lookup(load_routines(), split)
+    active_routines = routines_for_program(load_two_day_program(username, user_id))
+    exercise_defs = routine_exercise_lookup(active_routines, split)
     logs = normalize_logs(body.get("logs", []), split, week, day_id, exercise_defs, submission_id, username, user_id)
     for log in logs:
         log["date"] = date
@@ -2189,7 +2383,7 @@ def workout_finish():
 
     one_rms_before = copy.deepcopy(state.get("oneRms", {}))
     scoped_state = copy.deepcopy(state)
-    feedback = evaluate_and_update(scoped_state, logs, split, week, day_id)
+    feedback = evaluate_and_update(scoped_state, logs, split, week, day_id, active_routines)
     state["oneRms"] = scoped_state.get("oneRms", state.get("oneRms", {}))
     one_rms_changed = state.get("oneRms", {}) != one_rms_before
     state["logs"].extend(logs)

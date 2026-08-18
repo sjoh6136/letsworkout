@@ -1,0 +1,686 @@
+{
+  "ver.1": [
+    {
+      "id": "Day 1",
+      "name": "Day 1 - 하체 #1",
+      "sourceVersion": "ver.1",
+      "exercises": [
+        {
+          "name": "백 스쿼트 (바벨)",
+          "sets": 3,
+          "targetReps": 6,
+          "repsRange": "6",
+          "rpeTarget": 7,
+          "coreLift": true,
+          "coreLiftType": "squat",
+          "intensity": 0.75,
+          "defaultWeight": 0,
+          "restSeconds": 180
+        },
+        {
+          "name": "루마니안 데드리프트",
+          "sets": 3,
+          "targetReps": 10,
+          "repsRange": "10",
+          "rpeTarget": 7,
+          "coreLift": false,
+          "coreLiftType": null,
+          "intensity": 0,
+          "defaultWeight": 100,
+          "restSeconds": 120
+        },
+        {
+          "name": "힙 쓰러스트",
+          "sets": 3,
+          "targetReps": 12,
+          "repsRange": "12",
+          "rpeTarget": 8,
+          "coreLift": false,
+          "coreLiftType": null,
+          "intensity": 0,
+          "defaultWeight": 80,
+          "restSeconds": 120
+        },
+        {
+          "name": "레그 익스텐션",
+          "sets": 3,
+          "targetReps": 12,
+          "repsRange": "12",
+          "rpeTarget": 9,
+          "coreLift": false,
+          "coreLiftType": null,
+          "intensity": 0,
+          "defaultWeight": 40,
+          "restSeconds": 60
+        },
+        {
+          "name": "레그 컬",
+          "sets": 3,
+          "targetReps": 12,
+          "repsRange": "12",
+          "rpeTarget": 9,
+          "coreLift": false,
+          "coreLiftType": null,
+          "intensity": 0,
+          "defaultWeight": 20,
+          "restSeconds": 60
+        },
+        {
+          "name": "힙 어브덕션",
+          "sets": 3,
+          "targetReps": 6,
+          "repsRange": "6",
+          "rpeTarget": 7,
+          "coreLift": false,
+          "coreLiftType": null,
+          "intensity": 0,
+          "defaultWeight": 40,
+          "restSeconds": 60
+        }
+      ]
+    },
+    {
+      "id": "Day 2",
+      "name": "Day 2 - 상체 #1",
+      "sourceVersion": "ver.1",
+      "exercises": [
+        {
+          "name": "플랫 바벨 벤치프레스",
+          "sets": 3,
+          "targetReps": 5,
+          "repsRange": "5",
+          "rpeTarget": 7,
+          "coreLift": true,
+          "coreLiftType": "bench",
+          "intensity": 0.75,
+          "defaultWeight": 0,
+          "restSeconds": 180
+        },
+        {
+          "name": "랫 풀 다운",
+          "sets": 3,
+          "targetReps": 10,
+          "repsRange": "10",
+          "rpeTarget": 8,
+          "coreLift": false,
+          "coreLiftType": null,
+          "intensity": 0,
+          "defaultWeight": 45,
+          "restSeconds": 120
+        },
+        {
+          "name": "오버헤드 프레스 (OHP - 바벨)",
+          "sets": 3,
+          "targetReps": 10,
+          "repsRange": "10",
+          "rpeTarget": 7,
+          "coreLift": false,
+          "coreLiftType": null,
+          "intensity": 0,
+          "defaultWeight": 30,
+          "restSeconds": 180
+        },
+        {
+          "name": "T바 로우",
+          "sets": 3,
+          "targetReps": 12,
+          "repsRange": "12",
+          "rpeTarget": 8,
+          "coreLift": false,
+          "coreLiftType": null,
+          "intensity": 0,
+          "defaultWeight": 45,
+          "restSeconds": 120
+        },
+        {
+          "name": "케이블 플라이",
+          "sets": 3,
+          "targetReps": 12,
+          "repsRange": "12",
+          "rpeTarget": 8,
+          "coreLift": false,
+          "coreLiftType": null,
+          "intensity": 0,
+          "defaultWeight": 15,
+          "restSeconds": 60
+        },
+        {
+          "name": "덤벨 슈피네이티드 컬",
+          "sets": 3,
+          "targetReps": 10,
+          "repsRange": "10",
+          "rpeTarget": 8,
+          "coreLift": false,
+          "coreLiftType": null,
+          "intensity": 0,
+          "defaultWeight": 10,
+          "restSeconds": 60
+        },
+        {
+          "name": "싱글 암 로프 트라이셉스 익스텐션",
+          "sets": 3,
+          "targetReps": 12,
+          "repsRange": "12",
+          "rpeTarget": 8,
+          "coreLift": false,
+          "coreLiftType": null,
+          "intensity": 0,
+          "defaultWeight": 15,
+          "restSeconds": 60
+        }
+      ]
+    },
+    {
+      "id": "Day 3",
+      "name": "Day 3 - 하체 #2",
+      "sourceVersion": "ver.1",
+      "exercises": [
+        {
+          "name": "컨벤셔널 데드리프트",
+          "sets": 3,
+          "targetReps": 8,
+          "repsRange": "8",
+          "rpeTarget": 7,
+          "coreLift": true,
+          "coreLiftType": "deadlift",
+          "intensity": 0.75,
+          "defaultWeight": 0,
+          "restSeconds": 180
+        },
+        {
+          "name": "덤벨 워킹 런지",
+          "sets": 3,
+          "targetReps": 10,
+          "repsRange": "10",
+          "rpeTarget": 8,
+          "coreLift": false,
+          "coreLiftType": null,
+          "intensity": 0,
+          "defaultWeight": 16,
+          "restSeconds": 120
+        },
+        {
+          "name": "싱글 레그 레그 익스텐션",
+          "sets": 3,
+          "targetReps": 15,
+          "repsRange": "15",
+          "rpeTarget": 8,
+          "coreLift": false,
+          "coreLiftType": null,
+          "intensity": 0,
+          "defaultWeight": 20,
+          "restSeconds": 60
+        },
+        {
+          "name": "싱글 레그 라잉 레그 컬",
+          "sets": 3,
+          "targetReps": 15,
+          "repsRange": "15",
+          "rpeTarget": 8,
+          "coreLift": false,
+          "coreLiftType": null,
+          "intensity": 0,
+          "defaultWeight": 15,
+          "restSeconds": 60
+        },
+        {
+          "name": "힙 어브덕션",
+          "sets": 3,
+          "targetReps": 15,
+          "repsRange": "15",
+          "rpeTarget": 9,
+          "coreLift": false,
+          "coreLiftType": null,
+          "intensity": 0,
+          "defaultWeight": 40,
+          "restSeconds": 60
+        },
+        {
+          "name": "스탠딩 카프 레이즈",
+          "sets": 3,
+          "targetReps": 12,
+          "repsRange": "12",
+          "rpeTarget": 8,
+          "coreLift": false,
+          "coreLiftType": null,
+          "intensity": 0,
+          "defaultWeight": 80,
+          "restSeconds": 60
+        }
+      ]
+    },
+    {
+      "id": "Day 4",
+      "name": "Day 4 - 상체 #2",
+      "sourceVersion": "ver.1",
+      "exercises": [
+        {
+          "name": "인클라인 덤벨 프레스",
+          "sets": 3,
+          "targetReps": 8,
+          "repsRange": "8",
+          "rpeTarget": 8,
+          "coreLift": false,
+          "coreLiftType": null,
+          "intensity": 0,
+          "defaultWeight": 24,
+          "restSeconds": 120
+        },
+        {
+          "name": "리버스 그립 랫 풀다운",
+          "sets": 3,
+          "targetReps": 8,
+          "repsRange": "8",
+          "rpeTarget": 8,
+          "coreLift": false,
+          "coreLiftType": null,
+          "intensity": 0,
+          "defaultWeight": 45,
+          "restSeconds": 120
+        },
+        {
+          "name": "머신 딥스",
+          "sets": 3,
+          "targetReps": 10,
+          "repsRange": "10",
+          "rpeTarget": 7,
+          "coreLift": false,
+          "coreLiftType": null,
+          "intensity": 0,
+          "defaultWeight": 35,
+          "restSeconds": 120
+        },
+        {
+          "name": "바벨 로우 (Bent-over Row)",
+          "sets": 3,
+          "targetReps": 12,
+          "repsRange": "12",
+          "rpeTarget": 7,
+          "coreLift": false,
+          "coreLiftType": null,
+          "intensity": 0,
+          "defaultWeight": 40,
+          "restSeconds": 120
+        },
+        {
+          "name": "사이드 레터럴 레이즈 (덤벨)",
+          "sets": 3,
+          "targetReps": 15,
+          "repsRange": "15",
+          "rpeTarget": 8,
+          "coreLift": false,
+          "coreLiftType": null,
+          "intensity": 0,
+          "defaultWeight": 8,
+          "restSeconds": 60
+        },
+        {
+          "name": "페이스 풀",
+          "sets": 3,
+          "targetReps": 15,
+          "repsRange": "15",
+          "rpeTarget": 8,
+          "coreLift": false,
+          "coreLiftType": null,
+          "intensity": 0,
+          "defaultWeight": 35,
+          "restSeconds": 60
+        },
+        {
+          "name": "해머 컬",
+          "sets": 3,
+          "targetReps": 8,
+          "repsRange": "8",
+          "rpeTarget": 9,
+          "coreLift": false,
+          "coreLiftType": null,
+          "intensity": 0,
+          "defaultWeight": 12,
+          "restSeconds": 60
+        }
+      ]
+    }
+  ],
+  "ver.2": [
+    {
+      "id": "Day 1",
+      "name": "Day 1 - 하체 #1",
+      "sourceVersion": "ver.2",
+      "exercises": [
+        {
+          "name": "컨벤셔널 데드리프트",
+          "sets": 3,
+          "targetReps": 5,
+          "repsRange": "5",
+          "rpeTarget": 8,
+          "coreLift": true,
+          "coreLiftType": "deadlift",
+          "intensity": 0.75,
+          "defaultWeight": 0,
+          "restSeconds": 180
+        },
+        {
+          "name": "고블릿 스쿼트",
+          "sets": 3,
+          "targetReps": 12,
+          "repsRange": "12",
+          "rpeTarget": 8,
+          "coreLift": false,
+          "coreLiftType": null,
+          "intensity": 0,
+          "defaultWeight": 24,
+          "restSeconds": 120
+        },
+        {
+          "name": "덤벨 싱글 레그 힙 쓰러스트",
+          "sets": 3,
+          "targetReps": 10,
+          "repsRange": "10",
+          "rpeTarget": 9,
+          "coreLift": false,
+          "coreLiftType": null,
+          "intensity": 0,
+          "defaultWeight": 20,
+          "restSeconds": 120
+        },
+        {
+          "name": "레그 프레스 (머신)",
+          "sets": 3,
+          "targetReps": 12,
+          "repsRange": "12",
+          "rpeTarget": 8,
+          "coreLift": false,
+          "coreLiftType": null,
+          "intensity": 0,
+          "defaultWeight": 120,
+          "restSeconds": 60
+        },
+        {
+          "name": "레그 컬",
+          "sets": 3,
+          "targetReps": 15,
+          "repsRange": "15",
+          "rpeTarget": 9,
+          "coreLift": false,
+          "coreLiftType": null,
+          "intensity": 0,
+          "defaultWeight": 20,
+          "restSeconds": 60
+        },
+        {
+          "name": "스탠딩 카프 레이즈",
+          "sets": 3,
+          "targetReps": 8,
+          "repsRange": "8",
+          "rpeTarget": 8,
+          "coreLift": false,
+          "coreLiftType": null,
+          "intensity": 0,
+          "defaultWeight": 80,
+          "restSeconds": 60
+        }
+      ]
+    },
+    {
+      "id": "Day 2",
+      "name": "Day 2 - 상체 #1",
+      "sourceVersion": "ver.2",
+      "exercises": [
+        {
+          "name": "플랫 바벨 벤치프레스",
+          "sets": 3,
+          "targetReps": 8,
+          "repsRange": "8",
+          "rpeTarget": 8,
+          "coreLift": true,
+          "coreLiftType": "bench",
+          "intensity": 0.75,
+          "defaultWeight": 0,
+          "restSeconds": 180
+        },
+        {
+          "name": "싱글 암 풀다운",
+          "sets": 3,
+          "targetReps": 8,
+          "repsRange": "8",
+          "rpeTarget": 8,
+          "coreLift": false,
+          "coreLiftType": null,
+          "intensity": 0,
+          "defaultWeight": 25,
+          "restSeconds": 120
+        },
+        {
+          "name": "덤벨 숄더 프레스",
+          "sets": 3,
+          "targetReps": 12,
+          "repsRange": "12",
+          "rpeTarget": 7,
+          "coreLift": false,
+          "coreLiftType": null,
+          "intensity": 0,
+          "defaultWeight": 20,
+          "restSeconds": 120
+        },
+        {
+          "name": "원암 덤벨 로우",
+          "sets": 3,
+          "targetReps": 12,
+          "repsRange": "12",
+          "rpeTarget": 8,
+          "coreLift": false,
+          "coreLiftType": null,
+          "intensity": 0,
+          "defaultWeight": 24,
+          "restSeconds": 120
+        },
+        {
+          "name": "머신 딥스",
+          "sets": 3,
+          "targetReps": 6,
+          "repsRange": "6",
+          "rpeTarget": 8,
+          "coreLift": false,
+          "coreLiftType": null,
+          "intensity": 0,
+          "defaultWeight": 35,
+          "restSeconds": 60
+        },
+        {
+          "name": "페이스 풀",
+          "sets": 3,
+          "targetReps": 15,
+          "repsRange": "15",
+          "rpeTarget": 9,
+          "coreLift": false,
+          "coreLiftType": null,
+          "intensity": 0,
+          "defaultWeight": 35,
+          "restSeconds": 60
+        },
+        {
+          "name": "EZ바 컬",
+          "sets": 3,
+          "targetReps": 12,
+          "repsRange": "12",
+          "rpeTarget": 9,
+          "coreLift": false,
+          "coreLiftType": null,
+          "intensity": 0,
+          "defaultWeight": 25,
+          "restSeconds": 60
+        }
+      ]
+    },
+    {
+      "id": "Day 3",
+      "name": "Day 3 - 하체 #2",
+      "sourceVersion": "ver.2",
+      "exercises": [
+        {
+          "name": "백 스쿼트 (바벨)",
+          "sets": 3,
+          "targetReps": 8,
+          "repsRange": "8",
+          "rpeTarget": 8,
+          "coreLift": true,
+          "coreLiftType": "squat",
+          "intensity": 0.75,
+          "defaultWeight": 0,
+          "restSeconds": 180
+        },
+        {
+          "name": "힙 쓰러스트",
+          "sets": 3,
+          "targetReps": 8,
+          "repsRange": "8",
+          "rpeTarget": 8,
+          "coreLift": false,
+          "coreLiftType": null,
+          "intensity": 0,
+          "defaultWeight": 80,
+          "restSeconds": 120
+        },
+        {
+          "name": "루마니안 데드리프트",
+          "sets": 3,
+          "targetReps": 12,
+          "repsRange": "12",
+          "rpeTarget": 8,
+          "coreLift": false,
+          "coreLiftType": null,
+          "intensity": 0,
+          "defaultWeight": 100,
+          "restSeconds": 120
+        },
+        {
+          "name": "레그 컬",
+          "sets": 3,
+          "targetReps": 8,
+          "repsRange": "8",
+          "rpeTarget": 9,
+          "coreLift": false,
+          "coreLiftType": null,
+          "intensity": 0,
+          "defaultWeight": 20,
+          "restSeconds": 60
+        },
+        {
+          "name": "스탠딩 카프 레이즈",
+          "sets": 3,
+          "targetReps": 6,
+          "repsRange": "6",
+          "rpeTarget": 9,
+          "coreLift": false,
+          "coreLiftType": null,
+          "intensity": 0,
+          "defaultWeight": 80,
+          "restSeconds": 60
+        },
+        {
+          "name": "힙 어브덕션",
+          "sets": 3,
+          "targetReps": 20,
+          "repsRange": "20",
+          "rpeTarget": 9,
+          "coreLift": false,
+          "coreLiftType": null,
+          "intensity": 0,
+          "defaultWeight": 40,
+          "restSeconds": 60
+        }
+      ]
+    },
+    {
+      "id": "Day 4",
+      "name": "Day 4 - 상체 #2",
+      "sourceVersion": "ver.2",
+      "exercises": [
+        {
+          "name": "오버헤드 프레스 (OHP - 바벨)",
+          "sets": 3,
+          "targetReps": 6,
+          "repsRange": "6",
+          "rpeTarget": 8,
+          "coreLift": false,
+          "coreLiftType": null,
+          "intensity": 0,
+          "defaultWeight": 30,
+          "restSeconds": 180
+        },
+        {
+          "name": "뉴트럴 그립 랫 풀다운",
+          "sets": 3,
+          "targetReps": 6,
+          "repsRange": "6",
+          "rpeTarget": 8,
+          "coreLift": false,
+          "coreLiftType": null,
+          "intensity": 0,
+          "defaultWeight": 45,
+          "restSeconds": 180
+        },
+        {
+          "name": "인클라인 덤벨 프레스",
+          "sets": 3,
+          "targetReps": 8,
+          "repsRange": "8",
+          "rpeTarget": 8,
+          "coreLift": false,
+          "coreLiftType": null,
+          "intensity": 0,
+          "defaultWeight": 24,
+          "restSeconds": 120
+        },
+        {
+          "name": "시티드 케이블 로우",
+          "sets": 3,
+          "targetReps": 8,
+          "repsRange": "8",
+          "rpeTarget": 9,
+          "coreLift": false,
+          "coreLiftType": null,
+          "intensity": 0,
+          "defaultWeight": 40,
+          "restSeconds": 120
+        },
+        {
+          "name": "케이블 레터럴 레이즈",
+          "sets": 3,
+          "targetReps": 12,
+          "repsRange": "12",
+          "rpeTarget": 8,
+          "coreLift": false,
+          "coreLiftType": null,
+          "intensity": 0,
+          "defaultWeight": 7.5,
+          "restSeconds": 60
+        },
+        {
+          "name": "리버스 펙덱",
+          "sets": 3,
+          "targetReps": 12,
+          "repsRange": "12",
+          "rpeTarget": 8,
+          "coreLift": false,
+          "coreLiftType": null,
+          "intensity": 0,
+          "defaultWeight": 25,
+          "restSeconds": 60
+        },
+        {
+          "name": "싱글 암 케이블 컬",
+          "sets": 3,
+          "targetReps": 15,
+          "repsRange": "15",
+          "rpeTarget": 9,
+          "coreLift": false,
+          "coreLiftType": null,
+          "intensity": 0,
+          "defaultWeight": 10,
+          "restSeconds": 60
+        }
+      ]
+    }
+  ]
+}
