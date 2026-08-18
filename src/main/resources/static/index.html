@@ -6049,6 +6049,13 @@
             return [8, 12];
         }
 
+        function clampTargetRepsFrontend(value, minReps, maxReps) {
+            const safeMax = maxReps < minReps ? minReps : maxReps;
+            const target = parseInt(value, 10);
+            if (!Number.isFinite(target)) return minReps;
+            return Math.min(Math.max(target, minReps), safeMax);
+        }
+
         function logSucceededFrontend(log, rpeTarget) {
             const targetRpe = parseFloat(rpeTarget ?? log.targetRpe) || 8.0;
             const rpe = parseFloat(log.rpe) || 0;
@@ -6159,7 +6166,7 @@
                 const prevLast = previous[previous.length - 1];
                 const prevWeight = parseFloat(prevLast.weight) || parseFloat(ex.defaultWeight) || getTargetWeightForExercise(fallbackEx || ex);
                 const prevTargetWeight = parseFloat(prevLast.targetWeight) || prevWeight;
-                const prevTargetReps = parseInt(prevLast.targetReps) || minReps;
+                const prevTargetReps = clampTargetRepsFrontend(prevLast.targetReps, minReps, maxReps);
                 const allSucceeded = previous.every(log => logSucceededFrontend(log, ex.rpeTarget));
 
                 if (allSucceeded && prevTargetReps < maxReps) {

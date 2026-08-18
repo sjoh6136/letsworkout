@@ -1729,6 +1729,13 @@ def parse_reps_range(reps_range):
         return 8, 12
 
 
+def clamp_target_reps(value, min_reps, max_reps):
+    if max_reps < min_reps:
+        max_reps = min_reps
+    target = as_int(value, min_reps)
+    return min(max(target, min_reps), max_reps)
+
+
 def active_gym(state):
     gyms = state.get("gyms") or []
     active_id = state.get("activeGymId")
@@ -1857,7 +1864,7 @@ def apply_progression(routines, state):
                     prev_last = previous_sorted[-1]
                     prev_weight = as_float(prev_last.get("weight"), as_float(ex.get("defaultWeight")))
                     prev_target_weight = as_float(prev_last.get("targetWeight"), prev_weight)
-                    prev_target_reps = as_int(prev_last.get("targetReps"), min_reps)
+                    prev_target_reps = clamp_target_reps(prev_last.get("targetReps"), min_reps, max_reps)
 
                     if all(set_succeeded(log, rpe_target) for log in previous_sorted):
                         if prev_target_reps < max_reps:
@@ -2090,7 +2097,11 @@ def evaluate_and_update(state, logs, split, week, day_id, routines=None):
                 total_rpe += log["rpe"]
                 rpe_count += 1
 
-        prev_target_reps = as_int(ex_logs[-1].get("targetReps"), as_int(ex_def.get("targetReps"), min_reps))
+        prev_target_reps = clamp_target_reps(
+            ex_logs[-1].get("targetReps"),
+            min_reps,
+            max_reps,
+        )
         if ex_all_success:
             if prev_target_reps < max_reps:
                 progress_report.append(f"🔼 {exercise_name}: 다음 목표 {prev_target_reps + 1}회")
