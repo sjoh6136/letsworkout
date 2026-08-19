@@ -5448,6 +5448,39 @@
             return `${minutes}:${String(restSeconds).padStart(2, "0")}`;
         }
 
+        function getRestPreferenceStorageKey() {
+            const owner = authUser?.username || authUser?.id || "single-user";
+            return `lw_rest_timer_preferences_${owner}`;
+        }
+
+        function loadRestTimerPreferences() {
+            try {
+                const raw = localStorage.getItem(getRestPreferenceStorageKey());
+                const parsed = raw ? JSON.parse(raw) : {};
+                return parsed && typeof parsed === "object" ? parsed : {};
+            } catch (err) {
+                console.warn("휴식 타이머 설정 로드 실패", err);
+                return {};
+            }
+        }
+
+        function getSavedExerciseRestSeconds(ex) {
+            const name = String(ex?.name || "").trim();
+            if (!name) return 0;
+            const value = parseInt(loadRestTimerPreferences()[name], 10);
+            return Number.isFinite(value) && value > 0 ? value : 0;
+        }
+
+        function saveExerciseRestSecondsPreference(ex, seconds) {
+            const name = String(ex?.name || "").trim();
+            const safeSeconds = parseInt(seconds, 10);
+            if (!name || !Number.isFinite(safeSeconds) || safeSeconds <= 0) return;
+
+            const preferences = loadRestTimerPreferences();
+            preferences[name] = safeSeconds;
+            localStorage.setItem(getRestPreferenceStorageKey(), JSON.stringify(preferences));
+        }
+
         function inferDefaultRestSeconds(ex) {
             const [minReps] = parseRepsRangeFrontend(ex?.repsRange);
             const name = normalizeExerciseText(ex?.name);
@@ -5465,6 +5498,11 @@
         }
 
         function getExerciseRestSeconds(ex) {
+            const saved = getSavedExerciseRestSeconds(ex);
+            if (saved > 0) {
+                if (ex) ex.restSeconds = saved;
+                return saved;
+            }
             const current = parseInt(ex?.restSeconds, 10);
             if (Number.isFinite(current) && current > 0) return current;
             const inferred = inferDefaultRestSeconds(ex);
@@ -6546,6 +6584,7 @@
             if (!ex || !Number.isFinite(safeSeconds) || safeSeconds <= 0) return;
 
             ex.restSeconds = safeSeconds;
+            saveExerciseRestSecondsPreference(ex, safeSeconds);
             updateExerciseMeta(restPickerExerciseIdx, ex);
             scheduleActiveWorkoutDraftSave(0);
             closeRestPicker();
