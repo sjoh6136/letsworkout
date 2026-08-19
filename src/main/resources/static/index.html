@@ -3264,6 +3264,7 @@
         let routineData = {}; // Keyed by split ("2", "3", "4", "5")
         let exerciseDefinitions = { large_muscles: [], small_muscles: [], muscle_groups: {} };
         let routineProgress = {};
+        let routineProgressLoaded = false;
         let pendingRoutineRestartSplit = null;
         let twoDayProgram = { version: "ver.1", nextVersion: "ver.2", week: 1, blockLength: 12, baselineLogCount: 0, phase: "training" };
         let completedLogs = [];
@@ -3855,6 +3856,7 @@
                     status: raw.status || "active",
                     split: parseInt(raw.split, 10) || oneRms.activeSplit,
                     week: parseInt(raw.week, 10) || 1,
+                    programDay: parseInt(raw.programDay, 10) || 1,
                     dayId: raw.dayId,
                     routineSnapshot,
                     dayObj: routineSnapshot,
@@ -4046,6 +4048,7 @@
                 status: "active",
                 split: oneRms.activeSplit,
                 week: getActiveWeekNum(),
+                programDay: getActiveProgramDayNum(),
                 dayId: currentDayId,
                 routineSnapshot: activeWorkoutDay,
                 dayObj: activeWorkoutDay,
@@ -4229,9 +4232,11 @@
                 });
                 document.getElementById("active-workout-view").classList.add("active");
 
-                let activeTitle = activeWorkoutDay.name || draft.dayId;
-                activeTitle = activeTitle.replace(/Day\s*\d+/i, `Week ${draft.week || getActiveWeekNum()} ${draft.dayId}`);
-                document.getElementById("active-day-title").innerText = activeTitle;
+                document.getElementById("active-day-title").innerText = getProgramWorkoutTitle(
+                    activeWorkoutDay,
+                    draft.week || getActiveWeekNum(),
+                    draft.programDay || getActiveProgramDayNum()
+                );
                 setActiveSplitSegmentUI();
 
                 renderExercises(activeWorkoutDay);
@@ -4272,8 +4277,13 @@
         }
 
         function getActiveRoutineDayCount() {
-            const activeRoutine = routineData[String(oneRms.activeSplit)];
-            return activeRoutine && activeRoutine.length ? activeRoutine.length : oneRms.activeSplit;
+            return getRoutineDayCount(oneRms.activeSplit);
+        }
+
+        function getRoutineDayCount(split = oneRms.activeSplit) {
+            const splitNum = parseInt(split, 10) || oneRms.activeSplit;
+            const activeRoutine = routineData[String(splitNum)];
+            return activeRoutine && activeRoutine.length ? activeRoutine.length : splitNum;
         }
 
         function getRoutineProgress(split = oneRms.activeSplit) {
@@ -4285,6 +4295,8 @@
                 blockLength: 12,
                 baselineLogCount: 0,
                 week: 1,
+                programDay: 1,
+                completedSessions: 0,
                 phase: "training",
                 nextRecommendedDay: "Day 1"
             };
@@ -4294,72 +4306,117 @@
         function applyRoutineProgressPayload(data = {}) {
             if (data.routineProgress) {
                 routineProgress = { ...routineProgress, ...data.routineProgress };
+                routineProgressLoaded = true;
             }
             if (data.progress) {
                 routineProgress = { ...routineProgress, ...data.progress };
+                routineProgressLoaded = true;
+            }
+            if (data.status?.nextRecommendedDay || data.status?.programDay) {
+                const splitKey = String(parseInt(oneRms.activeSplit, 10) || 5);
+                const existing = routineProgress[splitKey] || {};
+                routineProgress[splitKey] = {
+                    ...existing,
+                    nextRecommendedDay: data.status.nextRecommendedDay || existing.nextRecommendedDay || "Day 1",
+                    routineDayCount: data.status.routineDayCount ?? existing.routineDayCount,
+                    week: data.status.week ?? existing.week,
+                    programDay: data.status.programDay ?? existing.programDay,
+                    completedSessions: data.status.completedSessions ?? existing.completedSessions,
+                    lastCompletedDay: data.status.lastCompletedDay ?? existing.lastCompletedDay
+                };
+                routineProgressLoaded = routineProgressLoaded || !!data.status.programDay;
+            }
+            if (data.nextRecommendedDay || data.programDay) {
+                const splitKey = String(parseInt(oneRms.activeSplit, 10) || 5);
+                const existing = routineProgress[splitKey] || {};
+                routineProgress[splitKey] = {
+                    ...existing,
+                    nextRecommendedDay: data.nextRecommendedDay || existing.nextRecommendedDay || "Day 1",
+                    routineDayCount: data.routineDayCount ?? existing.routineDayCount,
+                    week: data.week ?? existing.week,
+                    programDay: data.programDay ?? existing.programDay,
+                    completedSessions: data.completedSessions ?? existing.completedSessions,
+                    lastCompletedDay: data.lastCompletedDay ?? existing.lastCompletedDay
+                };
+                routineProgressLoaded = routineProgressLoaded || !!data.programDay;
             }
             if (data.twoDayProgram || data.status?.twoDayProgram) {
                 routineProgress["2"] = { ...(routineProgress["2"] || {}), ...(data.twoDayProgram || data.status.twoDayProgram) };
+                routineProgressLoaded = true;
             }
             if (routineProgress["2"]) {
                 twoDayProgram = { ...twoDayProgram, ...routineProgress["2"] };
             }
         }
 
-        // Calculate current active week number based on logs for the active split
-        function getActiveWeekNum() {
-            const activeSplit = oneRms.activeSplit;
-            const activeDayCount = getActiveRoutineDayCount();
+        function getSplitLogsSinceBaseline(split = oneRms.activeSplit) {
+            const activeSplit = parseInt(split, 10) || oneRms.activeSplit;
             const baseline = parseInt(getRoutineProgress(activeSplit).baselineLogCount, 10) || 0;
-            const relevantLogs = (completedLogs || [])
+            return (completedLogs || [])
                 .filter(log => parseInt(log.split, 10) === activeSplit)
                 .slice(baseline);
-            
-            if (!relevantLogs || relevantLogs.length === 0) {
-                return 1;
+        }
+
+        function getWorkoutSessionsFromLogs(logs = []) {
+            const sessions = [];
+            let lastKey = null;
+            logs.forEach(log => {
+                const key = log.submissionId
+                    ? String(log.submissionId)
+                    : [log.date || "", log.split || "", log.week || "", log.day || ""].join("|");
+                if (key === lastKey) return;
+                sessions.push(log);
+                lastKey = key;
+            });
+            return sessions;
+        }
+
+        function getProgramPosition(split = oneRms.activeSplit) {
+            const splitNum = parseInt(split, 10) || oneRms.activeSplit;
+            const progress = getRoutineProgress(splitNum);
+            const progressWeek = parseInt(progress.week, 10);
+            const progressDay = parseInt(progress.programDay, 10);
+            if (routineProgressLoaded && Number.isFinite(progressWeek) && progressWeek > 0 && Number.isFinite(progressDay) && progressDay > 0) {
+                return {
+                    week: progressWeek,
+                    programDay: progressDay,
+                    completedSessions: parseInt(progress.completedSessions, 10) || 0
+                };
             }
-            
-            // Find the latest logged entry that belongs specifically to this active split size
-            let lastLog = null;
-            for (let i = relevantLogs.length - 1; i >= 0; i--) {
-                const log = relevantLogs[i];
-                if (parseInt(log.split, 10) === activeSplit) {
-                    lastLog = log;
-                    break;
-                }
-            }
-            
-            if (!lastLog) {
-                return 1;
-            }
-            
-            const lastDStr = lastLog.day;
-            const lastD = lastDStr ? parseInt(lastDStr.replaceAll(/[^0-9]/g, "")) : 1;
-            const lastW = lastLog.week || 1;
-            
-            if (lastD >= activeDayCount) {
-                return lastW + 1;
-            }
-            return lastW;
+
+            const dayCount = Math.max(1, getRoutineDayCount(splitNum));
+            const sessions = getWorkoutSessionsFromLogs(getSplitLogsSinceBaseline(splitNum));
+            const nextSession = sessions.length + 1;
+            return {
+                week: Math.floor((nextSession - 1) / dayCount) + 1,
+                programDay: ((nextSession - 1) % dayCount) + 1,
+                completedSessions: sessions.length
+            };
+        }
+
+        // Calculate current active week number based on completed workout sessions.
+        function getActiveWeekNum() {
+            return getProgramPosition(oneRms.activeSplit).week;
+        }
+
+        function getActiveProgramDayNum() {
+            return getProgramPosition(oneRms.activeSplit).programDay;
         }
 
         function getNextRoutineDayIdForSplit(split = oneRms.activeSplit) {
             const splitNum = parseInt(split, 10) || oneRms.activeSplit;
             const splitKey = String(splitNum);
             const progress = getRoutineProgress(splitNum);
-            if (progress.nextRecommendedDay) {
+            if (routineProgressLoaded && progress.nextRecommendedDay) {
                 return progress.nextRecommendedDay;
             }
 
             const activeRoutine = routineData[splitKey] || [];
             const dayCount = activeRoutine.length || splitNum;
-            const baseline = parseInt(progress.baselineLogCount, 10) || 0;
-            const logs = (completedLogs || [])
-                .filter(log => parseInt(log.split, 10) === splitNum)
-                .slice(baseline);
-            if (!logs.length) return "Day 1";
+            const sessions = getWorkoutSessionsFromLogs(getSplitLogsSinceBaseline(splitNum));
+            if (!sessions.length) return "Day 1";
 
-            const lastLog = logs[logs.length - 1];
+            const lastLog = sessions[sessions.length - 1];
             const lastDay = getRoutineDayNumber(lastLog.day, 0);
             const nextDay = lastDay >= dayCount ? 1 : lastDay + 1;
             return `Day ${nextDay}`;
@@ -4992,9 +5049,7 @@
                     }
                     return;
                 }
-                let recommendName = nextDay.name;
-                recommendName = recommendName.replace(/Day\s*\d+/i, `Week ${currentWeek} ${nextDay.id}`);
-                document.getElementById("recommend-name").innerText = recommendName;
+                document.getElementById("recommend-name").innerText = getProgramWorkoutTitle(nextDay, currentWeek, getActiveProgramDayNum());
                 
                 const descriptions = {
                     2: {
@@ -5047,6 +5102,17 @@
                 .split("|")
                 .pop()
                 .trim();
+        }
+
+        function getRoutineSessionTitle(day) {
+            return getRoutineTitle(day)
+                .replace(/^Day\s*\d+\s*[-–]\s*/i, "")
+                .trim();
+        }
+
+        function getProgramWorkoutTitle(day, week = getActiveWeekNum(), programDay = getActiveProgramDayNum()) {
+            const title = getRoutineSessionTitle(day) || getRoutineTitle(day);
+            return `Week ${week} Day ${programDay} - ${title}`;
         }
 
         function getTopSetLabel(exercise) {
@@ -5161,11 +5227,11 @@
             if (!activeRoutine) return;
 
             const currentWeek = getActiveWeekNum();
+            const currentProgramDay = getActiveProgramDayNum();
 
-            activeRoutine.forEach((day, idx) => {
+            activeRoutine.forEach(day => {
                 const card = document.createElement("article");
                 card.className = "routine-select-card";
-                const dayNumber = getRoutineDayNumber(day.id, idx);
                 const title = getRoutineTitle(day);
 
                 card.innerHTML = `
@@ -5179,12 +5245,12 @@
                         </div>
                         <button class="routine-start-btn" type="button">
                             <span class="routine-start-play">▶</span>
-                            <span>W${currentWeek} · D${dayNumber} 시작</span>
+                            <span>W${currentWeek} · D${currentProgramDay} 시작</span>
                         </button>
                     </div>
                     <div class="routine-summary">
                         <div class="routine-summary-table">
-                            <div class="routine-summary-head title">Week ${currentWeek} · Day ${dayNumber}</div>
+                            <div class="routine-summary-head title">Week ${currentWeek} · Day ${currentProgramDay}</div>
                             <div class="routine-summary-head">Set</div>
                             <div class="routine-summary-head">Top set</div>
                             ${buildRoutineSummaryRows(day)}
@@ -5328,10 +5394,7 @@
             resetWorkoutScroll();
 
             // Setup active details
-            const currentWeek = getActiveWeekNum();
-            let activeTitle = dayObj.name;
-            activeTitle = activeTitle.replace(/Day\s*\d+/i, `Week ${currentWeek} ${dayObj.id}`);
-            document.getElementById("active-day-title").innerText = activeTitle;
+            document.getElementById("active-day-title").innerText = getProgramWorkoutTitle(dayObj);
             
             renderExercises(activeWorkoutDay);
             

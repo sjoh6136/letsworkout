@@ -1672,6 +1672,56 @@ def split_log_count(state, split):
     return sum(1 for log in state.get("logs", []) if as_int(log.get("split")) == split)
 
 
+def split_logs_since_baseline(state, split, baseline):
+    split = as_int(split, 0)
+    split_logs = [log for log in state.get("logs", []) if as_int(log.get("split")) == split]
+    baseline = min(max(0, as_int(baseline, 0)), len(split_logs))
+    return split_logs[baseline:], baseline
+
+
+def workout_sessions_from_logs(logs):
+    sessions = []
+    last_key = None
+    for log in logs:
+        key = str(log.get("submissionId") or "").strip()
+        if not key:
+            key = "|".join([
+                str(log.get("date") or ""),
+                str(log.get("split") or ""),
+                str(log.get("week") or ""),
+                str(log.get("day") or ""),
+            ])
+        if key == last_key:
+            continue
+        sessions.append(log)
+        last_key = key
+    return sessions
+
+
+def routine_position_for_split(state, split, entry, routine_day_count):
+    routine_day_count = max(1, as_int(routine_day_count, 1))
+    tracked_logs, baseline = split_logs_since_baseline(state, split, entry.get("baselineLogCount"))
+    sessions = workout_sessions_from_logs(tracked_logs)
+    next_session = len(sessions) + 1
+    active_week = ((next_session - 1) // routine_day_count) + 1
+    program_day = ((next_session - 1) % routine_day_count) + 1
+    next_recommended = "Day 1"
+    last_completed = None
+    if sessions:
+        last_day = day_number(sessions[-1].get("day"))
+        last_completed = f"Day {last_day}"
+        next_num = last_day + 1 if last_day < routine_day_count else 1
+        next_recommended = f"Day {next_num}"
+    return {
+        "baseline": baseline,
+        "week": active_week,
+        "programDay": program_day,
+        "completedSessions": len(sessions),
+        "lastCompletedDay": last_completed,
+        "nextRecommendedDay": next_recommended,
+    }
+
+
 def routine_progress_payload(state, username="", user_id="", progress=None, routines=None):
     progress = normalize_routine_progress(progress or load_routine_progress(username, user_id))
     routines = routines or routines_for_progress(progress)
@@ -1679,20 +1729,7 @@ def routine_progress_payload(state, username="", user_id="", progress=None, rout
     for split in ROUTINE_SPLITS:
         entry = normalize_routine_progress_entry(progress.get(split), split)
         routine_day_count = len(routines.get(split, [])) or as_int(split, 1)
-        split_logs = [log for log in state.get("logs", []) if as_int(log.get("split")) == as_int(split)]
-        baseline = min(max(0, as_int(entry.get("baselineLogCount"), 0)), len(split_logs))
-        tracked_logs = split_logs[baseline:]
-        active_week = 1
-        next_recommended = "Day 1"
-        last_completed = None
-        if tracked_logs:
-            last_log = tracked_logs[-1]
-            last_day = day_number(last_log.get("day"))
-            last_week = as_int(last_log.get("week"), 1)
-            active_week = last_week + 1 if last_day >= routine_day_count else last_week
-            last_completed = f"Day {last_day}"
-            next_num = last_day + 1 if last_day < routine_day_count else 1
-            next_recommended = f"Day {next_num}"
+        position = routine_position_for_split(state, split, entry, routine_day_count)
 
         block_length = max(1, as_int(entry.get("blockLength"), 12))
         payload[split] = {
@@ -1700,12 +1737,14 @@ def routine_progress_payload(state, username="", user_id="", progress=None, rout
             "version": entry.get("version", ""),
             "nextVersion": entry.get("nextVersion", ""),
             "blockLength": block_length,
-            "baselineLogCount": baseline,
+            "baselineLogCount": position["baseline"],
             "startedAt": entry.get("startedAt", ""),
-            "week": active_week,
-            "phase": "rest" if active_week > block_length else "training",
-            "lastCompletedDay": last_completed,
-            "nextRecommendedDay": next_recommended,
+            "week": position["week"],
+            "programDay": position["programDay"],
+            "completedSessions": position["completedSessions"],
+            "phase": "rest" if position["week"] > block_length else "training",
+            "lastCompletedDay": position["lastCompletedDay"],
+            "nextRecommendedDay": position["nextRecommendedDay"],
             "routineDayCount": routine_day_count,
         }
     return payload
@@ -1913,36 +1952,18 @@ def workout_status_payload(state, routines=None, progress=None):
     routines = routines or load_routines()
     routine_days = routines.get(str(active_split), [])
     routine_day_count = len(routine_days) or active_split
-    logs = state.get("logs", [])
     progress = normalize_routine_progress(progress or {})
     active_progress = active_routine_progress(progress, active_split)
-    baseline = max(0, as_int(active_progress.get("baselineLogCount"), 0))
-    split_seen = 0
-    scoped_logs = []
-    for log in logs:
-        if as_int(log.get("split")) != active_split:
-            scoped_logs.append(log)
-            continue
-        if split_seen >= baseline:
-            scoped_logs.append(log)
-        split_seen += 1
-    logs = scoped_logs
-    next_recommended = "Day 1"
-    last_completed = None
-
-    for log in reversed(logs):
-        if as_int(log.get("split")) == active_split:
-            last_num = day_number(log.get("day"))
-            last_completed = f"Day {last_num}"
-            next_num = last_num + 1 if last_num < routine_day_count else 1
-            next_recommended = f"Day {next_num}"
-            break
+    position = routine_position_for_split(state, active_split, active_progress, routine_day_count)
 
     return {
         "sheetsConnected": sheets_connected(),
         "routineDayCount": routine_day_count,
-        "lastCompletedDay": last_completed,
-        "nextRecommendedDay": next_recommended,
+        "week": position["week"],
+        "programDay": position["programDay"],
+        "completedSessions": position["completedSessions"],
+        "lastCompletedDay": position["lastCompletedDay"],
+        "nextRecommendedDay": position["nextRecommendedDay"],
     }
 
 
