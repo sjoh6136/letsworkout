@@ -37,7 +37,7 @@ AUTH_COOKIE_NAME = "lw_session"
 AUTH_SESSION_DAYS = max(1, int(os.environ.get("AUTH_SESSION_DAYS", "180")))
 AUTH_PASSWORD_ITERATIONS = 200_000
 AUTH_CACHE_SECONDS = max(60, int(os.environ.get("AUTH_CACHE_SECONDS", str(12 * 60 * 60))))
-STATE_CACHE_SECONDS = max(0, int(os.environ.get("STATE_CACHE_SECONDS", "20")))
+STATE_CACHE_SECONDS = max(0, int(os.environ.get("STATE_CACHE_SECONDS", "180")))
 APP_RELEASE = "2026-08-18-routine-progress-v1"
 APP_BUILD_COMMIT = os.environ.get("RENDER_GIT_COMMIT") or os.environ.get("SOURCE_VERSION") or ""
 _SHEETS_STORE = None
@@ -934,11 +934,13 @@ def state_cache_key(username=""):
     return safe_username_suffix(username) or "__shared__"
 
 
-def cached_state(username=""):
+def cached_state(username="", allow_expired=False):
     if STATE_CACHE_SECONDS <= 0:
         return None
     cached = _STATE_CACHE.get(state_cache_key(username))
-    if not cached or cached.get("expires_at", 0) <= time.time():
+    if not cached:
+        return None
+    if not allow_expired and cached.get("expires_at", 0) <= time.time():
         return None
     return copy.deepcopy(cached.get("state"))
 
@@ -1409,21 +1411,30 @@ def load_file_state(username=""):
 
 def load_state(force_refresh=False, username="", user_id=""):
     username = normalize_username(username)
+    stale_state = None
     if not force_refresh:
         state = cached_state(username)
         if state is not None:
             return state
+        stale_state = cached_state(username, allow_expired=True)
 
     state = load_file_state(username)
     store = sheets_store()
     loaded_sheet_state = False
+    logs_load_failed = False
     if store.connected:
         try:
             state["oneRms"].update(store.load_one_rms(username, user_id))
+        except Exception as exc:
+            print(f"[warn] failed to load 1RM from Google Sheets, using local file state: {exc}")
+        try:
             state["logs"] = store.load_logs(username, user_id)
             loaded_sheet_state = True
         except Exception as exc:
-            print(f"[warn] failed to load Google Sheets state, using local file state: {exc}")
+            logs_load_failed = True
+            print(f"[warn] failed to load workout logs from Google Sheets, using cached/local state: {exc}")
+            if stale_state and stale_state.get("logs"):
+                state["logs"] = stale_state.get("logs", [])
         try:
             state["replacements"] = merge_replacements(state.get("replacements", []), store.load_replacements(username, user_id))
         except Exception as exc:
@@ -1444,7 +1455,8 @@ def load_state(force_refresh=False, username="", user_id=""):
     state = state_for_user(state, user_id, username)
     if loaded_sheet_state:
         save_json(state_file_for_username(username), state)
-    set_state_cache(state, username)
+    if not (logs_load_failed and not state.get("logs")):
+        set_state_cache(state, username)
     return state
 
 
