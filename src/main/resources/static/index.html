@@ -377,6 +377,29 @@
             z-index: 2;
         }
 
+        #active-workout-header.cardio-mode .active-topbar-main {
+            grid-template-columns: minmax(0, 1fr) 76px;
+            justify-items: center;
+        }
+
+        #active-workout-header.cardio-mode .rest-metric,
+        #active-workout-header.cardio-mode .volume-metric,
+        #active-workout-header.cardio-mode .active-rest-progress {
+            display: none;
+        }
+
+        #active-workout-header.cardio-mode .rest-timer-pill {
+            position: static;
+            transform: none;
+            grid-column: 1;
+            width: clamp(150px, 52vw, 190px);
+            justify-self: center;
+        }
+
+        #active-workout-header.cardio-mode .finish-btn {
+            grid-column: 2;
+        }
+
         /* Bottom Sticky Tabbar */
         .bottom-nav {
             position: fixed;
@@ -918,6 +941,64 @@
             color: #dedce8;
         }
 
+        .quick-log-sections {
+            display: grid;
+            grid-template-columns: 1fr;
+            gap: 12px;
+            margin-top: 18px;
+        }
+
+        .quick-log-card {
+            border: 1px solid var(--card-border);
+            border-radius: 16px;
+            padding: 16px;
+            background: rgba(255, 255, 255, 0.035);
+            box-shadow: var(--shadow-premium);
+        }
+
+        .quick-log-card.free-workout {
+            border-color: rgba(255, 215, 0, 0.2);
+            background: linear-gradient(135deg, rgba(255, 215, 0, 0.08), rgba(255, 255, 255, 0.025));
+        }
+
+        .quick-log-card.cardio {
+            border-color: rgba(52, 199, 89, 0.22);
+            background: linear-gradient(135deg, rgba(52, 199, 89, 0.1), rgba(255, 255, 255, 0.025));
+        }
+
+        .quick-log-title {
+            color: #FFFFFF;
+            font-size: 16px;
+            font-weight: 900;
+            margin-bottom: 4px;
+        }
+
+        .quick-log-copy {
+            color: var(--text-muted);
+            font-size: 12px;
+            font-weight: 700;
+            line-height: 1.45;
+            margin-bottom: 13px;
+        }
+
+        .quick-log-start {
+            width: 100%;
+            height: 44px;
+            border: 0;
+            border-radius: 12px;
+            background: var(--accent-gradient);
+            color: #111111;
+            font-family: inherit;
+            font-size: 13px;
+            font-weight: 900;
+            cursor: pointer;
+            box-shadow: 0 8px 18px rgba(255, 174, 0, 0.2);
+        }
+
+        .quick-log-start:active {
+            transform: scale(0.97);
+        }
+
         /* Calendar View CSS Updates */
         .calendar-header-row {
             position: relative;
@@ -1089,6 +1170,15 @@
             top: 7px;
         }
 
+        .calendar-marker.cardio-marker {
+            background-color: #34C759;
+            left: calc(50% + 4px);
+        }
+
+        .calendar-marker.cardio-marker.solo {
+            left: auto;
+        }
+
         .calendar-day-label {
             font-size: 8px;
             color: var(--accent-color);
@@ -1096,6 +1186,10 @@
             bottom: 3px;
             font-weight: 800;
             transform: scale(0.9);
+        }
+
+        .calendar-day-label.cardio-only {
+            color: #8fe3a6;
         }
 
         /* Log Detail View */
@@ -1176,6 +1270,23 @@
             border-color: rgba(255, 59, 48, 0.3);
             background: rgba(255, 59, 48, 0.05);
             color: #FF453A;
+        }
+
+        .log-item.cardio-log {
+            border-color: rgba(52, 199, 89, 0.12);
+        }
+
+        .log-cardio-badge {
+            display: inline-flex;
+            align-items: center;
+            min-height: 28px;
+            padding: 0 10px;
+            border-radius: 999px;
+            border: 1px solid rgba(52, 199, 89, 0.24);
+            background: rgba(52, 199, 89, 0.08);
+            color: #8fe3a6;
+            font-size: 12px;
+            font-weight: 900;
         }
 
         /* Settings CSS */
@@ -1977,6 +2088,48 @@
 
         .replace-exercise-btn:active {
             transform: scale(0.96);
+        }
+
+        .free-workout-add-card,
+        .cardio-active-card {
+            border: 1px dashed rgba(255, 215, 0, 0.32);
+            border-radius: 16px;
+            padding: 16px;
+            background: rgba(255, 215, 0, 0.055);
+            margin-bottom: 16px;
+        }
+
+        .free-workout-add-card button {
+            width: 100%;
+            height: 46px;
+            border: 1px solid rgba(255, 215, 0, 0.38);
+            border-radius: 12px;
+            background: rgba(255, 215, 0, 0.12);
+            color: var(--accent-color);
+            font-family: inherit;
+            font-size: 14px;
+            font-weight: 900;
+            cursor: pointer;
+        }
+
+        .cardio-active-card {
+            border-style: solid;
+            border-color: rgba(52, 199, 89, 0.24);
+            background: rgba(52, 199, 89, 0.075);
+        }
+
+        .cardio-active-card strong {
+            display: block;
+            color: #FFFFFF;
+            font-size: 18px;
+            font-weight: 900;
+            margin-bottom: 4px;
+        }
+
+        .cardio-active-card span {
+            color: #8fe3a6;
+            font-size: 12px;
+            font-weight: 900;
         }
 
         .set-swipe-wrap {
@@ -2855,6 +3008,19 @@
         <div class="split-grid" id="split-grid">
             <!-- Populated via JavaScript -->
         </div>
+
+        <div class="quick-log-sections">
+            <article class="quick-log-card free-workout">
+                <div class="quick-log-title">자유운동</div>
+                <div class="quick-log-copy">루틴과 별개로 오늘 할 종목을 직접 골라 기록합니다.</div>
+                <button class="quick-log-start" type="button" onclick="startFreeWorkout()">자유운동 시작</button>
+            </article>
+            <article class="quick-log-card cardio">
+                <div class="quick-log-title">유산소</div>
+                <div class="quick-log-copy">유산소 한 날을 체크하고 운동 시간을 기록합니다.</div>
+                <button class="quick-log-start" type="button" onclick="startCardioWorkout()">유산소 시작</button>
+            </article>
+        </div>
     </section>
 
     <!-- 2. CALENDAR VIEW SECTION -->
@@ -3268,9 +3434,11 @@
         let pendingRoutineRestartSplit = null;
         let twoDayProgram = { version: "ver.1", nextVersion: "ver.2", week: 1, blockLength: 12, baselineLogCount: 0, phase: "training" };
         let completedLogs = [];
+        let cardioLogs = [];
         let replacementLogs = [];
         let currentDayId = "Day 1";
         let activeWorkoutDay = null;
+        let activeWorkoutMode = "routine";
         let replacementExerciseIdx = null;
         let nextRecommendedDayId = "Day 1";
         let settingsSaveVersion = 0;
@@ -3329,6 +3497,15 @@
             updateActiveWorkoutHeaderSpace();
             requestAnimationFrame(updateActiveWorkoutHeaderSpace);
             setTimeout(updateActiveWorkoutHeaderSpace, 120);
+        }
+
+        function setActiveWorkoutMode(mode = "routine") {
+            activeWorkoutMode = mode;
+            const header = document.getElementById("active-workout-header");
+            if (header) {
+                header.classList.toggle("cardio-mode", mode === "cardio");
+            }
+            scheduleActiveWorkoutHeaderSpaceUpdate();
         }
 
         function setActiveWorkoutHeaderVisible(isVisible) {
@@ -3721,10 +3898,41 @@
             throw lastError || new Error("저장 요청 실패");
         }
 
+        async function sendCardioFinishPayload(payload) {
+            const res = await apiFetch("/api/cardio/finish", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify(payload),
+                timeoutMs: FINISH_REQUEST_TIMEOUT_MS
+            }, 0);
+            if (res.ok) return await res.json();
+
+            const message = await readApiError(res);
+            const err = new Error(message);
+            err.status = res.status;
+            err.retryable = RETRYABLE_STATUS_CODES.has(res.status);
+            throw err;
+        }
+
+        async function submitCardioPayloadWithRetry(payload, attempts = 1) {
+            let lastError = null;
+            for (let attempt = 0; attempt < attempts; attempt++) {
+                try {
+                    return await sendCardioFinishPayload(payload);
+                } catch (err) {
+                    lastError = err;
+                    if (err.retryable === false || attempt === attempts - 1) break;
+                    await delay(700 * (attempt + 1));
+                }
+            }
+            throw lastError || new Error("유산소 저장 요청 실패");
+        }
+
         function handleWorkoutFinishSaved(data, submissionId) {
             activeWorkoutDraftDisabled = true;
             clearActiveWorkoutDraft();
             activeWorkoutDay = null;
+            setActiveWorkoutMode("routine");
             removePendingWorkoutSubmission(submissionId);
             if (activeFinishPendingSubmissionId === submissionId) {
                 activeFinishPendingSubmissionId = null;
@@ -4224,6 +4432,7 @@
                 oneRms.activeSplit = parseInt(split, 10) || oneRms.activeSplit;
                 currentDayId = draft.dayId;
                 activeWorkoutDay = JSON.parse(JSON.stringify(draft.routineSnapshot || draft.dayObj));
+                setActiveWorkoutMode("routine");
 
                 document.getElementById("bottom-nav").style.display = "none";
                 setActiveWorkoutHeaderVisible(true);
@@ -4541,6 +4750,9 @@
             if (Array.isArray(data.logs)) {
                 completedLogs = data.logs;
             }
+            if (Array.isArray(data.cardioLogs)) {
+                cardioLogs = data.cardioLogs;
+            }
             if (Array.isArray(data.replacements)) {
                 replacementLogs = data.replacements;
             }
@@ -4581,6 +4793,7 @@
                     fetchRoutineProgressStatus(),
                     fetchStatus(),
                     fetchLogs(),
+                    fetchCardioLogs(),
                     fetchReplacementLogs()
                 ]);
             }
@@ -5295,6 +5508,16 @@
             }
         }
 
+        async function fetchCardioLogs() {
+            try {
+                const res = await apiFetch("/api/cardio/logs");
+                cardioLogs = await res.json();
+                renderCalendar();
+            } catch (err) {
+                console.error("유산소 기록 조회 실패", err);
+            }
+        }
+
         async function fetchReplacementLogs() {
             try {
                 const res = await apiFetch("/api/workout/replacements");
@@ -5345,6 +5568,53 @@
             beginWorkout(dayId);
         }
 
+        function openActiveWorkoutView() {
+            document.getElementById("bottom-nav").style.display = "none";
+            setActiveWorkoutHeaderVisible(true);
+            document.querySelectorAll(".view-section").forEach(sec => {
+                sec.classList.remove("active");
+            });
+            document.getElementById("active-workout-view").classList.add("active");
+            resetWorkoutScroll();
+        }
+
+        function startFreeWorkout() {
+            setActiveWorkoutMode("free");
+            activeWorkoutDraftDisabled = true;
+            activeWorkoutDraftId = null;
+            activeWorkoutDraftCreatedAt = Date.now();
+            activeWorkoutSubmissionId = null;
+            currentDayId = "Free Workout";
+            activeWorkoutDay = {
+                id: "Free Workout",
+                name: "자유운동",
+                description: "",
+                exercises: []
+            };
+            openActiveWorkoutView();
+            document.getElementById("active-day-title").innerText = "자유운동";
+            renderExercises(activeWorkoutDay);
+            stopRestTimer();
+            startStopwatch();
+            calculateVolume();
+        }
+
+        function startCardioWorkout() {
+            setActiveWorkoutMode("cardio");
+            activeWorkoutDraftDisabled = true;
+            activeWorkoutDraftId = null;
+            activeWorkoutDraftCreatedAt = Date.now();
+            activeWorkoutSubmissionId = null;
+            activeWorkoutDay = null;
+            currentDayId = "Cardio";
+            openActiveWorkoutView();
+            document.getElementById("active-day-title").innerText = "유산소";
+            renderCardioWorkout();
+            stopRestTimer();
+            startStopwatch();
+            document.getElementById("vol-counter").innerText = "0";
+        }
+
         function resetWorkoutScroll() {
             const scrollTop = () => {
                 document.documentElement.scrollTop = 0;
@@ -5380,18 +5650,11 @@
 
             const dayObj = activeRoutine.find(d => d.id === dayId);
             if (!dayObj) return;
+            setActiveWorkoutMode("routine");
             activeWorkoutDay = JSON.parse(JSON.stringify(dayObj));
 
             // Hide tabbar and show workout header
-            document.getElementById("bottom-nav").style.display = "none";
-            setActiveWorkoutHeaderVisible(true);
-            
-            // Switch view
-            document.querySelectorAll(".view-section").forEach(sec => {
-                sec.classList.remove("active");
-            });
-            document.getElementById("active-workout-view").classList.add("active");
-            resetWorkoutScroll();
+            openActiveWorkoutView();
 
             // Setup active details
             document.getElementById("active-day-title").innerText = getProgramWorkoutTitle(dayObj);
@@ -5410,12 +5673,33 @@
             const container = document.getElementById("workout-container");
             container.innerHTML = "";
 
-            dayObj.exercises.forEach((ex, exIdx) => {
+            (dayObj.exercises || []).forEach((ex, exIdx) => {
                 container.appendChild(createExerciseCard(ex, exIdx));
             });
+
+            if (activeWorkoutMode === "free") {
+                const addCard = document.createElement("div");
+                addCard.className = "free-workout-add-card";
+                addCard.innerHTML = `<button type="button" onclick="openFreeExercisePicker()">운동 추가</button>`;
+                container.appendChild(addCard);
+            }
+        }
+
+        function renderCardioWorkout() {
+            const container = document.getElementById("workout-container");
+            container.innerHTML = `
+                <div class="cardio-active-card">
+                    <strong>오늘 유산소</strong>
+                    <span>${getLocalDateString()}</span>
+                </div>
+            `;
         }
 
         function getRoutineBaseSets(exIdx) {
+            if (activeWorkoutMode === "free" && activeWorkoutDay?.exercises?.[exIdx]) {
+                const ex = activeWorkoutDay.exercises[exIdx];
+                return parseInt(ex.baseSets || ex.sets, 10) || 0;
+            }
             const activeRoutine = routineData[String(oneRms.activeSplit)];
             const routineDay = activeRoutine?.find(d => d.id === currentDayId);
             const routineEx = routineDay?.exercises?.[exIdx];
@@ -5791,9 +6075,9 @@
         function addSet(exIdx) {
             const currentSplitStr = String(oneRms.activeSplit);
             const activeRoutine = routineData[currentSplitStr];
-            if (!activeRoutine) return;
+            if (!activeRoutine && activeWorkoutMode !== "free") return;
 
-            const dayObj = activeWorkoutDay || activeRoutine.find(d => d.id === currentDayId);
+            const dayObj = activeWorkoutDay || activeRoutine?.find(d => d.id === currentDayId);
             if (!dayObj) return;
 
             const ex = dayObj.exercises[exIdx];
@@ -6137,6 +6421,9 @@
         }
 
         function getActiveWorkoutDayObj() {
+            if (activeWorkoutMode === "free" && activeWorkoutDay) {
+                return activeWorkoutDay;
+            }
             const currentSplitStr = String(oneRms.activeSplit);
             const activeRoutine = routineData[currentSplitStr];
             if (!activeRoutine) return null;
@@ -6308,6 +6595,26 @@
             }
 
             ex.targetWeight = resolveEquipmentWeightFrontend(name, ex.targetWeight);
+            return ex;
+        }
+
+        function normalizeFreeWorkoutExercise(name) {
+            const fallback = {
+                name,
+                sets: 3,
+                repsRange: "8-12",
+                rpeTarget: 8.0,
+                targetReps: 8,
+                defaultWeight: 0.0,
+                targetWeight: 0.0,
+                coreLift: false,
+                intensity: 0.0
+            };
+            const ex = buildReplacementExercise(name, fallback);
+            ex.originalExercise = "";
+            ex.replacedExercise = "";
+            ex.replacementApplied = false;
+            ex.baseSets = parseInt(ex.sets, 10) || 3;
             return ex;
         }
 
@@ -6694,6 +7001,49 @@
             document.getElementById("exercise-replace-overlay").classList.add("active");
         }
 
+        function openFreeExercisePicker() {
+            if (activeWorkoutMode !== "free" || !activeWorkoutDay) return;
+
+            replacementExerciseIdx = null;
+            document.getElementById("replace-exercise-title").innerText = "자유운동 추가";
+            document.getElementById("replace-exercise-subtitle").innerText = "오늘 할 종목 선택";
+
+            const list = document.getElementById("replacement-exercise-list");
+            list.innerHTML = "";
+            const candidates = getAllKnownExerciseNames().sort((a, b) => a.localeCompare(b, "ko"));
+
+            candidates.forEach(name => {
+                const exercise = normalizeFreeWorkoutExercise(name);
+                const recent = exercise.previousLog
+                    ? `최근 ${formatKg(exercise.previousLog.weight)}kg × ${exercise.previousLog.reps}`
+                    : "최근 기록 없음";
+                const item = document.createElement("div");
+                item.className = "replacement-item";
+                item.innerHTML = `
+                    <div>
+                        <strong>${name}</strong>
+                        <span>${getExerciseMuscleGroup(name)} · ${exercise.sets}세트 × ${exercise.repsRange}회 · ${recent}</span>
+                    </div>
+                `;
+                const button = document.createElement("button");
+                button.type = "button";
+                button.innerText = "추가";
+                button.addEventListener("click", () => addFreeExerciseByName(name));
+                item.appendChild(button);
+                list.appendChild(item);
+            });
+
+            document.getElementById("exercise-replace-overlay").classList.add("active");
+        }
+
+        function addFreeExerciseByName(name) {
+            if (activeWorkoutMode !== "free" || !activeWorkoutDay) return;
+            activeWorkoutDay.exercises.push(normalizeFreeWorkoutExercise(name));
+            renderExercises(activeWorkoutDay);
+            closeExerciseReplacement();
+            calculateVolume();
+        }
+
         function replaceExerciseWithName(name) {
             const dayObj = getActiveWorkoutDayObj();
             const exIdx = replacementExerciseIdx;
@@ -6759,6 +7109,8 @@
             stopStopwatch();
             stopRestTimer();
             activeWorkoutDay = null;
+            setActiveWorkoutMode("routine");
+            activeWorkoutDraftDisabled = false;
             clearActiveWorkoutDraft();
             setActiveWorkoutHeaderVisible(false);
             document.getElementById("bottom-nav").style.display = "flex";
@@ -6817,17 +7169,27 @@
 
         // Submit completed workout logs
         async function finishWorkout() {
+            if (activeWorkoutMode === "cardio") {
+                return finishCardioWorkout();
+            }
             if (isFinishingWorkout) return;
+            const isFreeWorkout = activeWorkoutMode === "free";
             const currentSplitStr = String(oneRms.activeSplit);
             const activeRoutine = routineData[currentSplitStr];
-            if (!activeRoutine) return;
+            if (!activeRoutine && !isFreeWorkout) return;
 
-            const dayObj = activeWorkoutDay || activeRoutine.find(d => d.id === currentDayId);
+            const dayObj = activeWorkoutDay || activeRoutine?.find(d => d.id === currentDayId);
             if (!dayObj) return;
+            if (isFreeWorkout && !(dayObj.exercises || []).length) {
+                alert("자유운동에 운동을 먼저 추가해주세요.");
+                return;
+            }
 
             const logs = [];
             const replacements = [];
-            const currentWeek = getActiveWeekNum();
+            const currentWeek = isFreeWorkout ? 0 : getActiveWeekNum();
+            const workoutSplit = isFreeWorkout ? 0 : oneRms.activeSplit;
+            const workoutDay = isFreeWorkout ? "Free Workout" : dayObj.id;
             const submissionId = activeWorkoutSubmissionId || generateSubmissionId();
             activeWorkoutSubmissionId = submissionId;
             if (document.activeElement && typeof document.activeElement.blur === "function") {
@@ -6874,9 +7236,9 @@
                         checked: completed,
                         completed: completed,
                         status: setSuccess ? "SUCCESS" : "FAIL",
-                        split: oneRms.activeSplit,
+                        split: workoutSplit,
                         week: currentWeek,
-                        day: dayObj.id
+                        day: workoutDay
                     });
                     exerciseRows.push({
                         checked: completed,
@@ -6886,7 +7248,7 @@
                     });
                 }
 
-                if (ex.replacementApplied && ex.originalExercise && ex.originalExercise !== ex.name) {
+                if (!isFreeWorkout && ex.replacementApplied && ex.originalExercise && ex.originalExercise !== ex.name) {
                     replacements.push(buildReplacementHistoryPayload(ex, exerciseRows, currentWeek, dayObj.id, submissionId));
                 }
             });
@@ -6894,9 +7256,9 @@
             const payload = {
                 submissionId,
                 date: getLocalDateString(new Date(activeWorkoutDraftCreatedAt || Date.now())),
-                split: oneRms.activeSplit,
+                split: workoutSplit,
                 week: currentWeek,
-                day: dayObj.id,
+                day: workoutDay,
                 logs,
                 replacements
             };
@@ -6917,6 +7279,54 @@
                 isFinishingWorkout = false;
                 const stillPending = loadPendingWorkoutSubmissions().some(item => item.submissionId === submissionId);
                 setFinishButtonSaving(stillPending);
+            }
+        }
+
+        async function finishCardioWorkout() {
+            if (isFinishingWorkout) return;
+            const submissionId = activeWorkoutSubmissionId || generateSubmissionId();
+            activeWorkoutSubmissionId = submissionId;
+            const durationSeconds = Math.max(0, Math.floor(getCurrentStopwatchElapsedMs() / 1000));
+            if (durationSeconds <= 0) {
+                alert("유산소 시간이 1초 이상이어야 저장할 수 있습니다.");
+                return;
+            }
+
+            const payload = {
+                submissionId,
+                date: getLocalDateString(new Date(activeWorkoutDraftCreatedAt || Date.now())),
+                activity: "유산소",
+                durationSeconds,
+                memo: ""
+            };
+
+            isFinishingWorkout = true;
+            setFinishButtonSaving(true);
+            try {
+                const data = await submitCardioPayloadWithRetry(payload, FINISH_ACTIVE_RETRY_ATTEMPTS);
+                activeWorkoutDraftDisabled = true;
+                activeWorkoutDay = null;
+                cardioLogs.push({
+                    date: payload.date,
+                    username: authUser?.username || "",
+                    activity: payload.activity,
+                    durationSeconds: payload.durationSeconds,
+                    memo: payload.memo,
+                    submissionId: payload.submissionId,
+                    createdAt: new Date().toISOString()
+                });
+                activeWorkoutSubmissionId = null;
+                setActiveWorkoutMode("routine");
+                setFinishButtonSaving(false);
+                showFeedbackModal(data);
+            } catch (err) {
+                console.warn("유산소 기록 저장 실패", err);
+                alert(finishErrorMessage(err));
+            } finally {
+                isFinishingWorkout = false;
+                if (activeWorkoutMode === "cardio") {
+                    setFinishButtonSaving(false);
+                }
             }
         }
 
@@ -7081,8 +7491,26 @@
             return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
         }
 
+        function formatCardioDuration(secondsValue) {
+            const totalSeconds = Math.max(0, parseInt(secondsValue, 10) || 0);
+            const hours = Math.floor(totalSeconds / 3600);
+            const minutes = Math.floor((totalSeconds % 3600) / 60);
+            const seconds = totalSeconds % 60;
+            if (hours > 0) {
+                return `${hours}시간 ${minutes}분 ${seconds}초`;
+            }
+            if (minutes > 0) {
+                return `${minutes}분 ${seconds}초`;
+            }
+            return `${seconds}초`;
+        }
+
         function logsForDate(dateStr) {
             return (completedLogs || []).filter(log => log.date === dateStr);
+        }
+
+        function cardioLogsForDate(dateStr) {
+            return (cardioLogs || []).filter(log => log.date === dateStr);
         }
 
         function goToday() {
@@ -7128,6 +7556,15 @@
                 }
             });
 
+            const cardioByDate = {};
+            (cardioLogs || []).forEach(log => {
+                if (!log.date) return;
+                if (!cardioByDate[log.date]) {
+                    cardioByDate[log.date] = [];
+                }
+                cardioByDate[log.date].push(log);
+            });
+
             const todayStr = getLocalDateString();
 
             for (let d = 1; d <= totalDays; d++) {
@@ -7141,40 +7578,57 @@
                     dayEl.classList.add("today");
                 }
 
-                if (logsByDate[curDateStr]) {
-                    dayEl.classList.add("worked");
-                    
-                    const marker = document.createElement("div");
-                    marker.className = "calendar-marker";
-                    dayEl.appendChild(marker);
+                const hasStrengthLogs = !!logsByDate[curDateStr];
+                const hasCardioLogs = !!cardioByDate[curDateStr];
 
-                    const firstLog = logsByDate[curDateStr][0];
-                    let labelText = "운동";
-                    
-                    const logSplit = firstLog.split;
-                    const logDayId = firstLog.day;
-                    const routine = routineData[String(logSplit)];
-                    let dayName = "";
-                    if (routine) {
-                        const dayObj = routine.find(d => d.id === logDayId);
-                        if (dayObj) {
-                            dayName = dayObj.name;
-                        }
+                if (hasStrengthLogs || hasCardioLogs) {
+                    dayEl.classList.add("worked");
+
+                    if (hasStrengthLogs) {
+                        const marker = document.createElement("div");
+                        marker.className = "calendar-marker";
+                        dayEl.appendChild(marker);
                     }
 
-                    if (dayName) {
-                        if (dayName.includes("등") || dayName.includes("Back")) labelText = "등";
-                        else if (dayName.includes("가슴") || dayName.includes("Chest")) labelText = "가슴";
-                        else if (dayName.includes("하체") || dayName.includes("Leg")) labelText = "하체";
-                        else if (dayName.includes("어깨") || dayName.includes("Shoulder")) labelText = "어깨";
-                        else if (dayName.includes("팔") || dayName.includes("Arm")) labelText = "팔";
-                        else if (dayName.includes("상체") || dayName.includes("Upper")) labelText = "상체";
-                        else if (dayName.includes("밀기") || dayName.includes("Push")) labelText = "밀기";
-                        else if (dayName.includes("당기기") || dayName.includes("Pull")) labelText = "당기기";
+                    if (hasCardioLogs) {
+                        const cardioMarker = document.createElement("div");
+                        cardioMarker.className = `calendar-marker cardio-marker${hasStrengthLogs ? "" : " solo"}`;
+                        dayEl.appendChild(cardioMarker);
+                    }
+
+                    const firstLog = hasStrengthLogs ? logsByDate[curDateStr][0] : null;
+                    let labelText = "운동";
+                    
+                    if (firstLog) {
+                        const logSplit = firstLog.split;
+                        const logDayId = firstLog.day;
+                        const routine = routineData[String(logSplit)];
+                        let dayName = "";
+                        if (parseInt(logSplit, 10) === 0) {
+                            labelText = "자유";
+                        } else if (routine) {
+                            const dayObj = routine.find(d => d.id === logDayId);
+                            if (dayObj) {
+                                dayName = dayObj.name;
+                            }
+                        }
+
+                        if (dayName) {
+                            if (dayName.includes("등") || dayName.includes("Back")) labelText = "등";
+                            else if (dayName.includes("가슴") || dayName.includes("Chest")) labelText = "가슴";
+                            else if (dayName.includes("하체") || dayName.includes("Leg")) labelText = "하체";
+                            else if (dayName.includes("어깨") || dayName.includes("Shoulder")) labelText = "어깨";
+                            else if (dayName.includes("팔") || dayName.includes("Arm")) labelText = "팔";
+                            else if (dayName.includes("상체") || dayName.includes("Upper")) labelText = "상체";
+                            else if (dayName.includes("밀기") || dayName.includes("Push")) labelText = "밀기";
+                            else if (dayName.includes("당기기") || dayName.includes("Pull")) labelText = "당기기";
+                        }
+                    } else if (hasCardioLogs) {
+                        labelText = "유산소";
                     }
 
                     const textLabel = document.createElement("div");
-                    textLabel.className = "calendar-day-label";
+                    textLabel.className = `calendar-day-label${!hasStrengthLogs && hasCardioLogs ? " cardio-only" : ""}`;
                     textLabel.innerText = labelText;
                     dayEl.appendChild(textLabel);
                 }
@@ -7204,16 +7658,17 @@
 
             const content = document.getElementById("log-details-content");
             content.innerHTML = "";
+            const dayCardioLogs = cardioLogsForDate(dateStr);
 
-            if (!dayLogs || dayLogs.length === 0) {
+            if ((!dayLogs || dayLogs.length === 0) && dayCardioLogs.length === 0) {
                 content.innerHTML = '<div class="log-empty">해당 날짜에 등록된 훈련 기록이 없습니다.</div>';
                 return;
             }
 
             const exGroups = {};
-            dayLogs.forEach(log => {
+            (dayLogs || []).forEach(log => {
                 if (!exGroups[log.exercise]) {
-                    let dayNameString = `Week ${log.week} ${log.day}`;
+                    let dayNameString = parseInt(log.split, 10) === 0 ? "자유운동" : `Week ${log.week} ${log.day}`;
                     const routine = routineData[String(log.split)];
                     if (routine) {
                         const dayObj = routine.find(d => d.id === log.day);
@@ -7259,6 +7714,21 @@
                 `;
                 content.appendChild(item);
             }
+
+            dayCardioLogs.forEach(log => {
+                const item = document.createElement("div");
+                item.className = "log-item cardio-log";
+                item.innerHTML = `
+                    <div class="log-ex-name">
+                        <span>유산소</span>
+                        <span style="font-size:11px; font-weight:400; color:var(--text-muted);">${log.activity || "유산소"}</span>
+                    </div>
+                    <div class="log-set-list">
+                        <span class="log-cardio-badge">${formatCardioDuration(log.durationSeconds)}</span>
+                    </div>
+                `;
+                content.appendChild(item);
+            });
         }
     </script>
 </body>

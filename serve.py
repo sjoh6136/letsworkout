@@ -337,10 +337,12 @@ class GoogleSheetsStore:
     REPLACEMENTS_TAB = "Workout_Replacements"
     SUBMISSIONS_TAB = "Workout_Submissions"
     ROUTINE_PROGRESS_TAB = "Routine_Progress"
+    CARDIO_LOGS_TAB = "Cardio_Logs"
     USER_ACCOUNTS_TAB = "User_Accounts"
     USER_SESSIONS_TAB = "User_Sessions"
     SETTINGS_HEADER = ["Squat", "Bench", "Deadlift", "OHP", "ActiveSplit"]
     ROUTINE_PROGRESS_HEADER = ["Split", "Version", "BlockLength", "BaselineLogCount", "StartedAt", "UpdatedAt"]
+    CARDIO_LOGS_HEADER = ["Date", "Username", "Activity", "DurationSeconds", "Memo", "SubmissionId", "CreatedAt"]
     GYM_SETTINGS_HEADER = [
         "Active",
         "GymId",
@@ -527,6 +529,7 @@ class GoogleSheetsStore:
         replacements = self.worksheet_for_user(self.REPLACEMENTS_TAB, username, rows=500, cols=15)
         submissions = self.worksheet_for_user(self.SUBMISSIONS_TAB, username, rows=500, cols=7)
         routine_progress = self.worksheet_for_user(self.ROUTINE_PROGRESS_TAB, username, rows=10, cols=6)
+        cardio_logs = self.worksheet_for_user(self.CARDIO_LOGS_TAB, username, rows=500, cols=7)
 
         self.ensure_user_settings(settings)
         self.ensure_header(logs, "A1:M1", self.log_header_for_user(username))
@@ -534,6 +537,7 @@ class GoogleSheetsStore:
         self.ensure_header(replacements, "A1:O1", self.replacements_header_for_user(username))
         self.ensure_header(submissions, "A1:G1", self.SUBMISSIONS_HEADER)
         self.ensure_header(routine_progress, "A1:F1", self.ROUTINE_PROGRESS_HEADER)
+        self.ensure_header(cardio_logs, "A1:G1", self.CARDIO_LOGS_HEADER)
         self._ensured_user_tabs.add(username)
 
     def load_one_rms(self, username="", user_id=""):
@@ -831,6 +835,42 @@ class GoogleSheetsStore:
                 log.get("targetReps", ""),
             ])
         worksheet.append_rows(rows, value_input_option="RAW", table_range="A1:M1")
+        return True
+
+    def load_cardio_logs(self, username="", user_id=""):
+        self.ensure_user_tabs(username, user_id)
+        worksheet = self.worksheet_for_user(self.CARDIO_LOGS_TAB, username, rows=500, cols=7)
+        rows = worksheet.get("A2:G") or []
+        parsed = []
+        for row in rows:
+            row = [str(value).strip() for value in row]
+            row = row + [""] * (7 - len(row))
+            if not row[0]:
+                continue
+            parsed.append({
+                "date": normalize_workout_date(row[0]),
+                "username": normalize_username(row[1] or username),
+                "activity": row[2] or "유산소",
+                "durationSeconds": sheet_int(row[3], 0),
+                "memo": row[4],
+                "submissionId": row[5],
+                "createdAt": row[6],
+            })
+        return parsed
+
+    def append_cardio_log(self, cardio_log, username="", user_id=""):
+        self.ensure_user_tabs(username, user_id)
+        username = normalize_username(username)
+        worksheet = self.worksheet_for_user(self.CARDIO_LOGS_TAB, username, rows=500, cols=7)
+        worksheet.append_row([
+            cardio_log.get("date", ""),
+            normalize_username(cardio_log.get("username") or username),
+            cardio_log.get("activity", "유산소"),
+            as_int(cardio_log.get("durationSeconds"), 0),
+            cardio_log.get("memo", ""),
+            cardio_log.get("submissionId", ""),
+            cardio_log.get("createdAt", ""),
+        ], value_input_option="RAW", table_range="A1:G1")
         return True
 
     def load_replacements(self, username="", user_id=""):
@@ -1197,6 +1237,23 @@ def append_workout_submission_to_sheet(submission, username="", user_id=""):
         return False
 
 
+def append_cardio_log_to_sheet(cardio_log, username="", user_id=""):
+    store = sheets_store()
+    if not store.connected:
+        return False
+    try:
+        return store.append_cardio_log(cardio_log, username, user_id)
+    except Exception as exc:
+        print(f"[warn] failed to append cardio log to Google Sheets: {exc}")
+        try:
+            if cardio_log_already_saved({"cardioLogs": store.load_cardio_logs(username, user_id)}, cardio_log):
+                print("[warn] cardio append response failed, but row is already present in Google Sheets")
+                return True
+        except Exception as verify_exc:
+            print(f"[warn] failed to verify cardio log after append error: {verify_exc}")
+    return False
+
+
 def replacement_key(item):
     return "|".join([
         str(item.get("username") or item.get("userId") or ""),
@@ -1268,6 +1325,52 @@ def workout_logs_already_saved(state, logs):
     return all(existing_counts.get(key, 0) >= count for key, count in new_counts.items())
 
 
+def normalize_cardio_log(raw, username="", user_id=""):
+    source = raw if isinstance(raw, dict) else {}
+    return {
+        "date": normalize_workout_date(source.get("date")),
+        "username": normalize_username(source.get("username") or username),
+        "userId": str(source.get("userId") or user_id or "").strip(),
+        "activity": str(source.get("activity") or "유산소").strip() or "유산소",
+        "durationSeconds": max(0, as_int(source.get("durationSeconds"), 0)),
+        "memo": str(source.get("memo") or "").strip(),
+        "submissionId": str(source.get("submissionId") or "").strip(),
+        "createdAt": str(source.get("createdAt") or now_iso()),
+    }
+
+
+def cardio_duplicate_key(cardio_log):
+    return (
+        str(cardio_log.get("date") or ""),
+        normalize_username(cardio_log.get("username")),
+        str(cardio_log.get("activity") or ""),
+        as_int(cardio_log.get("durationSeconds"), 0),
+        str(cardio_log.get("submissionId") or ""),
+    )
+
+
+def format_duration_seconds(seconds):
+    total_seconds = max(0, as_int(seconds, 0))
+    hours = total_seconds // 3600
+    minutes = (total_seconds % 3600) // 60
+    rest_seconds = total_seconds % 60
+    if hours:
+        return f"{hours}시간 {minutes}분 {rest_seconds}초"
+    if minutes:
+        return f"{minutes}분 {rest_seconds}초"
+    return f"{rest_seconds}초"
+
+
+def cardio_log_already_saved(state, cardio_log):
+    submission_id = str(cardio_log.get("submissionId") or "").strip()
+    for existing in state.get("cardioLogs", []):
+        if submission_id and str(existing.get("submissionId") or "").strip() == submission_id:
+            return True
+        if cardio_duplicate_key(existing) == cardio_duplicate_key(cardio_log):
+            return True
+    return False
+
+
 def current_request_user():
     user = getattr(g, "current_user", None)
     if isinstance(user, dict):
@@ -1309,6 +1412,7 @@ def state_for_user(state, user_id="", username=""):
     scoped = copy.deepcopy(state)
     scoped["logs"] = [log for log in state.get("logs", []) if item_matches_user(log, user_id, username)]
     scoped["replacements"] = [item for item in state.get("replacements", []) if item_matches_user(item, user_id, username)]
+    scoped["cardioLogs"] = [item for item in state.get("cardioLogs", []) if item_matches_user(item, user_id, username)]
     return scoped
 
 
@@ -1393,6 +1497,7 @@ def load_file_state(username=""):
 
     state.setdefault("oneRms", copy.deepcopy(DEFAULT_ONE_RMS))
     state.setdefault("logs", [])
+    state.setdefault("cardioLogs", [])
     state.setdefault("replacements", [])
     state.setdefault("submissions", [])
     state.setdefault("gyms", [copy.deepcopy(DEFAULT_GYM)])
@@ -1435,6 +1540,12 @@ def load_state(force_refresh=False, username="", user_id=""):
             print(f"[warn] failed to load workout logs from Google Sheets, using cached/local state: {exc}")
             if stale_state and stale_state.get("logs"):
                 state["logs"] = stale_state.get("logs", [])
+        try:
+            state["cardioLogs"] = store.load_cardio_logs(username, user_id)
+        except Exception as exc:
+            print(f"[warn] failed to load cardio logs from Google Sheets, using cached/local state: {exc}")
+            if stale_state and stale_state.get("cardioLogs"):
+                state["cardioLogs"] = stale_state.get("cardioLogs", [])
         try:
             state["replacements"] = merge_replacements(state.get("replacements", []), store.load_replacements(username, user_id))
         except Exception as exc:
@@ -2095,6 +2206,28 @@ def duplicate_finish_response(logs):
     }
 
 
+def free_workout_feedback(logs):
+    weekly_muscle_sets = {"가슴": 0, "등": 0, "하체": 0, "어깨": 0, "팔": 0}
+    for log in logs:
+        if log.get("status") != "SUCCESS":
+            continue
+        muscle = target_muscle(log.get("exercise"))
+        if muscle in weekly_muscle_sets:
+            weekly_muscle_sets[muscle] += 1
+
+    completed_sets = sum(1 for log in logs if log["status"] == "SUCCESS")
+    return {
+        "status": "SUCCESS" if completed_sets else "FAIL",
+        "feedback": "자유운동 기록을 저장했습니다.",
+        "sheetsConnected": sheets_connected(),
+        "totalVolume": sum(log["weight"] * log["reps"] for log in logs if log["status"] == "SUCCESS"),
+        "completedSets": completed_sets,
+        "totalSets": len(logs),
+        "progressReport": ["자유운동은 루틴 진행도와 과부하 목표를 변경하지 않습니다."],
+        "weeklyMuscleSets": weekly_muscle_sets,
+    }
+
+
 def day_number(day_id):
     match = re.search(r"\d+", day_id or "")
     return int(match.group(0)) if match else 1
@@ -2357,6 +2490,7 @@ def workout_bootstrap():
         "twoDayProgram": progress_payload["2"],
         "logs": state.get("logs", []),
         "replacements": state.get("replacements", []),
+        "cardioLogs": state.get("cardioLogs", []),
     })
 
 
@@ -2442,9 +2576,90 @@ def workout_logs():
     return jsonify(load_state(username=current_request_username(), user_id=current_request_user_id()).get("logs", []))
 
 
+@app.route("/api/cardio/logs")
+def cardio_logs():
+    return jsonify(load_state(username=current_request_username(), user_id=current_request_user_id()).get("cardioLogs", []))
+
+
 @app.route("/api/workout/replacements")
 def workout_replacements():
     return jsonify(load_state(username=current_request_username(), user_id=current_request_user_id()).get("replacements", []))
+
+
+@app.route("/api/cardio/finish", methods=["POST"])
+def cardio_finish():
+    started_at = time.perf_counter()
+    username = current_request_username()
+    user_id = current_request_user_id()
+    state = load_state(username=username, user_id=user_id)
+    body = request.get_json(silent=True) or {}
+    cardio_log = normalize_cardio_log({
+        "date": body.get("date"),
+        "username": username,
+        "userId": user_id,
+        "activity": body.get("activity") or "유산소",
+        "durationSeconds": body.get("durationSeconds"),
+        "memo": body.get("memo"),
+        "submissionId": body.get("submissionId"),
+    }, username, user_id)
+
+    if cardio_log["durationSeconds"] <= 0:
+        return jsonify({
+            "error": "invalid_duration",
+            "message": "유산소 시간이 1초 이상이어야 저장할 수 있습니다.",
+            "retryable": False,
+        }), 400
+
+    if cardio_log_already_saved(state, cardio_log):
+        return jsonify({
+            "status": "SUCCESS",
+            "feedback": "이미 저장된 유산소 기록입니다. 중복 저장 없이 처리했습니다.",
+            "sheetsConnected": sheets_connected(),
+            "totalVolume": 0,
+            "completedSets": 1,
+            "totalSets": 1,
+            "progressReport": [f"유산소 {format_duration_seconds(cardio_log['durationSeconds'])}"],
+            "weeklyMuscleSets": {"가슴": 0, "등": 0, "하체": 0, "어깨": 0, "팔": 0},
+            "duplicate": True,
+        })
+
+    store = sheets_store()
+    saved_to_sheet = False
+    if REQUIRE_SHEETS_FOR_FINISH and not store.connected:
+        return jsonify({
+            "error": "sheet_unavailable",
+            "message": "Google Sheets 연결이 끊겨 유산소 기록을 저장하지 못했습니다.",
+            "retryable": True,
+        }), 503
+
+    if store.connected:
+        saved_to_sheet = append_cardio_log_to_sheet(cardio_log, username, user_id)
+        if not saved_to_sheet:
+            return jsonify({
+                "error": "sheet_save_failed",
+                "message": "유산소 기록을 Google Sheets에 저장하지 못했습니다.",
+                "retryable": True,
+            }), 503
+
+    state.setdefault("cardioLogs", []).append(cardio_log)
+    save_state(state, sync_one_rms=False, sync_gyms=False, username=username, user_id=user_id)
+    total_ms = int((time.perf_counter() - started_at) * 1000)
+    print(
+        f"[cardio] saved submission={cardio_log.get('submissionId') or '-'} "
+        f"user={username or user_id or '-'} sheet={saved_to_sheet if store.connected else 'local'} total={total_ms}ms",
+        flush=True,
+    )
+    return jsonify({
+        "status": "SUCCESS",
+        "feedback": "유산소 기록을 저장했습니다.",
+        "sheetsConnected": saved_to_sheet if store.connected else sheets_connected(),
+        "totalVolume": 0,
+        "completedSets": 1,
+        "totalSets": 1,
+        "progressReport": [f"유산소 {format_duration_seconds(cardio_log['durationSeconds'])}"],
+        "weeklyMuscleSets": {"가슴": 0, "등": 0, "하체": 0, "어깨": 0, "팔": 0},
+        "submissionId": cardio_log.get("submissionId", ""),
+    })
 
 
 @app.route("/api/workout/finish", methods=["POST"])
@@ -2525,7 +2740,7 @@ def workout_finish():
         replacements_saved_to_sheet = append_workout_replacements_to_sheet(replacements, username, user_id)
         replacements_sheet_ms = int((time.perf_counter() - replacements_started_at) * 1000)
 
-    feedback = evaluate_and_update(copy.deepcopy(state), logs, split, week, day_id, active_routines)
+    feedback = free_workout_feedback(logs) if split == 0 else evaluate_and_update(copy.deepcopy(state), logs, split, week, day_id, active_routines)
     state["logs"].extend(logs)
     state["replacements"] = merge_replacements(state.get("replacements", []), replacements)
     submission_sheet_ms = 0

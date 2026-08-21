@@ -36,6 +36,13 @@ Render automatic deploy may not reliably trigger. After pushing to GitHub, the R
 Manual Deploy > Deploy latest commit
 ```
 
+When the user says to update, publish, or make the phone/web version current, do not stop at a local edit or GitHub push. The expected finish line is:
+
+1. Commit the relevant tracked files.
+2. Push to `origin main`.
+3. Make sure Render is serving the latest commit, using Manual Deploy when automatic deploy does not move.
+4. Verify the live URL/API after Render finishes so the iPhone home-screen app can see the update.
+
 ## Architecture
 
 The active app is a Flask backend serving a static HTML/CSS/JS frontend.
@@ -164,6 +171,7 @@ Workout data is stored only in username-suffixed tabs:
 - `Workout_Replacements__{username}`
 - `Workout_Submissions__{username}`
 - `Routine_Progress__{username}`
+- `Cardio_Logs__{username}`
 
 Do not create, read, migrate from, or write to unsuffixed workout tabs:
 
@@ -173,6 +181,7 @@ Do not create, read, migrate from, or write to unsuffixed workout tabs:
 - `Workout_Replacements`
 - `Workout_Submissions`
 - `Routine_Progress`
+- `Cardio_Logs`
 
 Keep `User_Accounts` and `User_Sessions` shared. Do not create separate auth tables per user.
 
@@ -190,6 +199,14 @@ Routine progress state is stored separately:
 - `Routine_Progress__{username}`: one row per split, with selected 2-split `ver.1`/`ver.2`, block length, and baseline log count for restarting W1D1 without deleting workout logs
 
 Do not store routine progress state in `Workout_Logs` or `Setting_1RM`.
+
+Free workout and cardio behavior:
+
+- Free workout records reuse `Workout_Logs__{username}` with `split=0`.
+- Free workout must not advance routine progress, W1D1 recommendation, or progressive overload targets.
+- Cardio records are stored separately in `Cardio_Logs__{username}` with date, username, activity, duration seconds, memo, submission id, and created timestamp.
+- Do not force cardio rows into `Workout_Logs`; that would corrupt the meaning of split/week/day/set columns.
+- The cardio active screen uses only the elapsed stopwatch and finish flow. It should not show Rest, Vol, countdown progress, or target time/intensity controls unless the user explicitly asks later.
 
 Login data is stored separately:
 
@@ -346,7 +363,8 @@ Must match the source routine. Multiple RPE values are allowed.
 3. Commit relevant files.
 4. Push to `origin main`.
 5. If Render does not auto-deploy, run `Manual Deploy > Deploy latest commit`.
-6. Verify live API.
+6. Verify Render is on the latest commit and the live API responds.
+7. Remember the user's iPhone home-screen app reads the Render URL, not the local server.
 
 For routine changes, verify the live API contains the new exercise names and no old names.
 
