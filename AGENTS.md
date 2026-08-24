@@ -159,11 +159,21 @@ Workout log column order is important. Do not add an empty leading column or shi
 
 `사용자` stores the normalized username, not the internal `userId`.
 
-Do not store `SubmissionId` in `Workout_Logs`. Submission markers belong only in `Workout_Submissions__{username}`.
+Do not store `SubmissionId` in `Workout_Logs`. Submission markers belong only in `Workout_Submissions`.
 
 Do not insert new columns before M. If more log metadata is needed later, append it after M only after confirming with the user.
 
-Workout data is stored only in username-suffixed tabs:
+Workout data is stored in shared tables and filtered by normalized `username`:
+
+- `Setting_1RM`: `Username`, SBD/OHP values, active split
+- `Gym_Settings`: `Username`, active gym marker, gym equipment settings
+- `Workout_Logs`: A-M schema above, with `사용자` in column B
+- `Workout_Replacements`: replacement history, with `Username` in column O
+- `Workout_Submissions`: idempotency markers, with `Username` in column B
+- `Routine_Progress`: W1D1 reset/progress state, with `Username` in column A
+- `Cardio_Logs`: cardio history, with `Username` in column B
+
+Legacy username-suffixed workout tabs may be read as a transition fallback so existing data does not disappear immediately after the table refactor:
 
 - `Setting_1RM__{username}`
 - `Gym_Settings__{username}`
@@ -173,38 +183,30 @@ Workout data is stored only in username-suffixed tabs:
 - `Routine_Progress__{username}`
 - `Cardio_Logs__{username}`
 
-Do not create, read, migrate from, or write to unsuffixed workout tabs:
-
-- `Setting_1RM`
-- `Gym_Settings`
-- `Workout_Logs`
-- `Workout_Replacements`
-- `Workout_Submissions`
-- `Routine_Progress`
-- `Cardio_Logs`
+Do not create or write new username-suffixed workout tabs. New writes go to the shared tables only.
 
 Keep `User_Accounts` and `User_Sessions` shared. Do not create separate auth tables per user.
 
-Gym equipment settings are stored in separate `Gym_Settings__{username}` tabs. Keep it separate from `Workout_Logs__{username}` so workout log columns never shift.
+Gym equipment settings are stored in `Gym_Settings`. Keep it separate from `Workout_Logs` so workout log columns never shift.
 
 Workout replacement history is stored separately:
 
-- `Workout_Replacements__{username}`: one row per replaced exercise in a completed workout, with `Username` in column O
-- `Workout_Submissions__{username}`: idempotency markers for completed workout submissions
+- `Workout_Replacements`: one row per replaced exercise in a completed workout, with `Username` in column O
+- `Workout_Submissions`: idempotency markers for completed workout submissions, with `Username` in column B
 
 Do not add replacement metadata to `Workout_Logs`. A replaced workout still writes set logs under the actual exercise performed, while `Workout_Replacements` links `originalExercise` to the actual `exercise`.
 
 Routine progress state is stored separately:
 
-- `Routine_Progress__{username}`: one row per split, with selected 2-split `ver.1`/`ver.2`, block length, and baseline log count for restarting W1D1 without deleting workout logs
+- `Routine_Progress`: one row per username/split, with selected 2-split `ver.1`/`ver.2`, block length, and baseline log count for restarting W1D1 without deleting workout logs
 
 Do not store routine progress state in `Workout_Logs` or `Setting_1RM`.
 
 Free workout and cardio behavior:
 
-- Free workout records reuse `Workout_Logs__{username}` with `split=0`.
+- Free workout records reuse `Workout_Logs` with `split=0`.
 - Free workout must not advance routine progress, W1D1 recommendation, or progressive overload targets.
-- Cardio records are stored separately in `Cardio_Logs__{username}` with date, username, activity, duration seconds, memo, submission id, and created timestamp.
+- Cardio records are stored separately in `Cardio_Logs` with date, username, activity, duration seconds, memo, submission id, and created timestamp.
 - Do not force cardio rows into `Workout_Logs`; that would corrupt the meaning of split/week/day/set columns.
 - The cardio active screen uses only the elapsed stopwatch and finish flow. It should not show Rest, Vol, countdown progress, or target time/intensity controls unless the user explicitly asks later.
 
@@ -235,7 +237,7 @@ Never store plaintext passwords. Do not place auth/session columns in `Workout_L
 - `/api/routine-progress` owns W1D1 reset state for all splits. Resetting progress must update only the split baseline and must not delete or edit workout logs.
 - `/api/workout/finish` saves workout logs and evaluates progression.
 - `/api/workout/finish` should store the workout start date sent by the frontend, not blindly overwrite with the server's current date.
-- Duplicate finish protection must cover repeated `SubmissionId` values in `Workout_Submissions__{username}` and identical saved workout content for the same username/date/split/week/day.
+- Duplicate finish protection must cover repeated `SubmissionId` values in `Workout_Submissions` for the same username and identical saved workout content for the same username/date/split/week/day.
 - Completed sets with missing RPE should be saved with that exercise's routine target RPE, so new `SUCCESS + RPE 0` rows are never created.
 - SBD 1RM values are user-entered settings. Workout finish/progressive overload must not automatically increase `squat`, `bench`, or `deadlift` in `Setting_1RM`.
 - `/api/auth/status`, `/api/auth/register`, `/api/auth/login`, and `/api/auth/logout` are public auth endpoints.

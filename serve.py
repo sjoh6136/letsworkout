@@ -340,10 +340,11 @@ class GoogleSheetsStore:
     CARDIO_LOGS_TAB = "Cardio_Logs"
     USER_ACCOUNTS_TAB = "User_Accounts"
     USER_SESSIONS_TAB = "User_Sessions"
-    SETTINGS_HEADER = ["Squat", "Bench", "Deadlift", "OHP", "ActiveSplit"]
-    ROUTINE_PROGRESS_HEADER = ["Split", "Version", "BlockLength", "BaselineLogCount", "StartedAt", "UpdatedAt"]
+    SETTINGS_HEADER = ["Username", "Squat", "Bench", "Deadlift", "OHP", "ActiveSplit"]
+    ROUTINE_PROGRESS_HEADER = ["Username", "Split", "Version", "BlockLength", "BaselineLogCount", "StartedAt", "UpdatedAt"]
     CARDIO_LOGS_HEADER = ["Date", "Username", "Activity", "DurationSeconds", "Memo", "SubmissionId", "CreatedAt"]
     GYM_SETTINGS_HEADER = [
+        "Username",
         "Active",
         "GymId",
         "Name",
@@ -387,9 +388,11 @@ class GoogleSheetsStore:
         "Summary",
         "SubmissionId",
         "CreatedAt",
+        "Username",
     ]
     SUBMISSIONS_HEADER = [
         "SubmissionId",
+        "Username",
         "Date",
         "Split",
         "Week",
@@ -466,6 +469,37 @@ class GoogleSheetsStore:
     def worksheet_for_user(self, base_title, username="", rows=100, cols=20):
         return self.worksheet(user_tab_title(base_title, username), rows=rows, cols=cols)
 
+    def worksheet_if_exists(self, title):
+        import gspread
+
+        if title in self._worksheets:
+            return self._worksheets[title]
+
+        try:
+            worksheet = self.spreadsheet.worksheet(title)
+        except gspread.exceptions.WorksheetNotFound:
+            return None
+        self._worksheets[title] = worksheet
+        return worksheet
+
+    def legacy_worksheet_for_user(self, base_title, username=""):
+        title = user_tab_title(base_title, username)
+        if title == base_title:
+            return None
+        return self.worksheet_if_exists(title)
+
+    @staticmethod
+    def column_name(index):
+        name = ""
+        while index:
+            index, remainder = divmod(index - 1, 26)
+            name = chr(65 + remainder) + name
+        return name or "A"
+
+    @staticmethod
+    def sheet_actor(username="", user_id=""):
+        return normalize_username(username) or str(user_id or "").strip() or "__shared__"
+
     def log_actor_header(self, username=""):
         return "Username" if normalize_username(username) else "UserId"
 
@@ -473,7 +507,7 @@ class GoogleSheetsStore:
         return self.LOG_HEADER
 
     def replacements_header_for_user(self, username=""):
-        return self.REPLACEMENTS_HEADER + [self.log_actor_header(username)]
+        return self.REPLACEMENTS_HEADER
 
     @staticmethod
     def header_matches(row, header):
@@ -491,83 +525,132 @@ class GoogleSheetsStore:
 
         self.ensure_header(user_accounts, "A1:I1", self.USER_ACCOUNTS_HEADER)
         self.ensure_header(user_sessions, "A1:G1", self.USER_SESSIONS_HEADER)
+        self.ensure_shared_workout_tabs()
 
-    def ensure_user_settings(self, settings):
-        source_defaults = [
-            DEFAULT_ONE_RMS["squat"],
-            DEFAULT_ONE_RMS["bench"],
-            DEFAULT_ONE_RMS["deadlift"],
-            DEFAULT_ONE_RMS["ohp"],
-            DEFAULT_ONE_RMS["activeSplit"],
-        ]
-        values = settings.get("A1:E2")
-        if not values:
-            settings.update(values=[self.SETTINGS_HEADER, source_defaults], range_name="A1:E2")
-            return
+    def ensure_shared_workout_tabs(self):
+        settings = self.worksheet(self.SETTINGS_TAB, rows=100, cols=6)
+        logs = self.worksheet(self.LOGS_TAB, rows=1000, cols=13)
+        gym_settings = self.worksheet(self.GYM_SETTINGS_TAB, rows=100, cols=8)
+        replacements = self.worksheet(self.REPLACEMENTS_TAB, rows=500, cols=15)
+        submissions = self.worksheet(self.SUBMISSIONS_TAB, rows=500, cols=8)
+        routine_progress = self.worksheet(self.ROUTINE_PROGRESS_TAB, rows=100, cols=7)
+        cardio_logs = self.worksheet(self.CARDIO_LOGS_TAB, rows=500, cols=7)
 
-        if not self.header_matches(values[0] if values else [], self.SETTINGS_HEADER):
-            settings.update(values=[self.SETTINGS_HEADER], range_name="A1:E1")
-        if len(values) < 2 or len(values[1]) < 5:
-            row = (values[1] if len(values) > 1 else []) + [""] * 5
-            source_defaults = source_defaults + [""] * 5
-            settings.update(values=[[
-                row[0] or source_defaults[0] or DEFAULT_ONE_RMS["squat"],
-                row[1] or source_defaults[1] or DEFAULT_ONE_RMS["bench"],
-                row[2] or source_defaults[2] or DEFAULT_ONE_RMS["deadlift"],
-                row[3] or source_defaults[3] or DEFAULT_ONE_RMS["ohp"],
-                row[4] or source_defaults[4] or DEFAULT_ONE_RMS["activeSplit"],
-            ]], range_name="A2:E2")
+        self.ensure_header(settings, "A1:F1", self.SETTINGS_HEADER)
+        self.ensure_header(logs, "A1:M1", self.LOG_HEADER)
+        self.ensure_header(gym_settings, "A1:H1", self.GYM_SETTINGS_HEADER)
+        self.ensure_header(replacements, "A1:O1", self.REPLACEMENTS_HEADER)
+        self.ensure_header(submissions, "A1:H1", self.SUBMISSIONS_HEADER)
+        self.ensure_header(routine_progress, "A1:G1", self.ROUTINE_PROGRESS_HEADER)
+        self.ensure_header(cardio_logs, "A1:G1", self.CARDIO_LOGS_HEADER)
 
     def ensure_user_tabs(self, username="", user_id=""):
-        username = normalize_username(username)
-        if not username or username in self._ensured_user_tabs:
+        actor = self.sheet_actor(username, user_id)
+        if actor in self._ensured_user_tabs:
             return
 
-        settings = self.worksheet_for_user(self.SETTINGS_TAB, username, rows=2, cols=10)
-        logs = self.worksheet_for_user(self.LOGS_TAB, username, rows=1000, cols=13)
-        gym_settings = self.worksheet_for_user(self.GYM_SETTINGS_TAB, username, rows=50, cols=8)
-        replacements = self.worksheet_for_user(self.REPLACEMENTS_TAB, username, rows=500, cols=15)
-        submissions = self.worksheet_for_user(self.SUBMISSIONS_TAB, username, rows=500, cols=7)
-        routine_progress = self.worksheet_for_user(self.ROUTINE_PROGRESS_TAB, username, rows=10, cols=6)
-        cardio_logs = self.worksheet_for_user(self.CARDIO_LOGS_TAB, username, rows=500, cols=7)
+        self.ensure_shared_workout_tabs()
+        self._ensured_user_tabs.add(actor)
 
-        self.ensure_user_settings(settings)
-        self.ensure_header(logs, "A1:M1", self.log_header_for_user(username))
-        self.ensure_header(gym_settings, "A1:G1", self.GYM_SETTINGS_HEADER)
-        self.ensure_header(replacements, "A1:O1", self.replacements_header_for_user(username))
-        self.ensure_header(submissions, "A1:G1", self.SUBMISSIONS_HEADER)
-        self.ensure_header(routine_progress, "A1:F1", self.ROUTINE_PROGRESS_HEADER)
-        self.ensure_header(cardio_logs, "A1:G1", self.CARDIO_LOGS_HEADER)
-        self._ensured_user_tabs.add(username)
+    def replace_actor_rows(self, worksheet, data_range, header, rows, actor, actor_index):
+        actor = self.sheet_actor(actor)
+        existing_rows = worksheet.get(data_range) or []
+        width = len(header)
+        kept_rows = []
+        for row in existing_rows:
+            normalized = (row + [""] * width)[:width]
+            if not any(str(value).strip() for value in normalized):
+                continue
+            if normalize_username(normalized[actor_index]) == actor:
+                continue
+            kept_rows.append(normalized)
 
-    def load_one_rms(self, username="", user_id=""):
-        self.ensure_user_tabs(username, user_id)
-        settings = self.worksheet_for_user(self.SETTINGS_TAB, username, rows=2, cols=10)
-        row = (settings.get("A2:E2") or [[]])[0]
-        row = row + [""] * 5
+        output = [header] + rows
+        if kept_rows:
+            output.extend(kept_rows)
+
+        worksheet.clear()
+        end_column = self.column_name(width)
+        worksheet.update(values=output, range_name=f"A1:{end_column}{len(output)}")
+
+    def default_one_rms(self):
         return {
-            "squat": sheet_float(row[0], DEFAULT_ONE_RMS["squat"]),
-            "bench": sheet_float(row[1], DEFAULT_ONE_RMS["bench"]),
-            "deadlift": sheet_float(row[2], DEFAULT_ONE_RMS["deadlift"]),
-            "ohp": sheet_float(row[3], DEFAULT_ONE_RMS["ohp"]),
-            "activeSplit": sheet_int(row[4], DEFAULT_ONE_RMS["activeSplit"]),
+            "squat": DEFAULT_ONE_RMS["squat"],
+            "bench": DEFAULT_ONE_RMS["bench"],
+            "deadlift": DEFAULT_ONE_RMS["deadlift"],
+            "ohp": DEFAULT_ONE_RMS["ohp"],
+            "activeSplit": DEFAULT_ONE_RMS["activeSplit"],
         }
 
+    def one_rms_from_row(self, row, offset=0):
+        row = (row or []) + [""] * (offset + 5)
+        return {
+            "squat": sheet_float(row[offset], DEFAULT_ONE_RMS["squat"]),
+            "bench": sheet_float(row[offset + 1], DEFAULT_ONE_RMS["bench"]),
+            "deadlift": sheet_float(row[offset + 2], DEFAULT_ONE_RMS["deadlift"]),
+            "ohp": sheet_float(row[offset + 3], DEFAULT_ONE_RMS["ohp"]),
+            "activeSplit": sheet_int(row[offset + 4], DEFAULT_ONE_RMS["activeSplit"]),
+        }
+
+    def load_legacy_one_rms(self, actor):
+        settings = self.legacy_worksheet_for_user(self.SETTINGS_TAB, actor)
+        if not settings:
+            return None
+        rows = settings.get("A2:E2") or []
+        if not rows:
+            return None
+        return self.one_rms_from_row(rows[0])
+
+    def load_one_rms(self, username="", user_id=""):
+        actor = self.sheet_actor(username, user_id)
+        self.ensure_user_tabs(actor, user_id)
+        settings = self.worksheet(self.SETTINGS_TAB, rows=100, cols=6)
+        rows = settings.get("A2:F") or []
+        for row in rows:
+            row = (row or []) + [""] * 6
+            if normalize_username(row[0]) == actor:
+                return self.one_rms_from_row(row, offset=1)
+        return self.load_legacy_one_rms(actor) or self.default_one_rms()
+
     def save_one_rms(self, one_rms, username="", user_id=""):
-        self.ensure_user_tabs(username, user_id)
-        settings = self.worksheet_for_user(self.SETTINGS_TAB, username, rows=2, cols=10)
-        settings.update(values=[self.SETTINGS_HEADER], range_name="A1:E1")
-        settings.update(values=[[
+        actor = self.sheet_actor(username, user_id)
+        self.ensure_user_tabs(actor, user_id)
+        settings = self.worksheet(self.SETTINGS_TAB, rows=100, cols=6)
+        row = [
+            actor,
             sheet_float(one_rms.get("squat"), DEFAULT_ONE_RMS["squat"]),
             sheet_float(one_rms.get("bench"), DEFAULT_ONE_RMS["bench"]),
             sheet_float(one_rms.get("deadlift"), DEFAULT_ONE_RMS["deadlift"]),
             sheet_float(one_rms.get("ohp"), DEFAULT_ONE_RMS["ohp"]),
             sheet_int(one_rms.get("activeSplit"), DEFAULT_ONE_RMS["activeSplit"]),
-        ]], range_name="A2:E2")
+        ]
+        self.replace_actor_rows(settings, "A2:F", self.SETTINGS_HEADER, [row], actor, 0)
 
     def load_routine_progress(self, username="", user_id=""):
-        self.ensure_user_tabs(username, user_id)
-        progress_sheet = self.worksheet_for_user(self.ROUTINE_PROGRESS_TAB, username, rows=10, cols=6)
+        actor = self.sheet_actor(username, user_id)
+        self.ensure_user_tabs(actor, user_id)
+        progress_sheet = self.worksheet(self.ROUTINE_PROGRESS_TAB, rows=100, cols=7)
+        values = progress_sheet.get("A2:G") or []
+        progress = {}
+        for row in values:
+            row = row + [""] * 7
+            if normalize_username(row[0]) != actor:
+                continue
+            split = str(sheet_int(row[1], 0))
+            if split not in ROUTINE_SPLITS:
+                continue
+            progress[split] = {
+                "version": str(row[2]).strip(),
+                "blockLength": sheet_int(row[3], DEFAULT_ROUTINE_PROGRESS_ENTRY["blockLength"]),
+                "baselineLogCount": sheet_int(row[4], DEFAULT_ROUTINE_PROGRESS_ENTRY["baselineLogCount"]),
+                "startedAt": str(row[5]).strip(),
+            }
+        return progress or self.load_legacy_routine_progress(actor)
+
+    def load_legacy_routine_progress(self, actor):
+        progress_sheet = self.legacy_worksheet_for_user(self.ROUTINE_PROGRESS_TAB, actor)
+        if not progress_sheet:
+            return {}
         values = progress_sheet.get("A2:F") or []
         progress = {}
         for row in values:
@@ -584,14 +667,15 @@ class GoogleSheetsStore:
         return progress
 
     def save_routine_progress(self, progress, username="", user_id=""):
-        self.ensure_user_tabs(username, user_id)
-        progress_sheet = self.worksheet_for_user(self.ROUTINE_PROGRESS_TAB, username, rows=10, cols=6)
-        self.ensure_header(progress_sheet, "A1:F1", self.ROUTINE_PROGRESS_HEADER)
+        actor = self.sheet_actor(username, user_id)
+        self.ensure_user_tabs(actor, user_id)
+        progress_sheet = self.worksheet(self.ROUTINE_PROGRESS_TAB, rows=100, cols=7)
         rows = []
         updated_at = now_iso()
         for split in ROUTINE_SPLITS:
             entry = normalize_routine_progress_entry((progress or {}).get(split), split)
             rows.append([
+                actor,
                 split,
                 entry.get("version", ""),
                 as_int(entry.get("blockLength"), DEFAULT_ROUTINE_PROGRESS_ENTRY["blockLength"]),
@@ -599,20 +683,50 @@ class GoogleSheetsStore:
                 entry.get("startedAt", ""),
                 updated_at,
             ])
-        progress_sheet.update(values=rows, range_name="A2:F5")
+        self.replace_actor_rows(progress_sheet, "A2:G", self.ROUTINE_PROGRESS_HEADER, rows, actor, 0)
 
     def load_gyms(self, username="", user_id=""):
-        self.ensure_user_tabs(username, user_id)
-        gym_settings = self.worksheet_for_user(self.GYM_SETTINGS_TAB, username, rows=50, cols=8)
-        rows = gym_settings.get("A2:G")
+        actor = self.sheet_actor(username, user_id)
+        self.ensure_user_tabs(actor, user_id)
+        gym_settings = self.worksheet(self.GYM_SETTINGS_TAB, rows=100, cols=8)
+        rows = gym_settings.get("A2:H")
         gyms = []
         active_gym_id = None
 
         for row in rows:
+            row = row + [""] * 8
+            if normalize_username(row[0]) != actor:
+                continue
+            if not row[2] and not row[3]:
+                continue
+
+            gym = normalize_gym({
+                "id": row[2],
+                "name": row[3],
+                "barbellWeight": sheet_float(row[4], DEFAULT_GYM["barbellWeight"]),
+                "availablePlates": sheet_json(row[5], DEFAULT_GYM["availablePlates"]),
+                "dumbbellInterval": sheet_float(row[6], DEFAULT_GYM["dumbbellInterval"]),
+                "machineProgressionMap": sheet_json(row[7], {}),
+            })
+            gyms.append(gym)
+            if sheet_bool(row[1]):
+                active_gym_id = gym["id"]
+
+        if not gyms:
+            return self.load_legacy_gyms(actor)
+        return normalize_gym_state(active_gym_id, gyms)
+
+    def load_legacy_gyms(self, actor):
+        gym_settings = self.legacy_worksheet_for_user(self.GYM_SETTINGS_TAB, actor)
+        if not gym_settings:
+            return None, []
+        rows = gym_settings.get("A2:G") or []
+        gyms = []
+        active_gym_id = None
+        for row in rows:
             row = row + [""] * 7
             if not row[1] and not row[2]:
                 continue
-
             gym = normalize_gym({
                 "id": row[1],
                 "name": row[2],
@@ -624,18 +738,19 @@ class GoogleSheetsStore:
             gyms.append(gym)
             if sheet_bool(row[0]):
                 active_gym_id = gym["id"]
-
         if not gyms:
             return None, []
         return normalize_gym_state(active_gym_id, gyms)
 
     def save_gyms(self, active_gym_id, gyms, username="", user_id=""):
-        self.ensure_user_tabs(username, user_id)
+        actor = self.sheet_actor(username, user_id)
+        self.ensure_user_tabs(actor, user_id)
         active_gym_id, gyms = normalize_gym_state(active_gym_id, gyms)
-        gym_settings = self.worksheet_for_user(self.GYM_SETTINGS_TAB, username, rows=max(50, len(gyms) + 1), cols=8)
-        rows = [self.GYM_SETTINGS_HEADER]
+        gym_settings = self.worksheet(self.GYM_SETTINGS_TAB, rows=max(100, len(gyms) + 1), cols=8)
+        rows = []
         for gym in gyms:
             rows.append([
+                actor,
                 "TRUE" if gym.get("id") == active_gym_id else "",
                 gym.get("id", ""),
                 gym.get("name", ""),
@@ -644,8 +759,7 @@ class GoogleSheetsStore:
                 as_float(gym.get("dumbbellInterval"), DEFAULT_GYM["dumbbellInterval"]),
                 json.dumps(gym.get("machineProgressionMap") or {}, ensure_ascii=False),
             ])
-        gym_settings.clear()
-        gym_settings.update(values=rows, range_name=f"A1:G{len(rows)}")
+        self.replace_actor_rows(gym_settings, "A2:H", self.GYM_SETTINGS_HEADER, rows, actor, 0)
         return active_gym_id, gyms
 
     def load_users(self):
@@ -756,15 +870,50 @@ class GoogleSheetsStore:
         return False
 
     def load_logs(self, username="", user_id=""):
-        self.ensure_user_tabs(username, user_id)
-        logs = self.worksheet_for_user(self.LOGS_TAB, username, rows=1000, cols=13)
-        rows = logs.get("A2:M")
+        actor = self.sheet_actor(username, user_id)
+        self.ensure_user_tabs(actor, user_id)
+        logs = self.worksheet(self.LOGS_TAB, rows=1000, cols=13)
+        rows = logs.get("A2:M") or []
         parsed = []
         for row in rows:
-            log = self.parse_log_row(row, username)
-            if log:
+            log = self.parse_log_row(row, actor)
+            if log and normalize_username(log.get("username")) == actor:
+                parsed.append(log)
+        return self.merge_logs(parsed, self.load_legacy_logs(actor))
+
+    def load_legacy_logs(self, actor):
+        logs = self.legacy_worksheet_for_user(self.LOGS_TAB, actor)
+        if not logs:
+            return []
+        parsed = []
+        for row in logs.get("A2:M") or []:
+            log = self.parse_log_row(row, actor)
+            if log and normalize_username(log.get("username")) == actor:
                 parsed.append(log)
         return parsed
+
+    @staticmethod
+    def merge_logs(*groups):
+        merged = {}
+        for group in groups:
+            for log in group or []:
+                key = (
+                    str(log.get("date") or ""),
+                    normalize_username(log.get("username")),
+                    as_int(log.get("split")),
+                    as_int(log.get("week"), 1),
+                    str(log.get("day") or ""),
+                    str(log.get("exercise") or ""),
+                    as_int(log.get("setNo")),
+                    round(as_float(log.get("weight")), 3),
+                    as_int(log.get("reps")),
+                    round(as_float(log.get("rpe")), 3),
+                    str(log.get("status") or ""),
+                    round(as_float(log.get("targetWeight")), 3),
+                    as_int(log.get("targetReps")),
+                )
+                merged[key] = log
+        return list(merged.values())
 
     def parse_log_row(self, row, username=""):
         row = [str(value).strip() for value in row]
@@ -792,7 +941,7 @@ class GoogleSheetsStore:
             actor = row[start + 13]
             base = start + 1
             submission_id = row[start + 12]
-        actor_username = normalize_username(username or ("" if actor.startswith("user_") else actor))
+        actor_username = normalize_username("" if actor.startswith("user_") else actor) or normalize_username(username)
         return {
             "date": row[start],
             "split": sheet_int(row[base]),
@@ -814,14 +963,14 @@ class GoogleSheetsStore:
     def append_logs(self, logs, username="", user_id=""):
         if not logs:
             return True
-        self.ensure_user_tabs(username, user_id)
-        username = normalize_username(username)
-        worksheet = self.worksheet_for_user(self.LOGS_TAB, username, rows=1000, cols=13)
+        actor = self.sheet_actor(username, user_id)
+        self.ensure_user_tabs(actor, user_id)
+        worksheet = self.worksheet(self.LOGS_TAB, rows=1000, cols=13)
         rows = []
         for log in logs:
             rows.append([
                 log.get("date", ""),
-                normalize_username(log.get("username") or username),
+                normalize_username(log.get("username") or actor),
                 log.get("split", ""),
                 log.get("week", ""),
                 log.get("day", ""),
@@ -838,18 +987,40 @@ class GoogleSheetsStore:
         return True
 
     def load_cardio_logs(self, username="", user_id=""):
-        self.ensure_user_tabs(username, user_id)
-        worksheet = self.worksheet_for_user(self.CARDIO_LOGS_TAB, username, rows=500, cols=7)
+        actor = self.sheet_actor(username, user_id)
+        self.ensure_user_tabs(actor, user_id)
+        worksheet = self.worksheet(self.CARDIO_LOGS_TAB, rows=500, cols=7)
         rows = worksheet.get("A2:G") or []
         parsed = []
         for row in rows:
+            row = [str(value).strip() for value in row]
+            row = row + [""] * (7 - len(row))
+            if not row[0] or normalize_username(row[1]) != actor:
+                continue
+            parsed.append({
+                "date": normalize_workout_date(row[0]),
+                "username": normalize_username(row[1] or actor),
+                "activity": row[2] or "유산소",
+                "durationSeconds": sheet_int(row[3], 0),
+                "memo": row[4],
+                "submissionId": row[5],
+                "createdAt": row[6],
+            })
+        return self.merge_cardio_logs(parsed, self.load_legacy_cardio_logs(actor))
+
+    def load_legacy_cardio_logs(self, actor):
+        worksheet = self.legacy_worksheet_for_user(self.CARDIO_LOGS_TAB, actor)
+        if not worksheet:
+            return []
+        parsed = []
+        for row in worksheet.get("A2:G") or []:
             row = [str(value).strip() for value in row]
             row = row + [""] * (7 - len(row))
             if not row[0]:
                 continue
             parsed.append({
                 "date": normalize_workout_date(row[0]),
-                "username": normalize_username(row[1] or username),
+                "username": normalize_username(row[1] or actor),
                 "activity": row[2] or "유산소",
                 "durationSeconds": sheet_int(row[3], 0),
                 "memo": row[4],
@@ -858,13 +1029,28 @@ class GoogleSheetsStore:
             })
         return parsed
 
+    @staticmethod
+    def merge_cardio_logs(*groups):
+        merged = {}
+        for group in groups:
+            for item in group or []:
+                key = (
+                    str(item.get("date") or ""),
+                    normalize_username(item.get("username")),
+                    str(item.get("activity") or ""),
+                    as_int(item.get("durationSeconds"), 0),
+                    str(item.get("submissionId") or ""),
+                )
+                merged[key] = item
+        return list(merged.values())
+
     def append_cardio_log(self, cardio_log, username="", user_id=""):
-        self.ensure_user_tabs(username, user_id)
-        username = normalize_username(username)
-        worksheet = self.worksheet_for_user(self.CARDIO_LOGS_TAB, username, rows=500, cols=7)
+        actor = self.sheet_actor(username, user_id)
+        self.ensure_user_tabs(actor, user_id)
+        worksheet = self.worksheet(self.CARDIO_LOGS_TAB, rows=500, cols=7)
         worksheet.append_row([
             cardio_log.get("date", ""),
-            normalize_username(cardio_log.get("username") or username),
+            normalize_username(cardio_log.get("username") or actor),
             cardio_log.get("activity", "유산소"),
             as_int(cardio_log.get("durationSeconds"), 0),
             cardio_log.get("memo", ""),
@@ -874,15 +1060,48 @@ class GoogleSheetsStore:
         return True
 
     def load_replacements(self, username="", user_id=""):
-        self.ensure_user_tabs(username, user_id)
-        worksheet = self.worksheet_for_user(self.REPLACEMENTS_TAB, username, rows=500, cols=15)
-        rows = worksheet.get("A2:O")
+        actor = self.sheet_actor(username, user_id)
+        self.ensure_user_tabs(actor, user_id)
+        worksheet = self.worksheet(self.REPLACEMENTS_TAB, rows=500, cols=15)
+        rows = worksheet.get("A2:O") or []
         parsed = []
         for row in rows:
             row = [str(value).strip() for value in row] + [""] * 15
             if not row[0] or not row[4] or not row[5]:
                 continue
-            actor = row[14]
+            row_actor = row[14]
+            item = {
+                "date": row[0],
+                "split": sheet_int(row[1]),
+                "week": sheet_int(row[2], 1),
+                "day": row[3],
+                "originalExercise": row[4],
+                "exercise": row[5],
+                "setCount": sheet_int(row[6]),
+                "bestWeight": sheet_float(row[7]),
+                "bestReps": sheet_int(row[8]),
+                "estimatedOneRm": sheet_float(row[9]),
+                "volume": sheet_float(row[10]),
+                "summary": row[11],
+                "submissionId": row[12],
+                "createdAt": row[13],
+                "username": normalize_username("" if row_actor.startswith("user_") else row_actor) or normalize_username(username),
+                "userId": row_actor if row_actor.startswith("user_") else "",
+            }
+            if normalize_username(item.get("username")) == self.sheet_actor(username, user_id):
+                parsed.append(item)
+        return merge_replacements(parsed, self.load_legacy_replacements(self.sheet_actor(username, user_id)))
+
+    def load_legacy_replacements(self, actor):
+        worksheet = self.legacy_worksheet_for_user(self.REPLACEMENTS_TAB, actor)
+        if not worksheet:
+            return []
+        parsed = []
+        for row in worksheet.get("A2:O") or []:
+            row = [str(value).strip() for value in row] + [""] * 15
+            if not row[0] or not row[4] or not row[5]:
+                continue
+            row_actor = row[14]
             parsed.append({
                 "date": row[0],
                 "split": sheet_int(row[1]),
@@ -898,17 +1117,17 @@ class GoogleSheetsStore:
                 "summary": row[11],
                 "submissionId": row[12],
                 "createdAt": row[13],
-                "username": normalize_username(username or ("" if actor.startswith("user_") else actor)),
-                "userId": actor if actor.startswith("user_") else "",
+                "username": normalize_username("" if row_actor.startswith("user_") else row_actor) or actor,
+                "userId": row_actor if row_actor.startswith("user_") else "",
             })
         return parsed
 
     def append_replacements(self, replacements, username="", user_id=""):
         if not replacements:
             return True
-        self.ensure_user_tabs(username, user_id)
-        username = normalize_username(username)
-        worksheet = self.worksheet_for_user(self.REPLACEMENTS_TAB, username, rows=500, cols=15)
+        actor = self.sheet_actor(username, user_id)
+        self.ensure_user_tabs(actor, user_id)
+        worksheet = self.worksheet(self.REPLACEMENTS_TAB, rows=500, cols=15)
         rows = []
         for item in replacements:
             rows.append([
@@ -926,32 +1145,43 @@ class GoogleSheetsStore:
                 item.get("summary", ""),
                 item.get("submissionId", ""),
                 item.get("createdAt", ""),
-                normalize_username(item.get("username") or username),
+                normalize_username(item.get("username") or actor),
             ])
         worksheet.append_rows(rows, value_input_option="RAW", table_range="A1:O1")
         return True
 
     def load_submission_ids(self, username="", user_id=""):
-        self.ensure_user_tabs(username, user_id)
-        worksheet = self.worksheet_for_user(self.SUBMISSIONS_TAB, username, rows=500, cols=7)
-        rows = worksheet.get("A2:A")
-        return {str(row[0]).strip() for row in rows if row and str(row[0]).strip()}
+        actor = self.sheet_actor(username, user_id)
+        self.ensure_user_tabs(actor, user_id)
+        worksheet = self.worksheet(self.SUBMISSIONS_TAB, rows=500, cols=8)
+        rows = worksheet.get("A2:H") or []
+        ids = {
+            str(row[0]).strip()
+            for row in rows
+            if row and str(row[0]).strip() and len(row) > 1 and normalize_username(row[1]) == actor
+        }
+        legacy = self.legacy_worksheet_for_user(self.SUBMISSIONS_TAB, actor)
+        if legacy:
+            ids.update({str(row[0]).strip() for row in (legacy.get("A2:A") or []) if row and str(row[0]).strip()})
+        return ids
 
     def append_submission(self, submission, username="", user_id=""):
         submission_id = str(submission.get("id") or "").strip()
         if not submission_id:
             return True
-        self.ensure_user_tabs(username, user_id)
-        worksheet = self.worksheet_for_user(self.SUBMISSIONS_TAB, username, rows=500, cols=7)
+        actor = self.sheet_actor(username, user_id)
+        self.ensure_user_tabs(actor, user_id)
+        worksheet = self.worksheet(self.SUBMISSIONS_TAB, rows=500, cols=8)
         worksheet.append_row([
             submission_id,
+            actor,
             submission.get("date", ""),
             submission.get("split", ""),
             submission.get("week", ""),
             submission.get("day", ""),
             submission.get("logCount", ""),
             submission.get("createdAt", ""),
-        ], value_input_option="RAW", table_range="A1:G1")
+        ], value_input_option="RAW", table_range="A1:H1")
         return True
 
 

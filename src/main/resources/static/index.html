@@ -2709,6 +2709,33 @@
             color: var(--accent-color) !important;
         }
 
+        .free-exercise-tabs {
+            display: grid;
+            grid-template-columns: repeat(5, minmax(0, 1fr));
+            gap: 4px;
+            padding: 4px;
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            border-radius: 8px;
+            background: #0E0F15;
+        }
+
+        .free-exercise-tab {
+            min-height: 34px;
+            border: 0;
+            border-radius: 7px;
+            background: transparent;
+            color: var(--text-muted);
+            font-size: 11px;
+            font-weight: 900;
+            cursor: pointer;
+        }
+
+        .free-exercise-tab.active {
+            background: rgba(255, 215, 0, 0.14);
+            color: var(--accent-color);
+            box-shadow: inset 0 -2px 0 var(--accent-color);
+        }
+
         .replacement-item {
             display: grid;
             grid-template-columns: minmax(0, 1fr) auto;
@@ -3439,6 +3466,8 @@
         let currentDayId = "Day 1";
         let activeWorkoutDay = null;
         let activeWorkoutMode = "routine";
+        const freeWorkoutMuscleGroups = ["가슴", "등", "하체", "팔", "어깨"];
+        let freeWorkoutMuscleTab = "가슴";
         let replacementExerciseIdx = null;
         let nextRecommendedDayId = "Day 1";
         let settingsSaveVersion = 0;
@@ -7006,11 +7035,53 @@
 
             replacementExerciseIdx = null;
             document.getElementById("replace-exercise-title").innerText = "자유운동 추가";
-            document.getElementById("replace-exercise-subtitle").innerText = "오늘 할 종목 선택";
+            document.getElementById("replace-exercise-subtitle").innerText = "부위별로 오늘 할 종목 선택";
+            renderFreeExercisePickerList(freeWorkoutMuscleTab);
+            document.getElementById("exercise-replace-overlay").classList.add("active");
+        }
 
+        function getFreeExerciseGroups() {
+            const groups = Object.fromEntries(freeWorkoutMuscleGroups.map(muscle => [muscle, []]));
+            getAllKnownExerciseNames().forEach(name => {
+                const muscle = getExerciseMuscleGroup(name);
+                if (groups[muscle]) groups[muscle].push(name);
+            });
+            freeWorkoutMuscleGroups.forEach(muscle => {
+                groups[muscle].sort((a, b) => a.localeCompare(b, "ko"));
+            });
+            return groups;
+        }
+
+        function renderFreeExercisePickerList(selectedMuscle = "가슴") {
             const list = document.getElementById("replacement-exercise-list");
             list.innerHTML = "";
-            const candidates = getAllKnownExerciseNames().sort((a, b) => a.localeCompare(b, "ko"));
+            const groups = getFreeExerciseGroups();
+            let muscle = freeWorkoutMuscleGroups.includes(selectedMuscle) ? selectedMuscle : "가슴";
+            if (!groups[muscle]?.length) {
+                muscle = freeWorkoutMuscleGroups.find(group => groups[group]?.length) || muscle;
+            }
+            freeWorkoutMuscleTab = muscle;
+
+            const tabs = document.createElement("div");
+            tabs.className = "free-exercise-tabs";
+            freeWorkoutMuscleGroups.forEach(group => {
+                const tab = document.createElement("button");
+                tab.type = "button";
+                tab.className = `free-exercise-tab${group === muscle ? " active" : ""}`;
+                tab.innerText = group;
+                tab.addEventListener("click", () => renderFreeExercisePickerList(group));
+                tabs.appendChild(tab);
+            });
+            list.appendChild(tabs);
+
+            const candidates = groups[muscle] || [];
+            if (!candidates.length) {
+                const empty = document.createElement("div");
+                empty.className = "replacement-item";
+                empty.innerHTML = `<div><strong>추가 가능 종목 없음</strong><span>${muscle}로 분류된 운동이 없습니다.</span></div>`;
+                list.appendChild(empty);
+                return;
+            }
 
             candidates.forEach(name => {
                 const exercise = normalizeFreeWorkoutExercise(name);
@@ -7032,8 +7103,6 @@
                 item.appendChild(button);
                 list.appendChild(item);
             });
-
-            document.getElementById("exercise-replace-overlay").classList.add("active");
         }
 
         function addFreeExerciseByName(name) {
