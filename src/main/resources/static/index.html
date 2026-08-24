@@ -7041,10 +7041,18 @@
         }
 
         function getFreeExerciseGroups() {
-            const groups = Object.fromEntries(freeWorkoutMuscleGroups.map(muscle => [muscle, []]));
+            const groups = {};
+            freeWorkoutMuscleGroups.forEach(muscle => {
+                groups[muscle] = [];
+            });
+
+            Object.entries(exerciseDefinitions.muscle_groups || {}).forEach(([name, muscle]) => {
+                if (groups[muscle] && name) groups[muscle].push(name);
+            });
+
             getAllKnownExerciseNames().forEach(name => {
                 const muscle = getExerciseMuscleGroup(name);
-                if (groups[muscle]) groups[muscle].push(name);
+                if (groups[muscle] && !groups[muscle].includes(name)) groups[muscle].push(name);
             });
             freeWorkoutMuscleGroups.forEach(muscle => {
                 groups[muscle].sort((a, b) => a.localeCompare(b, "ko"));
@@ -7084,7 +7092,17 @@
             }
 
             candidates.forEach(name => {
-                const exercise = normalizeFreeWorkoutExercise(name);
+                let exercise;
+                try {
+                    exercise = normalizeFreeWorkoutExercise(name);
+                } catch (err) {
+                    console.warn("자유운동 후보 생성 실패", name, err);
+                    exercise = {
+                        sets: 3,
+                        repsRange: "8-12",
+                        previousLog: null
+                    };
+                }
                 const recent = exercise.previousLog
                     ? `최근 ${formatKg(exercise.previousLog.weight)}kg × ${exercise.previousLog.reps}`
                     : "최근 기록 없음";
