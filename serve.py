@@ -469,25 +469,6 @@ class GoogleSheetsStore:
     def worksheet_for_user(self, base_title, username="", rows=100, cols=20):
         return self.worksheet(user_tab_title(base_title, username), rows=rows, cols=cols)
 
-    def worksheet_if_exists(self, title):
-        import gspread
-
-        if title in self._worksheets:
-            return self._worksheets[title]
-
-        try:
-            worksheet = self.spreadsheet.worksheet(title)
-        except gspread.exceptions.WorksheetNotFound:
-            return None
-        self._worksheets[title] = worksheet
-        return worksheet
-
-    def legacy_worksheet_for_user(self, base_title, username=""):
-        title = user_tab_title(base_title, username)
-        if title == base_title:
-            return None
-        return self.worksheet_if_exists(title)
-
     @staticmethod
     def column_name(index):
         name = ""
@@ -592,15 +573,6 @@ class GoogleSheetsStore:
             "activeSplit": sheet_int(row[offset + 4], DEFAULT_ONE_RMS["activeSplit"]),
         }
 
-    def load_legacy_one_rms(self, actor):
-        settings = self.legacy_worksheet_for_user(self.SETTINGS_TAB, actor)
-        if not settings:
-            return None
-        rows = settings.get("A2:E2") or []
-        if not rows:
-            return None
-        return self.one_rms_from_row(rows[0])
-
     def load_one_rms(self, username="", user_id=""):
         actor = self.sheet_actor(username, user_id)
         self.ensure_user_tabs(actor, user_id)
@@ -610,7 +582,7 @@ class GoogleSheetsStore:
             row = (row or []) + [""] * 6
             if normalize_username(row[0]) == actor:
                 return self.one_rms_from_row(row, offset=1)
-        return self.load_legacy_one_rms(actor) or self.default_one_rms()
+        return self.default_one_rms()
 
     def save_one_rms(self, one_rms, username="", user_id=""):
         actor = self.sheet_actor(username, user_id)
@@ -644,25 +616,6 @@ class GoogleSheetsStore:
                 "blockLength": sheet_int(row[3], DEFAULT_ROUTINE_PROGRESS_ENTRY["blockLength"]),
                 "baselineLogCount": sheet_int(row[4], DEFAULT_ROUTINE_PROGRESS_ENTRY["baselineLogCount"]),
                 "startedAt": str(row[5]).strip(),
-            }
-        return progress or self.load_legacy_routine_progress(actor)
-
-    def load_legacy_routine_progress(self, actor):
-        progress_sheet = self.legacy_worksheet_for_user(self.ROUTINE_PROGRESS_TAB, actor)
-        if not progress_sheet:
-            return {}
-        values = progress_sheet.get("A2:F") or []
-        progress = {}
-        for row in values:
-            row = row + [""] * 6
-            split = str(sheet_int(row[0], 0))
-            if split not in ROUTINE_SPLITS:
-                continue
-            progress[split] = {
-                "version": str(row[1]).strip(),
-                "blockLength": sheet_int(row[2], DEFAULT_ROUTINE_PROGRESS_ENTRY["blockLength"]),
-                "baselineLogCount": sheet_int(row[3], DEFAULT_ROUTINE_PROGRESS_ENTRY["baselineLogCount"]),
-                "startedAt": str(row[4]).strip(),
             }
         return progress
 
@@ -712,32 +665,6 @@ class GoogleSheetsStore:
             if sheet_bool(row[1]):
                 active_gym_id = gym["id"]
 
-        if not gyms:
-            return self.load_legacy_gyms(actor)
-        return normalize_gym_state(active_gym_id, gyms)
-
-    def load_legacy_gyms(self, actor):
-        gym_settings = self.legacy_worksheet_for_user(self.GYM_SETTINGS_TAB, actor)
-        if not gym_settings:
-            return None, []
-        rows = gym_settings.get("A2:G") or []
-        gyms = []
-        active_gym_id = None
-        for row in rows:
-            row = row + [""] * 7
-            if not row[1] and not row[2]:
-                continue
-            gym = normalize_gym({
-                "id": row[1],
-                "name": row[2],
-                "barbellWeight": sheet_float(row[3], DEFAULT_GYM["barbellWeight"]),
-                "availablePlates": sheet_json(row[4], DEFAULT_GYM["availablePlates"]),
-                "dumbbellInterval": sheet_float(row[5], DEFAULT_GYM["dumbbellInterval"]),
-                "machineProgressionMap": sheet_json(row[6], {}),
-            })
-            gyms.append(gym)
-            if sheet_bool(row[0]):
-                active_gym_id = gym["id"]
         if not gyms:
             return None, []
         return normalize_gym_state(active_gym_id, gyms)
@@ -879,41 +806,7 @@ class GoogleSheetsStore:
             log = self.parse_log_row(row, actor)
             if log and normalize_username(log.get("username")) == actor:
                 parsed.append(log)
-        return self.merge_logs(parsed, self.load_legacy_logs(actor))
-
-    def load_legacy_logs(self, actor):
-        logs = self.legacy_worksheet_for_user(self.LOGS_TAB, actor)
-        if not logs:
-            return []
-        parsed = []
-        for row in logs.get("A2:M") or []:
-            log = self.parse_log_row(row, actor)
-            if log and normalize_username(log.get("username")) == actor:
-                parsed.append(log)
         return parsed
-
-    @staticmethod
-    def merge_logs(*groups):
-        merged = {}
-        for group in groups:
-            for log in group or []:
-                key = (
-                    str(log.get("date") or ""),
-                    normalize_username(log.get("username")),
-                    as_int(log.get("split")),
-                    as_int(log.get("week"), 1),
-                    str(log.get("day") or ""),
-                    str(log.get("exercise") or ""),
-                    as_int(log.get("setNo")),
-                    round(as_float(log.get("weight")), 3),
-                    as_int(log.get("reps")),
-                    round(as_float(log.get("rpe")), 3),
-                    str(log.get("status") or ""),
-                    round(as_float(log.get("targetWeight")), 3),
-                    as_int(log.get("targetReps")),
-                )
-                merged[key] = log
-        return list(merged.values())
 
     def parse_log_row(self, row, username=""):
         row = [str(value).strip() for value in row]
@@ -1006,43 +899,7 @@ class GoogleSheetsStore:
                 "submissionId": row[5],
                 "createdAt": row[6],
             })
-        return self.merge_cardio_logs(parsed, self.load_legacy_cardio_logs(actor))
-
-    def load_legacy_cardio_logs(self, actor):
-        worksheet = self.legacy_worksheet_for_user(self.CARDIO_LOGS_TAB, actor)
-        if not worksheet:
-            return []
-        parsed = []
-        for row in worksheet.get("A2:G") or []:
-            row = [str(value).strip() for value in row]
-            row = row + [""] * (7 - len(row))
-            if not row[0]:
-                continue
-            parsed.append({
-                "date": normalize_workout_date(row[0]),
-                "username": normalize_username(row[1] or actor),
-                "activity": row[2] or "유산소",
-                "durationSeconds": sheet_int(row[3], 0),
-                "memo": row[4],
-                "submissionId": row[5],
-                "createdAt": row[6],
-            })
         return parsed
-
-    @staticmethod
-    def merge_cardio_logs(*groups):
-        merged = {}
-        for group in groups:
-            for item in group or []:
-                key = (
-                    str(item.get("date") or ""),
-                    normalize_username(item.get("username")),
-                    str(item.get("activity") or ""),
-                    as_int(item.get("durationSeconds"), 0),
-                    str(item.get("submissionId") or ""),
-                )
-                merged[key] = item
-        return list(merged.values())
 
     def append_cardio_log(self, cardio_log, username="", user_id=""):
         actor = self.sheet_actor(username, user_id)
@@ -1090,36 +947,6 @@ class GoogleSheetsStore:
             }
             if normalize_username(item.get("username")) == self.sheet_actor(username, user_id):
                 parsed.append(item)
-        return merge_replacements(parsed, self.load_legacy_replacements(self.sheet_actor(username, user_id)))
-
-    def load_legacy_replacements(self, actor):
-        worksheet = self.legacy_worksheet_for_user(self.REPLACEMENTS_TAB, actor)
-        if not worksheet:
-            return []
-        parsed = []
-        for row in worksheet.get("A2:O") or []:
-            row = [str(value).strip() for value in row] + [""] * 15
-            if not row[0] or not row[4] or not row[5]:
-                continue
-            row_actor = row[14]
-            parsed.append({
-                "date": row[0],
-                "split": sheet_int(row[1]),
-                "week": sheet_int(row[2], 1),
-                "day": row[3],
-                "originalExercise": row[4],
-                "exercise": row[5],
-                "setCount": sheet_int(row[6]),
-                "bestWeight": sheet_float(row[7]),
-                "bestReps": sheet_int(row[8]),
-                "estimatedOneRm": sheet_float(row[9]),
-                "volume": sheet_float(row[10]),
-                "summary": row[11],
-                "submissionId": row[12],
-                "createdAt": row[13],
-                "username": normalize_username("" if row_actor.startswith("user_") else row_actor) or actor,
-                "userId": row_actor if row_actor.startswith("user_") else "",
-            })
         return parsed
 
     def append_replacements(self, replacements, username="", user_id=""):
@@ -1160,9 +987,6 @@ class GoogleSheetsStore:
             for row in rows
             if row and str(row[0]).strip() and len(row) > 1 and normalize_username(row[1]) == actor
         }
-        legacy = self.legacy_worksheet_for_user(self.SUBMISSIONS_TAB, actor)
-        if legacy:
-            ids.update({str(row[0]).strip() for row in (legacy.get("A2:A") or []) if row and str(row[0]).strip()})
         return ids
 
     def append_submission(self, submission, username="", user_id=""):

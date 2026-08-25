@@ -221,13 +221,13 @@ def main():
     assert_equal(len(store.load_cardio_logs("sjoh")), 1, "cardio logs filter")
     assert_equal(store.load_cardio_logs("sjoh")[0]["durationSeconds"], 1200, "cardio duration")
 
-    legacy_title = user_tab_title(store.LOGS_TAB, "legacy")
-    store._worksheets[legacy_title] = FakeWorksheet(legacy_title)
-    store._worksheets[legacy_title].rows = [
+    legacy_logs_title = user_tab_title(store.LOGS_TAB, "legacy")
+    store._worksheets[legacy_logs_title] = FakeWorksheet(legacy_logs_title)
+    store._worksheets[legacy_logs_title].rows = [
         store.LOG_HEADER,
         ["2026-08-23", "legacy", 2, 1, "Day 1", "레그 프레스", 1, 100, 10, 8, "SUCCESS", 100, 10],
     ]
-    assert_equal(len(store.load_logs("legacy")), 1, "legacy workout log fallback")
+    assert_equal(len(store.load_logs("legacy")), 0, "legacy workout logs are ignored after migration")
 
     legacy_settings_title = user_tab_title(store.SETTINGS_TAB, "legacy")
     store._worksheets[legacy_settings_title] = FakeWorksheet(legacy_settings_title)
@@ -235,7 +235,7 @@ def main():
         ["Squat", "Bench", "Deadlift", "OHP", "ActiveSplit"],
         [200, 120, 220, 60, 2],
     ]
-    assert_equal(store.load_one_rms("legacy")["deadlift"], 220.0, "legacy settings fallback")
+    assert_equal(store.load_one_rms("legacy")["deadlift"], 160.0, "legacy 1RM settings are ignored after migration")
 
     print("shared table store checks ok")
 

@@ -173,17 +173,12 @@ Workout data is stored in shared tables and filtered by normalized `username`:
 - `Routine_Progress`: W1D1 reset/progress state, with `Username` in column A
 - `Cardio_Logs`: cardio history, with `Username` in column B
 
-Legacy username-suffixed workout tabs may be read as a transition fallback so existing data does not disappear immediately after the table refactor:
+Legacy username-suffixed workout tabs are migration leftovers only.
 
-- `Setting_1RM__{username}`
-- `Gym_Settings__{username}`
-- `Workout_Logs__{username}`
-- `Workout_Replacements__{username}`
-- `Workout_Submissions__{username}`
-- `Routine_Progress__{username}`
-- `Cardio_Logs__{username}`
-
-Do not create or write new username-suffixed workout tabs. New writes go to the shared tables only.
+- Do not read legacy `__{username}` tabs as runtime fallback.
+- Do not create or write new username-suffixed workout tabs.
+- Runtime reads and writes must use the shared tables above, filtered by normalized `username`.
+- If old `__{username}` tabs are found, migrate their rows into shared tables before deleting them.
 
 Keep `User_Accounts` and `User_Sessions` shared. Do not create separate auth tables per user.
 
