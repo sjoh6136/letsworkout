@@ -43,6 +43,7 @@ sys.modules.setdefault("flask", flask_stub)
 from serve import (  # noqa: E402
     DEFAULT_GYM,
     GoogleSheetsStore,
+    cardio_log_already_saved,
     user_tab_title,
 )
 
@@ -220,6 +221,14 @@ def main():
     store.append_cardio_log({"date": "2026-08-24", "activity": "유산소", "durationSeconds": 600, "submissionId": "cardio-park", "createdAt": "now"}, "park")
     assert_equal(len(store.load_cardio_logs("sjoh")), 1, "cardio logs filter")
     assert_equal(store.load_cardio_logs("sjoh")[0]["durationSeconds"], 1200, "cardio duration")
+    assert not cardio_log_already_saved(
+        {"cardioLogs": [{"date": "2026-08-24", "username": "sjoh", "activity": "유산소", "durationSeconds": 1200, "submissionId": "same-cardio-id"}]},
+        {"date": "2026-08-25", "username": "sjoh", "activity": "유산소", "durationSeconds": 1200, "submissionId": "same-cardio-id"},
+    ), "same cardio submission id on a different date must not block a new row"
+    assert cardio_log_already_saved(
+        {"cardioLogs": [{"date": "2026-08-24", "username": "sjoh", "activity": "유산소", "durationSeconds": 1200, "submissionId": "same-cardio-id"}]},
+        {"date": "2026-08-24", "username": "sjoh", "activity": "유산소", "durationSeconds": 1200, "submissionId": "same-cardio-id"},
+    ), "same cardio submission id on the same date remains idempotent"
 
     legacy_logs_title = user_tab_title(store.LOGS_TAB, "legacy")
     store._worksheets[legacy_logs_title] = FakeWorksheet(legacy_logs_title)

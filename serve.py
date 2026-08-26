@@ -1399,7 +1399,7 @@ def cardio_duplicate_key(cardio_log):
         normalize_username(cardio_log.get("username")),
         str(cardio_log.get("activity") or ""),
         as_int(cardio_log.get("durationSeconds"), 0),
-        str(cardio_log.get("submissionId") or ""),
+        str(cardio_log.get("memo") or ""),
     )
 
 
@@ -1417,10 +1417,16 @@ def format_duration_seconds(seconds):
 
 def cardio_log_already_saved(state, cardio_log):
     submission_id = str(cardio_log.get("submissionId") or "").strip()
+    username = normalize_username(cardio_log.get("username"))
+    date = str(cardio_log.get("date") or "")
+    duplicate_key = cardio_duplicate_key(cardio_log)
     for existing in state.get("cardioLogs", []):
-        if submission_id and str(existing.get("submissionId") or "").strip() == submission_id:
-            return True
-        if cardio_duplicate_key(existing) == cardio_duplicate_key(cardio_log):
+        existing_submission_id = str(existing.get("submissionId") or "").strip()
+        if submission_id and existing_submission_id == submission_id:
+            if normalize_username(existing.get("username")) == username and str(existing.get("date") or "") == date:
+                return True
+            continue
+        if not submission_id and cardio_duplicate_key(existing) == duplicate_key:
             return True
     return False
 

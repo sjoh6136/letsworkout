@@ -3485,6 +3485,9 @@
         let pendingWorkoutRetryTimer = null;
         let pendingWorkoutRetryInFlight = false;
         let activeFinishPendingSubmissionId = null;
+        let pendingCardioRetryTimer = null;
+        let pendingCardioRetryInFlight = false;
+        let activeCardioFinishPendingSubmissionId = null;
         let activeHistoryExerciseName = "";
         let historyChartMetric = "weight";
         let activeHistoryPoints = [];
@@ -3555,9 +3558,13 @@
                 saveActiveWorkoutDraftSync();
             } else {
                 schedulePendingWorkoutRetry(500);
+                schedulePendingCardioRetry(500);
             }
         });
-        window.addEventListener("online", () => schedulePendingWorkoutRetry(500));
+        window.addEventListener("online", () => {
+            schedulePendingWorkoutRetry(500);
+            schedulePendingCardioRetry(500);
+        });
 
         // Initialize WebApp
         window.addEventListener("DOMContentLoaded", async () => {
@@ -3584,6 +3591,7 @@
 
             await fetchBootstrap();
             await retryPendingWorkoutSubmissions();
+            await retryPendingCardioSubmissions();
             
             // Check first-time onboarding
             checkOnboarding();
@@ -3815,6 +3823,7 @@
         }
 
         const PENDING_WORKOUT_SUBMISSIONS_KEY = "lw_pending_workout_submissions_v1";
+        const PENDING_CARDIO_SUBMISSIONS_KEY = "lw_pending_cardio_submissions_v1";
         const ACTIVE_WORKOUT_DRAFT_DB_NAME = "letsworkout_active_draft_db";
         const ACTIVE_WORKOUT_DRAFT_DB_VERSION = 1;
         const ACTIVE_WORKOUT_DRAFT_STORE = "drafts";
@@ -3892,6 +3901,63 @@
             }, delayMs);
         }
 
+        function loadPendingCardioSubmissions() {
+            try {
+                const raw = localStorage.getItem(PENDING_CARDIO_SUBMISSIONS_KEY);
+                const parsed = raw ? JSON.parse(raw) : [];
+                return Array.isArray(parsed) ? parsed : [];
+            } catch (err) {
+                console.error("pending 유산소 기록 로드 실패", err);
+                return [];
+            }
+        }
+
+        function savePendingCardioSubmissions(items) {
+            try {
+                if (!items.length) {
+                    localStorage.removeItem(PENDING_CARDIO_SUBMISSIONS_KEY);
+                    return true;
+                }
+                localStorage.setItem(PENDING_CARDIO_SUBMISSIONS_KEY, JSON.stringify(items.slice(-5)));
+                return true;
+            } catch (err) {
+                console.error("pending 유산소 기록 저장 실패", err);
+                return false;
+            }
+        }
+
+        function queuePendingCardioSubmission(payload) {
+            const pending = loadPendingCardioSubmissions();
+            const next = pending.filter(item => item.submissionId !== payload.submissionId);
+            next.push({
+                ...payload,
+                pendingQueuedAt: payload.pendingQueuedAt || Date.now(),
+                pendingAttempts: parseInt(payload.pendingAttempts, 10) || 0,
+                pendingLastAttemptAt: payload.pendingLastAttemptAt || 0,
+                pendingLastError: payload.pendingLastError || ""
+            });
+            const saved = savePendingCardioSubmissions(next);
+            if (saved) schedulePendingCardioRetry(PENDING_WORKOUT_RETRY_DELAY_MS);
+            return saved;
+        }
+
+        function removePendingCardioSubmission(submissionId) {
+            if (!submissionId) return;
+            savePendingCardioSubmissions(loadPendingCardioSubmissions().filter(item => item.submissionId !== submissionId));
+        }
+
+        function schedulePendingCardioRetry(delayMs = PENDING_WORKOUT_BACKGROUND_RETRY_MS) {
+            if (pendingCardioRetryTimer) {
+                clearTimeout(pendingCardioRetryTimer);
+                pendingCardioRetryTimer = null;
+            }
+            if (!loadPendingCardioSubmissions().length) return;
+            pendingCardioRetryTimer = setTimeout(() => {
+                pendingCardioRetryTimer = null;
+                retryPendingCardioSubmissions();
+            }, delayMs);
+        }
+
         function finishErrorMessage(err) {
             if (!err) return "저장 요청 실패";
             return err.message || readNetworkError(err);
@@ -3957,6 +4023,43 @@
             throw lastError || new Error("유산소 저장 요청 실패");
         }
 
+        function appendLocalCardioLog(payload) {
+            const submissionId = payload?.submissionId || "";
+            const exists = cardioLogs.some(log => {
+                if (submissionId && log.submissionId === submissionId && log.date === payload.date) return true;
+                return !submissionId
+                    && log.date === payload.date
+                    && log.activity === payload.activity
+                    && parseInt(log.durationSeconds, 10) === parseInt(payload.durationSeconds, 10);
+            });
+            if (exists) return;
+            cardioLogs.push({
+                date: payload.date,
+                username: authUser?.username || "",
+                activity: payload.activity,
+                durationSeconds: payload.durationSeconds,
+                memo: payload.memo || "",
+                submissionId,
+                createdAt: new Date().toISOString()
+            });
+            renderCalendar();
+        }
+
+        function handleCardioFinishSaved(data, payload) {
+            const submissionId = payload?.submissionId || data?.submissionId || activeWorkoutSubmissionId || "";
+            activeWorkoutDraftDisabled = true;
+            appendLocalCardioLog(payload || {});
+            removePendingCardioSubmission(submissionId);
+            if (activeCardioFinishPendingSubmissionId === submissionId) {
+                activeCardioFinishPendingSubmissionId = null;
+            }
+            clearActiveWorkoutDraft();
+            activeWorkoutDay = null;
+            setActiveWorkoutMode("routine");
+            setFinishButtonSaving(false);
+            showFeedbackModal(data);
+        }
+
         function handleWorkoutFinishSaved(data, submissionId) {
             activeWorkoutDraftDisabled = true;
             clearActiveWorkoutDraft();
@@ -4019,6 +4122,52 @@
                 return savedAny;
             } finally {
                 pendingWorkoutRetryInFlight = false;
+            }
+        }
+
+        async function retryPendingCardioSubmissions(options = {}) {
+            if (pendingCardioRetryInFlight) return false;
+            if (isFinishingWorkout && !options.allowWhileFinishing) {
+                schedulePendingCardioRetry(PENDING_WORKOUT_RETRY_DELAY_MS);
+                return false;
+            }
+            const pending = loadPendingCardioSubmissions();
+            if (!pending.length) return false;
+
+            const remaining = [];
+            let savedAny = false;
+            let handledActive = false;
+            pendingCardioRetryInFlight = true;
+            try {
+                for (const payload of pending) {
+                    try {
+                        const data = await submitCardioPayloadWithRetry(payload, options.attempts || 1);
+                        savedAny = true;
+                        if (payload.submissionId && payload.submissionId === activeCardioFinishPendingSubmissionId) {
+                            handledActive = true;
+                            handleCardioFinishSaved(data, payload);
+                        }
+                    } catch (err) {
+                        console.warn("pending 유산소 기록 재전송 실패", err);
+                        remaining.push({
+                            ...payload,
+                            pendingAttempts: (parseInt(payload.pendingAttempts, 10) || 0) + 1,
+                            pendingLastAttemptAt: Date.now(),
+                            pendingLastError: finishErrorMessage(err)
+                        });
+                    }
+                }
+
+                const savedRemaining = savePendingCardioSubmissions(remaining);
+                if (savedRemaining && remaining.length) {
+                    schedulePendingCardioRetry(PENDING_WORKOUT_BACKGROUND_RETRY_MS);
+                }
+                if (savedAny && !handledActive) {
+                    await fetchCardioLogs();
+                }
+                return savedAny;
+            } finally {
+                pendingCardioRetryInFlight = false;
             }
         }
 
@@ -7371,6 +7520,10 @@
 
         async function finishCardioWorkout() {
             if (isFinishingWorkout) return;
+            if (activeCardioFinishPendingSubmissionId && activeWorkoutSubmissionId === activeCardioFinishPendingSubmissionId) {
+                schedulePendingCardioRetry(500);
+                return;
+            }
             const submissionId = activeWorkoutSubmissionId || generateSubmissionId();
             activeWorkoutSubmissionId = submissionId;
             const durationSeconds = Math.max(0, Math.floor(getCurrentStopwatchElapsedMs() / 1000));
@@ -7387,33 +7540,21 @@
                 memo: ""
             };
 
+            queuePendingCardioSubmission(payload);
             isFinishingWorkout = true;
             setFinishButtonSaving(true);
             try {
                 const data = await submitCardioPayloadWithRetry(payload, FINISH_ACTIVE_RETRY_ATTEMPTS);
-                activeWorkoutDraftDisabled = true;
-                activeWorkoutDay = null;
-                cardioLogs.push({
-                    date: payload.date,
-                    username: authUser?.username || "",
-                    activity: payload.activity,
-                    durationSeconds: payload.durationSeconds,
-                    memo: payload.memo,
-                    submissionId: payload.submissionId,
-                    createdAt: new Date().toISOString()
-                });
-                activeWorkoutSubmissionId = null;
-                setActiveWorkoutMode("routine");
-                setFinishButtonSaving(false);
-                showFeedbackModal(data);
+                handleCardioFinishSaved(data, payload);
             } catch (err) {
-                console.warn("유산소 기록 저장 실패", err);
-                alert(finishErrorMessage(err));
+                console.warn("유산소 기록 저장 대기열 전환", err);
+                activeCardioFinishPendingSubmissionId = submissionId;
+                schedulePendingCardioRetry(PENDING_WORKOUT_RETRY_DELAY_MS);
+                alert("유산소 기록 저장이 지연 중입니다. 네트워크가 안정되면 자동으로 다시 저장합니다.");
             } finally {
                 isFinishingWorkout = false;
-                if (activeWorkoutMode === "cardio") {
-                    setFinishButtonSaving(false);
-                }
+                const stillPending = loadPendingCardioSubmissions().some(item => item.submissionId === submissionId);
+                setFinishButtonSaving(stillPending);
             }
         }
 
