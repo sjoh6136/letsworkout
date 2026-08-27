@@ -737,7 +737,7 @@ class GoogleSheetsStore:
     def append_user(self, user):
         user = normalize_user(user)
         accounts = self.worksheet(self.USER_ACCOUNTS_TAB, rows=20, cols=10)
-        accounts.append_row(self.user_row(user), value_input_option="RAW", table_range="A1:I1")
+        accounts.append_row(self.user_row(user), value_input_option="RAW")
         return user
 
     def load_sessions(self):
@@ -784,7 +784,7 @@ class GoogleSheetsStore:
     def append_session(self, session):
         session = normalize_session(session)
         sessions_sheet = self.worksheet(self.USER_SESSIONS_TAB, rows=100, cols=8)
-        sessions_sheet.append_row(self.session_row(session), value_input_option="RAW", table_range="A1:G1")
+        sessions_sheet.append_row(self.session_row(session), value_input_option="RAW")
         return session
 
     def revoke_session(self, token_hash, revoked_at):
@@ -876,7 +876,7 @@ class GoogleSheetsStore:
                 log.get("targetWeight", ""),
                 log.get("targetReps", ""),
             ])
-        worksheet.append_rows(rows, value_input_option="RAW", table_range="A1:M1")
+        worksheet.append_rows(rows, value_input_option="RAW")
         return True
 
     def load_cardio_logs(self, username="", user_id=""):
@@ -913,7 +913,7 @@ class GoogleSheetsStore:
             cardio_log.get("memo", ""),
             cardio_log.get("submissionId", ""),
             cardio_log.get("createdAt", ""),
-        ], value_input_option="RAW", table_range="A1:G1")
+        ], value_input_option="RAW")
         return True
 
     def load_replacements(self, username="", user_id=""):
@@ -974,7 +974,7 @@ class GoogleSheetsStore:
                 item.get("createdAt", ""),
                 normalize_username(item.get("username") or actor),
             ])
-        worksheet.append_rows(rows, value_input_option="RAW", table_range="A1:O1")
+        worksheet.append_rows(rows, value_input_option="RAW")
         return True
 
     def load_submission_ids(self, username="", user_id=""):
@@ -1005,7 +1005,7 @@ class GoogleSheetsStore:
             submission.get("day", ""),
             submission.get("logCount", ""),
             submission.get("createdAt", ""),
-        ], value_input_option="RAW", table_range="A1:H1")
+        ], value_input_option="RAW")
         return True
 
 
@@ -1855,9 +1855,25 @@ def split_log_count(state, split):
     return sum(1 for log in state.get("logs", []) if as_int(log.get("split")) == split)
 
 
+def routine_log_order(item):
+    index, log = item
+    return (
+        str(log.get("date") or ""),
+        as_int(log.get("week"), 1),
+        day_number(log.get("day")),
+        index,
+    )
+
+
 def split_logs_since_baseline(state, split, baseline):
     split = as_int(split, 0)
-    split_logs = [log for log in state.get("logs", []) if as_int(log.get("split")) == split]
+    split_logs = [
+        log
+        for _, log in sorted(
+            ((index, log) for index, log in enumerate(state.get("logs", [])) if as_int(log.get("split")) == split),
+            key=routine_log_order,
+        )
+    ]
     baseline = min(max(0, as_int(baseline, 0)), len(split_logs))
     return split_logs[baseline:], baseline
 

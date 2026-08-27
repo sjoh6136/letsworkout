@@ -4740,7 +4740,18 @@
             const activeSplit = parseInt(split, 10) || oneRms.activeSplit;
             const baseline = parseInt(getRoutineProgress(activeSplit).baselineLogCount, 10) || 0;
             return (completedLogs || [])
-                .filter(log => parseInt(log.split, 10) === activeSplit)
+                .map((log, index) => ({ log, index }))
+                .filter(item => parseInt(item.log.split, 10) === activeSplit)
+                .sort((a, b) => {
+                    const dateCompare = String(a.log.date || "").localeCompare(String(b.log.date || ""));
+                    if (dateCompare) return dateCompare;
+                    const weekCompare = (parseInt(a.log.week, 10) || 1) - (parseInt(b.log.week, 10) || 1);
+                    if (weekCompare) return weekCompare;
+                    const dayCompare = getRoutineDayNumber(a.log.day, 0) - getRoutineDayNumber(b.log.day, 0);
+                    if (dayCompare) return dayCompare;
+                    return a.index - b.index;
+                })
+                .map(item => item.log)
                 .slice(baseline);
         }
 

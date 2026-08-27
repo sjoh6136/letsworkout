@@ -44,6 +44,7 @@ from serve import (  # noqa: E402
     DEFAULT_GYM,
     GoogleSheetsStore,
     cardio_log_already_saved,
+    routine_position_for_split,
     user_tab_title,
 )
 
@@ -59,6 +60,7 @@ class FakeWorksheet:
     def __init__(self, title):
         self.title = title
         self.rows = []
+        self.append_calls = []
 
     def get(self, range_name):
         match = re.fullmatch(r"([A-Z]+)(\d+):([A-Z]+)(\d*)", range_name)
@@ -99,9 +101,11 @@ class FakeWorksheet:
             self.rows[target] = copy.deepcopy(row)
 
     def append_row(self, row, **_kwargs):
+        self.append_calls.append(_kwargs)
         self.rows.append(copy.deepcopy(row))
 
     def append_rows(self, rows, **_kwargs):
+        self.append_calls.append(_kwargs)
         self.rows.extend(copy.deepcopy(rows))
 
     def clear(self):
@@ -187,6 +191,17 @@ def main():
     assert_equal(store.load_logs("sjoh")[0]["exercise"], "벤치프레스", "workout logs filter exercise")
     assert_equal(store._worksheets[store.LOGS_TAB].rows[0], store.LOG_HEADER, "Workout_Logs header")
     assert_equal(store._worksheets[store.LOGS_TAB].rows[1][1], "sjoh", "Workout_Logs username column")
+    assert "table_range" not in store._worksheets[store.LOGS_TAB].append_calls[-1], "Workout_Logs append must use sheet bottom"
+
+    out_of_order_logs = [
+        {**make_log("sjoh", "백 스쿼트"), "date": "2026-08-25", "day": "Day 1"},
+        {**make_log("sjoh", "백 스쿼트"), "date": "2026-08-18", "day": "Day 1"},
+        {**make_log("sjoh", "데드리프트"), "date": "2026-08-21", "day": "Day 3"},
+        {**make_log("sjoh", "벤치프레스"), "date": "2026-08-24", "day": "Day 4"},
+    ]
+    position = routine_position_for_split({"logs": out_of_order_logs}, 2, {"baselineLogCount": 1}, 4)
+    assert_equal(position["lastCompletedDay"], "Day 1", "routine position uses chronological last session")
+    assert_equal(position["nextRecommendedDay"], "Day 2", "routine recommendation after out-of-order Day 1")
 
     store.append_replacements([{
         "date": "2026-08-24",
@@ -221,6 +236,7 @@ def main():
     store.append_cardio_log({"date": "2026-08-24", "activity": "유산소", "durationSeconds": 600, "submissionId": "cardio-park", "createdAt": "now"}, "park")
     assert_equal(len(store.load_cardio_logs("sjoh")), 1, "cardio logs filter")
     assert_equal(store.load_cardio_logs("sjoh")[0]["durationSeconds"], 1200, "cardio duration")
+    assert "table_range" not in store._worksheets[store.CARDIO_LOGS_TAB].append_calls[-1], "Cardio_Logs append must use sheet bottom"
     assert not cardio_log_already_saved(
         {"cardioLogs": [{"date": "2026-08-24", "username": "sjoh", "activity": "유산소", "durationSeconds": 1200, "submissionId": "same-cardio-id"}]},
         {"date": "2026-08-25", "username": "sjoh", "activity": "유산소", "durationSeconds": 1200, "submissionId": "same-cardio-id"},
