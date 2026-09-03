@@ -2617,10 +2617,13 @@ def routine_progress():
         progress = save_routine_progress(progress, username, user_id)
     routines = routines_for_progress(progress)
     payload = routine_progress_payload(state, username, user_id, progress, routines)
+    status_payload = workout_status_payload(state, routines, progress)
     return jsonify({
         "progress": payload,
         "active": payload[normalize_split_key(state["oneRms"].get("activeSplit", 5))],
         "twoDayProgram": payload["2"],
+        "routine": apply_progression(routines, state),
+        "status": status_payload,
     })
 
 

@@ -5576,22 +5576,79 @@
             `;
         }
 
+        function nextTwoDayVersion(version) {
+            return version === "ver.1" ? "ver.2" : "ver.1";
+        }
+
+        function applyOptimisticTwoDayVersion(version) {
+            const current = getRoutineProgress(2);
+            const baselineLogCount = (completedLogs || []).filter(log => parseInt(log.split, 10) === 2).length;
+            const next = {
+                ...current,
+                version,
+                nextVersion: nextTwoDayVersion(version),
+                baselineLogCount,
+                startedAt: getLocalDateString(new Date()),
+                week: 1,
+                programDay: 1,
+                completedSessions: 0,
+                lastCompletedDay: "",
+                nextRecommendedDay: "Day 1",
+                phase: "training"
+            };
+            routineProgress["2"] = next;
+            twoDayProgram = { ...twoDayProgram, ...next };
+            nextRecommendedDayId = "Day 1";
+        }
+
         async function setTwoDayVersion(version) {
             if (!version || version === getRoutineProgress(2).version) return;
+            const hadPreviousProgress = !!routineProgress["2"];
+            const previousProgress = hadPreviousProgress ? { ...routineProgress["2"] } : null;
+            const previousProgram = { ...twoDayProgram };
+            const previousRecommendedDayId = nextRecommendedDayId;
+
+            applyOptimisticTwoDayVersion(version);
+            renderTwoDayProgramPanel();
+            updateRecommendationUI();
+            renderSplitSelectorGrid();
+
             try {
                 const res = await apiFetch("/api/routine-progress", {
                     method: "POST",
                     headers: { "Content-Type": "application/json" },
                     body: JSON.stringify({ split: 2, version })
                 });
-                applyRoutineProgressPayload(await res.json());
-                await fetchRoutine();
-                await fetchStatus();
+                if (!res.ok) throw new Error(`2분할 버전 변경 실패: ${res.status}`);
+                const data = await res.json();
+                applyRoutineProgressPayload(data);
+                if (data.status?.nextRecommendedDay) {
+                    nextRecommendedDayId = data.status.nextRecommendedDay;
+                }
+                if (data.routine) {
+                    routineData = data.routine;
+                } else {
+                    await fetchRoutine();
+                }
+                if (!data.status) {
+                    await fetchStatus();
+                }
                 updateRecommendationUI();
                 renderTwoDayProgramPanel();
                 renderSplitSelectorGrid();
             } catch (err) {
                 console.error("2분할 버전 변경 실패", err);
+                if (hadPreviousProgress) {
+                    routineProgress["2"] = previousProgress;
+                } else {
+                    delete routineProgress["2"];
+                }
+                twoDayProgram = previousProgram;
+                nextRecommendedDayId = previousRecommendedDayId;
+                renderTwoDayProgramPanel();
+                updateRecommendationUI();
+                renderSplitSelectorGrid();
+                alert("2분할 프로그램 버전 변경에 실패했습니다. 잠시 후 다시 시도해주세요.");
             }
         }
 
