@@ -5447,7 +5447,7 @@
                     document.getElementById("recommend-desc").innerText = `SBD 1RM을 다시 확인하고 회복한 뒤 ${nextVersion} 12주 블록으로 넘어갑니다.`;
                     if (startButton) {
                         startButton.innerHTML = `⚡ ${nextVersion} 시작`;
-                        startButton.onclick = () => setTwoDayVersion(nextVersion);
+                        startButton.onclick = () => setTwoDayVersion(nextVersion, { reset: true });
                     }
                     return;
                 }
@@ -5570,7 +5570,7 @@
                     <div class="two-day-rest-panel">
                         <div class="two-day-rest-title">1RM 측정 / 휴식 주간</div>
                         <div class="two-day-rest-copy">12주 블록이 끝났습니다. SBD 1RM을 다시 확인하고 회복 주간을 가진 뒤 ${escapeHtml(nextVersion)}로 넘어갑니다.</div>
-                        <button class="two-day-next-btn" type="button" data-two-day-version="${escapeHtml(nextVersion)}">${escapeHtml(nextVersion)} 시작</button>
+                        <button class="two-day-next-btn" type="button" data-two-day-version="${escapeHtml(nextVersion)}" data-two-day-reset="true">${escapeHtml(nextVersion)} 시작</button>
                     </div>
                 ` : ""}
             `;
@@ -5580,35 +5580,38 @@
             return version === "ver.1" ? "ver.2" : "ver.1";
         }
 
-        function applyOptimisticTwoDayVersion(version) {
+        function applyOptimisticTwoDayVersion(version, options = {}) {
             const current = getRoutineProgress(2);
-            const baselineLogCount = (completedLogs || []).filter(log => parseInt(log.split, 10) === 2).length;
             const next = {
                 ...current,
                 version,
-                nextVersion: nextTwoDayVersion(version),
-                baselineLogCount,
-                startedAt: getLocalDateString(new Date()),
-                week: 1,
-                programDay: 1,
-                completedSessions: 0,
-                lastCompletedDay: "",
-                nextRecommendedDay: "Day 1",
-                phase: "training"
+                nextVersion: nextTwoDayVersion(version)
             };
+            if (options.reset) {
+                next.baselineLogCount = (completedLogs || []).filter(log => parseInt(log.split, 10) === 2).length;
+                next.startedAt = getLocalDateString(new Date());
+                next.week = 1;
+                next.programDay = 1;
+                next.completedSessions = 0;
+                next.lastCompletedDay = "";
+                next.nextRecommendedDay = "Day 1";
+                next.phase = "training";
+            }
             routineProgress["2"] = next;
             twoDayProgram = { ...twoDayProgram, ...next };
-            nextRecommendedDayId = "Day 1";
+            if (options.reset) {
+                nextRecommendedDayId = "Day 1";
+            }
         }
 
-        async function setTwoDayVersion(version) {
-            if (!version || version === getRoutineProgress(2).version) return;
+        async function setTwoDayVersion(version, options = {}) {
+            if (!version || (!options.reset && version === getRoutineProgress(2).version)) return;
             const hadPreviousProgress = !!routineProgress["2"];
             const previousProgress = hadPreviousProgress ? { ...routineProgress["2"] } : null;
             const previousProgram = { ...twoDayProgram };
             const previousRecommendedDayId = nextRecommendedDayId;
 
-            applyOptimisticTwoDayVersion(version);
+            applyOptimisticTwoDayVersion(version, options);
             renderTwoDayProgramPanel();
             updateRecommendationUI();
             renderSplitSelectorGrid();
@@ -5617,7 +5620,7 @@
                 const res = await apiFetch("/api/routine-progress", {
                     method: "POST",
                     headers: { "Content-Type": "application/json" },
-                    body: JSON.stringify({ split: 2, version })
+                    body: JSON.stringify({ split: 2, version, reset: !!options.reset })
                 });
                 if (!res.ok) throw new Error(`2분할 버전 변경 실패: ${res.status}`);
                 const data = await res.json();
@@ -5655,7 +5658,7 @@
         document.addEventListener("click", event => {
             const button = event.target.closest("[data-two-day-version]");
             if (!button) return;
-            setTwoDayVersion(button.dataset.twoDayVersion);
+            setTwoDayVersion(button.dataset.twoDayVersion, { reset: button.dataset.twoDayReset === "true" });
         });
 
         document.addEventListener("click", event => {

@@ -2607,9 +2607,6 @@ def routine_progress():
             current["startedAt"] = today_iso()
         if split == "2" and "version" in body:
             next_version = str(body.get("version") or current.get("version"))
-            if next_version != current.get("version"):
-                current["baselineLogCount"] = split_log_count(state, split)
-                current["startedAt"] = today_iso()
             current["version"] = next_version
         if "blockLength" in body:
             current["blockLength"] = as_int(body.get("blockLength"), current.get("blockLength", 12))
@@ -2638,9 +2635,6 @@ def two_day_program():
         current = normalize_routine_progress_entry(progress.get("2"), 2)
         if "version" in body:
             next_version = str(body.get("version") or current.get("version"))
-            if next_version != current.get("version"):
-                current["baselineLogCount"] = split_log_count(state, 2)
-                current["startedAt"] = today_iso()
             current["version"] = next_version
         if "blockLength" in body:
             current["blockLength"] = as_int(body.get("blockLength"), current.get("blockLength", 12))

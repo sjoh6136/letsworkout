@@ -232,6 +232,7 @@ Never store plaintext passwords. Do not place auth/session columns in `Workout_L
 - `/api/workout/status` recommends the next workout day.
 - Recommendation logic must use the actual routine day count, not the split number.
 - `/api/routine-progress` owns W1D1 reset state for all splits. Resetting progress must update only the split baseline and must not delete or edit workout logs.
+- Switching the 2-day program between `ver.1` and `ver.2` must not reset W/D progress unless the request explicitly carries a reset/restart intent.
 - `/api/workout/finish` saves workout logs and evaluates progression.
 - `/api/workout/finish` should store the workout start date sent by the frontend, not blindly overwrite with the server's current date.
 - Duplicate finish protection must cover repeated `SubmissionId` values in `Workout_Submissions` for the same username and identical saved workout content for the same username/date/split/week/day.
