@@ -3485,6 +3485,7 @@
         let pendingWorkoutRetryTimer = null;
         let pendingWorkoutRetryInFlight = false;
         let activeFinishPendingSubmissionId = null;
+        let workoutKeepAliveTimer = null;
         let pendingCardioRetryTimer = null;
         let pendingCardioRetryInFlight = false;
         let activeCardioFinishPendingSubmissionId = null;
@@ -3607,13 +3608,34 @@
 
         const RETRYABLE_STATUS_CODES = new Set([408, 425, 429, 500, 502, 503, 504]);
         const DEFAULT_REQUEST_TIMEOUT_MS = 25000;
-        const FINISH_REQUEST_TIMEOUT_MS = 75000;
-        const FINISH_ACTIVE_RETRY_ATTEMPTS = 3;
+        const FINISH_REQUEST_TIMEOUT_MS = 30000;
+        const FINISH_ACTIVE_RETRY_ATTEMPTS = 1;
         const PENDING_WORKOUT_RETRY_DELAY_MS = 4000;
         const PENDING_WORKOUT_BACKGROUND_RETRY_MS = 15000;
+        const WORKOUT_KEEPALIVE_INTERVAL_MS = 4 * 60 * 1000;
 
         function delay(ms) {
             return new Promise(resolve => setTimeout(resolve, ms));
+        }
+
+        function pingWorkoutKeepAlive() {
+            fetch("/healthz", {
+                cache: "no-store",
+                credentials: "same-origin"
+            }).catch(() => {});
+        }
+
+        function startWorkoutKeepAlive() {
+            stopWorkoutKeepAlive();
+            pingWorkoutKeepAlive();
+            workoutKeepAliveTimer = setInterval(pingWorkoutKeepAlive, WORKOUT_KEEPALIVE_INTERVAL_MS);
+        }
+
+        function stopWorkoutKeepAlive() {
+            if (workoutKeepAliveTimer) {
+                clearInterval(workoutKeepAliveTimer);
+                workoutKeepAliveTimer = null;
+            }
         }
 
         async function fetchAuthStatus() {
@@ -4630,6 +4652,7 @@
                 applyDraftRows(draft);
                 restoreStopwatchFromDraft(draft);
                 stopRestTimer();
+                startWorkoutKeepAlive();
                 calculateVolume();
                 resetWorkoutScroll();
             } finally {
@@ -5845,6 +5868,7 @@
             renderExercises(activeWorkoutDay);
             stopRestTimer();
             startStopwatch();
+            startWorkoutKeepAlive();
             calculateVolume();
         }
 
@@ -5861,6 +5885,7 @@
             renderCardioWorkout();
             stopRestTimer();
             startStopwatch();
+            startWorkoutKeepAlive();
             document.getElementById("vol-counter").innerText = "0";
         }
 
@@ -5913,6 +5938,7 @@
             // Start Timer
             stopRestTimer();
             startStopwatch();
+            startWorkoutKeepAlive();
             calculateVolume();
             resetWorkoutScroll();
         }
@@ -6777,10 +6803,13 @@
             return base;
         }
 
-        function latestExerciseSessionLogs(name) {
+        function latestExerciseSessionLogs(name, dayId = null) {
             const split = parseInt(oneRms.activeSplit);
             const logs = (completedLogs || []).filter(log =>
-                parseInt(log.split) === split && log.exercise === name && log.date
+                parseInt(log.split) === split
+                && log.exercise === name
+                && (!dayId || String(log.day || "") === String(dayId))
+                && log.date
             );
             if (!logs.length) return [];
             const latestDate = logs.reduce((latest, log) => log.date > latest ? log.date : latest, logs[0].date);
@@ -7415,6 +7444,7 @@
         function discardActiveWorkout() {
             stopStopwatch();
             stopRestTimer();
+            stopWorkoutKeepAlive();
             activeWorkoutDay = null;
             setActiveWorkoutMode("routine");
             activeWorkoutDraftDisabled = false;
@@ -7632,6 +7662,7 @@
         function showFeedbackModal(data) {
             stopStopwatch();
             stopRestTimer();
+            stopWorkoutKeepAlive();
             setActiveWorkoutHeaderVisible(false);
             document.getElementById("bottom-nav").style.display = "flex";
 

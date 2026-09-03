@@ -2040,8 +2040,15 @@ def one_rm_for(one_rms, lift_type):
     return 100.0
 
 
-def latest_exercise_logs(logs, split, exercise_name):
-    matching = [log for log in logs if log.get("split") == split and log.get("exercise") == exercise_name and log.get("date")]
+def latest_exercise_logs(logs, split, exercise_name, day_id=None):
+    matching = [
+        log
+        for log in logs
+        if log.get("split") == split
+        and log.get("exercise") == exercise_name
+        and (day_id is None or str(log.get("day") or "") == str(day_id))
+        and log.get("date")
+    ]
     if not matching:
         return []
     latest_date = max(log["date"] for log in matching)
@@ -2095,7 +2102,7 @@ def apply_progression(routines, state):
                 name = ex.get("name")
                 min_reps, max_reps = parse_reps_range(ex.get("repsRange"))
                 rpe_target = as_float(ex.get("rpeTarget"), 8.5)
-                previous = latest_exercise_logs(logs, split, name)
+                previous = latest_exercise_logs(logs, split, name, day.get("id"))
 
                 if previous:
                     previous_sorted = sorted(previous, key=lambda log: as_int(log.get("setNo")))
@@ -2757,7 +2764,7 @@ def workout_finish():
 
     duplicate_check_started_at = time.perf_counter()
     is_duplicate = (
-        bool(submission_id and (state_has_submission(state, submission_id) or sheet_has_submission(submission_id, username, user_id)))
+        bool(submission_id and state_has_submission(state, submission_id))
         or workout_logs_already_saved(state, logs)
     )
     duplicate_check_ms = int((time.perf_counter() - duplicate_check_started_at) * 1000)

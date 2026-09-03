@@ -238,6 +238,8 @@ Never store plaintext passwords. Do not place auth/session columns in `Workout_L
 - Duplicate finish protection must cover repeated `SubmissionId` values in `Workout_Submissions` for the same username and identical saved workout content for the same username/date/split/week/day.
 - Completed sets with missing RPE should be saved with that exercise's routine target RPE, so new `SUCCESS + RPE 0` rows are never created.
 - SBD 1RM values are user-entered settings. Workout finish/progressive overload must not automatically increase `squat`, `bench`, or `deadlift` in `Setting_1RM`.
+- Progressive overload history lookup must match split + routine day + exercise name, so a failure on one day is not overwritten by the same exercise succeeding on another day.
+- Active workout screens should keep the Render service warm with a lightweight ping so saving after a long workout does not pay the free-instance wake-up delay.
 - `/api/auth/status`, `/api/auth/register`, `/api/auth/login`, and `/api/auth/logout` are public auth endpoints.
 - Other `/api/*` endpoints require the `lw_session` cookie.
 - Be careful around Google Sheets write paths. Column alignment regressions are high risk.
