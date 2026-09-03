@@ -43,6 +43,8 @@ When the user says to update, publish, or make the phone/web version current, do
 3. Make sure Render is serving the latest commit, using Manual Deploy when automatic deploy does not move.
 4. Verify the live URL/API after Render finishes so the iPhone home-screen app can see the update.
 
+If the user's request explicitly includes deploy, update, web, Render, or phone/iPhone reflection, treat Render latest-commit deployment and live verification as part of the requested work. Do not pause after a GitHub push to ask whether the phone version should also be updated.
+
 ## Architecture
 
 The active app is a Flask backend serving a static HTML/CSS/JS frontend.
