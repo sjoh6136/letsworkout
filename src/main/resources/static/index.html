@@ -6724,17 +6724,39 @@
             const rpe = parseFloat(log.rpe) || 0;
             const rpeOk = rpe > 0 && rpe <= targetRpe;
             return String(log.status || "").toUpperCase() === "SUCCESS"
-                && (parseFloat(log.weight) || 0) > 0
-                && (parseFloat(log.weight) || 0) + 0.001 >= (parseFloat(log.targetWeight) || 0)
+                && exerciseWeightMeetsTargetFrontend(log.exercise, log.weight, log.targetWeight)
                 && (parseInt(log.reps) || 0) > 0
                 && (parseInt(log.reps) || 0) >= (parseInt(log.targetReps) || 0)
                 && rpeOk;
         }
 
-        function setSucceededFrontend({ completed, weight, targetWeight, reps, targetReps, rpe, targetRpe }) {
+        const ASSISTED_MACHINE_EXERCISES = new Set(["머신 딥스", "머신 풀업"]);
+
+        function isAssistedMachineExercise(name) {
+            return ASSISTED_MACHINE_EXERCISES.has(String(name || "").trim());
+        }
+
+        function exerciseWeightMeetsTargetFrontend(name, weight, targetWeight) {
+            const actual = parseFloat(weight);
+            const target = parseFloat(targetWeight) || 0;
+            if (isAssistedMachineExercise(name)) {
+                return Number.isFinite(actual) && actual >= 0 && actual <= target + 0.001;
+            }
+            return (actual || 0) > 0 && (actual || 0) + 0.001 >= target;
+        }
+
+        function getProgressedWeightFrontend(name, previousWeight) {
+            const weight = parseFloat(previousWeight) || 0;
+            const increment = getExerciseIncrementFrontend(name);
+            if (isAssistedMachineExercise(name)) {
+                return Math.max(0, weight - increment);
+            }
+            return weight + increment;
+        }
+
+        function setSucceededFrontend({ exercise, completed, weight, targetWeight, reps, targetReps, rpe, targetRpe }) {
             return !!completed
-                && (parseFloat(weight) || 0) > 0
-                && (parseFloat(weight) || 0) + 0.001 >= (parseFloat(targetWeight) || 0)
+                && exerciseWeightMeetsTargetFrontend(exercise, weight, targetWeight)
                 && (parseInt(reps) || 0) > 0
                 && (parseInt(reps) || 0) >= (parseInt(targetReps) || 0)
                 && (parseFloat(rpe) || 0) > 0
@@ -6839,7 +6861,7 @@
                     ex.targetWeight = prevWeight;
                     ex.targetReps = prevTargetReps + 1;
                 } else if (allSucceeded) {
-                    ex.targetWeight = prevWeight + getExerciseIncrementFrontend(name);
+                    ex.targetWeight = getProgressedWeightFrontend(name, prevWeight);
                     ex.targetReps = minReps;
                 } else {
                     ex.targetWeight = prevTargetWeight;
@@ -7552,6 +7574,7 @@
                     const parsedRpe = parseFloat(rpeInput?.value);
                     const rpeVal = Number.isFinite(parsedRpe) && parsedRpe > 0 ? parsedRpe : (completed ? targetRpe : 0.0);
                     const setSuccess = setSucceededFrontend({
+                        exercise: ex.name,
                         completed,
                         weight: weightVal,
                         targetWeight,

@@ -126,6 +126,7 @@ Current increment policy:
 
 - compound / large-muscle movements: `+5kg`
 - isolation / small-muscle movements: `+2.5kg`
+- Assisted machine movements `머신 딥스` and `머신 풀업` use assistance weight, so progressive overload decreases target weight by the exercise increment instead of increasing it. A set succeeds when actual assistance weight is less than or equal to the target assistance weight.
 
 The increment comes from exercise classification, so exact exercise naming matters.
 

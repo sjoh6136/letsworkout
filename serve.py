@@ -2034,6 +2034,33 @@ def get_increment(exercise_name):
     return 2.5
 
 
+ASSISTED_MACHINE_EXERCISES = {"머신 딥스", "머신 풀업"}
+
+
+def is_assisted_machine_exercise(exercise_name):
+    return (exercise_name or "").strip() in ASSISTED_MACHINE_EXERCISES
+
+
+def weight_meets_target(log):
+    weight = as_float(log.get("weight"))
+    target_weight = as_float(log.get("targetWeight"))
+    if is_assisted_machine_exercise(log.get("exercise")):
+        return weight >= 0 and weight <= target_weight + 0.001
+    return weight > 0 and weight + 0.001 >= target_weight
+
+
+def progression_target_weight(exercise_name, previous_weight):
+    increment = get_increment(exercise_name)
+    if is_assisted_machine_exercise(exercise_name):
+        return max(0.0, as_float(previous_weight) - increment)
+    return as_float(previous_weight) + increment
+
+
+def format_weight(value):
+    weight = as_float(value)
+    return f"{weight:g}"
+
+
 def one_rm_for(one_rms, lift_type):
     if lift_type in {"squat", "bench", "deadlift"}:
         return as_float(one_rms.get(lift_type), DEFAULT_ONE_RMS[lift_type])
@@ -2069,8 +2096,7 @@ def set_succeeded(log, rpe_target=None):
     rpe_ok = rpe > 0 and rpe <= target_rpe
     return (
         log_checked(log)
-        and as_float(log.get("weight")) > 0
-        and as_float(log.get("weight")) + 0.001 >= as_float(log.get("targetWeight"))
+        and weight_meets_target(log)
         and as_int(log.get("reps")) > 0
         and as_int(log.get("reps")) >= as_int(log.get("targetReps"))
         and rpe_ok
@@ -2116,7 +2142,7 @@ def apply_progression(routines, state):
                             target_weight = prev_weight
                             target_reps = prev_target_reps + 1
                         else:
-                            target_weight = prev_weight + get_increment(name)
+                            target_weight = progression_target_weight(name, prev_weight)
                             target_reps = min_reps
                     else:
                         target_weight = prev_target_weight
@@ -2355,7 +2381,11 @@ def evaluate_and_update(state, logs, split, week, day_id, routines=None):
             if prev_target_reps < max_reps:
                 progress_report.append(f"🔼 {exercise_name}: 다음 목표 {prev_target_reps + 1}회")
             else:
-                progress_report.append(f"⚡ {exercise_name}: 다음 목표 +{get_increment(exercise_name)}kg, {min_reps}회")
+                if is_assisted_machine_exercise(exercise_name):
+                    next_weight = progression_target_weight(exercise_name, ex_logs[-1].get("weight"))
+                    progress_report.append(f"⚡ {exercise_name}: 다음 목표 보조 {format_weight(next_weight)}kg, {min_reps}회")
+                else:
+                    progress_report.append(f"⚡ {exercise_name}: 다음 목표 +{get_increment(exercise_name)}kg, {min_reps}회")
         else:
             progress_report.append(f"❄️ {exercise_name}: 유지")
 
