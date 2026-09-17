@@ -4,6 +4,7 @@ import copy
 import hashlib
 import hmac
 import json
+import math
 import os
 import re
 import secrets
@@ -2049,11 +2050,49 @@ def weight_meets_target(log):
     return weight > 0 and weight + 0.001 >= target_weight
 
 
-def progression_target_weight(exercise_name, previous_weight):
+def progression_target_weight(exercise_name, previous_weight, gym=None):
     increment = get_increment(exercise_name)
+    gym = gym or {}
+    if "덤벨" in (exercise_name or "") or exercise_name == "해머 컬":
+        step = as_float(gym.get("dumbbellInterval"), 2.0) or 2.0
+        increment = math.ceil(increment / step) * step
+    elif is_barbell_exercise(exercise_name):
+        plates = [as_float(p) for p in gym.get("availablePlates", []) if as_float(p) > 0]
+        if plates:
+            step = min(plates) * 2
+            increment = math.ceil(increment / step) * step
     if is_assisted_machine_exercise(exercise_name):
         return max(0.0, as_float(previous_weight) - increment)
     return as_float(previous_weight) + increment
+
+
+def next_progression_sets(ex, previous, gym):
+    min_reps, max_reps = parse_reps_range(ex.get("repsRange"))
+    rpe_target = as_float(ex.get("rpeTarget"), 8.0)
+    succeeded = len(previous) >= as_int(ex.get("sets")) and all(
+        str(log.get("status", "")).upper() != "FAIL" and set_succeeded(log, rpe_target)
+        for log in previous
+    )
+    targets = []
+    for log in previous:
+        weight = as_float(log.get("weight"))
+        reps = as_int(log.get("reps"))
+        if succeeded:
+            reps = clamp_target_reps(reps, min_reps, max_reps)
+            if reps < max_reps:
+                reps += 1
+            else:
+                weight = progression_target_weight(ex.get("name"), weight, gym)
+                reps = min_reps
+            targets.append({"targetWeight": weight, "targetReps": reps,
+                            "weight": weight, "reps": reps, "rpe": rpe_target})
+        else:
+            targets.append({"targetWeight": as_float(log.get("targetWeight"), weight),
+                            "targetReps": as_int(log.get("targetReps"), reps),
+                            "weight": weight, "reps": reps,
+                            "rpe": as_float(log.get("rpe")) or rpe_target})
+        targets[-1]["setNo"] = as_int(log.get("setNo"), len(targets))
+    return targets
 
 
 def format_weight(value):
@@ -2127,26 +2166,14 @@ def apply_progression(routines, state):
             for ex in day.get("exercises", []):
                 name = ex.get("name")
                 min_reps, max_reps = parse_reps_range(ex.get("repsRange"))
-                rpe_target = as_float(ex.get("rpeTarget"), 8.5)
                 previous = latest_exercise_logs(logs, split, name, day.get("id"))
 
                 if previous:
                     previous_sorted = sorted(previous, key=lambda log: as_int(log.get("setNo")))
                     prev_last = previous_sorted[-1]
-                    prev_weight = as_float(prev_last.get("weight"), as_float(ex.get("defaultWeight")))
-                    prev_target_weight = as_float(prev_last.get("targetWeight"), prev_weight)
-                    prev_target_reps = clamp_target_reps(prev_last.get("targetReps"), min_reps, max_reps)
-
-                    if all(set_succeeded(log, rpe_target) for log in previous_sorted):
-                        if prev_target_reps < max_reps:
-                            target_weight = prev_weight
-                            target_reps = prev_target_reps + 1
-                        else:
-                            target_weight = progression_target_weight(name, prev_weight)
-                            target_reps = min_reps
-                    else:
-                        target_weight = prev_target_weight
-                        target_reps = prev_target_reps
+                    ex["progressionSets"] = next_progression_sets(ex, previous_sorted, gym)
+                    target_weight = ex["progressionSets"][0]["targetWeight"]
+                    target_reps = ex["progressionSets"][0]["targetReps"]
 
                     ex["previousLog"] = {
                         "date": previous_sorted[0].get("date"),
@@ -2168,8 +2195,9 @@ def apply_progression(routines, state):
                     target_reps = min_reps
                     ex["previousLog"] = None
                     ex["previousSets"] = []
+                    ex["progressionSets"] = []
 
-                adjusted, was_adjusted, raw = resolve_equipment_weight(name, target_weight, gym)
+                adjusted, was_adjusted, raw = (target_weight, False, target_weight) if previous else resolve_equipment_weight(name, target_weight, gym)
                 ex["targetWeight"] = adjusted
                 ex["targetReps"] = target_reps
                 ex["plateAdjusted"] = was_adjusted
@@ -2345,6 +2373,9 @@ def day_number(day_id):
 def evaluate_and_update(state, logs, split, week, day_id, routines=None):
     routines = routines or load_routines()
     exercise_defs = routine_exercise_lookup(routines, split)
+    for day in routines.get(str(split), []):
+        if day.get("id") == day_id:
+            exercise_defs.update({ex.get("name"): ex for ex in day.get("exercises", [])})
 
     logs_by_exercise = {}
     for log in logs:
@@ -2358,9 +2389,8 @@ def evaluate_and_update(state, logs, split, week, day_id, routines=None):
 
     for exercise_name, ex_logs in logs_by_exercise.items():
         ex_def = exercise_defs.get(exercise_name, {})
-        min_reps, max_reps = parse_reps_range(ex_def.get("repsRange"))
         rpe_target = as_float(ex_def.get("rpeTarget"), 8.5)
-        ex_all_success = all(set_succeeded(log, rpe_target) for log in ex_logs)
+        ex_all_success = len(ex_logs) >= as_int(ex_def.get("sets"), 1) and all(set_succeeded(log, rpe_target) for log in ex_logs)
 
         if not ex_all_success:
             all_sets_success = False
@@ -2372,20 +2402,10 @@ def evaluate_and_update(state, logs, split, week, day_id, routines=None):
                 total_rpe += log["rpe"]
                 rpe_count += 1
 
-        prev_target_reps = clamp_target_reps(
-            ex_logs[-1].get("targetReps"),
-            min_reps,
-            max_reps,
-        )
         if ex_all_success:
-            if prev_target_reps < max_reps:
-                progress_report.append(f"🔼 {exercise_name}: 다음 목표 {prev_target_reps + 1}회")
-            else:
-                if is_assisted_machine_exercise(exercise_name):
-                    next_weight = progression_target_weight(exercise_name, ex_logs[-1].get("weight"))
-                    progress_report.append(f"⚡ {exercise_name}: 다음 목표 보조 {format_weight(next_weight)}kg, {min_reps}회")
-                else:
-                    progress_report.append(f"⚡ {exercise_name}: 다음 목표 +{get_increment(exercise_name)}kg, {min_reps}회")
+            targets = next_progression_sets({**ex_def, "name": exercise_name}, sorted(ex_logs, key=lambda log: as_int(log.get("setNo"))), active_gym(state))
+            summary = " / ".join(f"{format_weight(target['targetWeight'])}kg × {target['targetReps']}회" for target in targets)
+            progress_report.append(f"🔼 {exercise_name}: 다음 목표 {summary}")
         else:
             progress_report.append(f"❄️ {exercise_name}: 유지")
 

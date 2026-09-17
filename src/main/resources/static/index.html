@@ -4528,8 +4528,8 @@
                     if (repsInput) repsInput.value = savedRow.reps ?? repsInput.value;
                     if (rpeInput) rpeInput.value = savedRow.rpe ?? rpeInput.value;
 
-                    row.dataset.targetWeight = savedRow.targetWeight || savedRow.weight || row.dataset.targetWeight || "";
-                    row.dataset.targetReps = savedRow.targetReps || savedRow.reps || row.dataset.targetReps || "";
+                    row.dataset.targetWeight = savedRow.targetWeight ?? savedRow.weight ?? row.dataset.targetWeight ?? "";
+                    row.dataset.targetReps = savedRow.targetReps ?? savedRow.reps ?? row.dataset.targetReps ?? "";
                     row.dataset.targetRpe = savedRow.targetRpe || savedRow.rpe || row.dataset.targetRpe || "";
                     const checkBtn = row.querySelector(".check-btn");
                     row.classList.toggle("checked", !!savedRow.checked);
@@ -6119,7 +6119,7 @@
 
         function getTargetWeightForExercise(ex) {
             let targetWeight = (ex.targetWeight !== undefined) ? ex.targetWeight : ex.defaultWeight;
-            return Math.round(targetWeight / 2.5) * 2.5;
+            return parseFloat(targetWeight) || 0;
         }
 
         function normalizeExerciseText(value) {
@@ -6229,9 +6229,13 @@
             row.className = "set-row";
             row.id = `row-${exIdx}-${setNo}`;
 
-            const targetWeight = copiedValues.weight ?? getTargetWeightForExercise(ex);
-            const targetReps = copiedValues.reps ?? ex.targetReps;
-            const targetRpe = copiedValues.rpe ?? ex.rpeTarget;
+            const planned = ex.progressionSets?.find(set => set.setNo === setNo);
+            const targetWeight = copiedValues.targetWeight ?? copiedValues.weight ?? planned?.targetWeight ?? getTargetWeightForExercise(ex);
+            const targetReps = copiedValues.targetReps ?? copiedValues.reps ?? planned?.targetReps ?? ex.targetReps;
+            const targetRpe = ex.rpeTarget;
+            const inputWeight = copiedValues.weight ?? planned?.weight ?? targetWeight;
+            const inputReps = copiedValues.reps ?? planned?.reps ?? targetReps;
+            const inputRpe = copiedValues.rpe ?? planned?.rpe ?? targetRpe;
             row.dataset.targetWeight = targetWeight;
             row.dataset.targetReps = targetReps;
             row.dataset.targetRpe = targetRpe;
@@ -6243,15 +6247,15 @@
                     <div style="font-weight:700; color:var(--text-muted); font-size:12.5px;">${formatIntensityCell(ex)}</div>
                 </div>
                 <div class="input-group">
-                    <input type="number" class="weight-input" value="${targetWeight}" step="2.5" min="0" inputmode="decimal" oninput="scheduleActiveWorkoutDraftSave()" onchange="handleSetValueChange(${exIdx}, ${setNo}, 'weight', this)">
+                    <input type="number" class="weight-input" value="${inputWeight}" step="2.5" min="0" inputmode="decimal" oninput="scheduleActiveWorkoutDraftSave()" onchange="handleSetValueChange(${exIdx}, ${setNo}, 'weight', this)">
                     <span>kg</span>
                 </div>
                 <div class="input-group">
-                    <input type="number" class="reps-input" value="${targetReps}" min="0" inputmode="numeric" oninput="scheduleActiveWorkoutDraftSave()" onchange="handleSetValueChange(${exIdx}, ${setNo}, 'reps', this)">
+                    <input type="number" class="reps-input" value="${inputReps}" min="0" inputmode="numeric" oninput="scheduleActiveWorkoutDraftSave()" onchange="handleSetValueChange(${exIdx}, ${setNo}, 'reps', this)">
                     <span>회</span>
                 </div>
                 <div class="input-group">
-                    <input type="number" class="rpe-input-field" value="${targetRpe}" min="5" max="10" step="0.5" inputmode="decimal" oninput="scheduleActiveWorkoutDraftSave()" onchange="calculateVolume()">
+                    <input type="number" class="rpe-input-field" value="${inputRpe}" min="5" max="10" step="0.5" inputmode="decimal" oninput="scheduleActiveWorkoutDraftSave()" onchange="calculateVolume()">
                     <span>RPE</span>
                 </div>
                 <button class="check-btn" onclick="toggleSet(${exIdx}, ${setNo})">
@@ -6279,12 +6283,7 @@
 
         function handleSetValueChange(exIdx, setNo, field, input) {
             const selector = field === "weight" ? ".weight-input" : ".reps-input";
-            const datasetKey = field === "weight" ? "targetWeight" : "targetReps";
             const value = input.value;
-            const currentRow = document.getElementById(`row-${exIdx}-${setNo}`);
-            if (currentRow) {
-                currentRow.dataset[datasetKey] = value;
-            }
             const currentSplitStr = String(oneRms.activeSplit);
             const activeRoutine = routineData[currentSplitStr];
             const dayObj = activeWorkoutDay || activeRoutine?.find(d => d.id === currentDayId);
@@ -6295,10 +6294,6 @@
                 const nextInput = document.querySelector(`#row-${exIdx}-${nextSetNo} ${selector}`);
                 if (nextInput) {
                     nextInput.value = value;
-                    const nextRow = document.getElementById(`row-${exIdx}-${nextSetNo}`);
-                    if (nextRow) {
-                        nextRow.dataset[datasetKey] = value;
-                    }
                 }
             }
 
@@ -6364,7 +6359,9 @@
             const lastSetNo = ex.sets;
             const lastRow = document.getElementById(`row-${exIdx}-${lastSetNo}`);
             const copiedValues = {
-                weight: lastRow ? (parseFloat(lastRow.querySelector(".weight-input")?.value) || getTargetWeightForExercise(ex)) : getTargetWeightForExercise(ex),
+                targetWeight: lastRow ? Number(lastRow.dataset.targetWeight) : getTargetWeightForExercise(ex),
+                targetReps: lastRow ? Number(lastRow.dataset.targetReps) : ex.targetReps,
+                weight: Number(lastRow?.querySelector(".weight-input")?.value ?? getTargetWeightForExercise(ex)),
                 reps: lastRow ? (parseInt(lastRow.querySelector(".reps-input")?.value) || ex.targetReps) : ex.targetReps,
                 rpe: lastRow ? (parseFloat(lastRow.querySelector(".rpe-input-field")?.value) || ex.rpeTarget) : ex.rpeTarget,
             };
@@ -6747,7 +6744,18 @@
 
         function getProgressedWeightFrontend(name, previousWeight) {
             const weight = parseFloat(previousWeight) || 0;
-            const increment = getExerciseIncrementFrontend(name);
+            let increment = getExerciseIncrementFrontend(name);
+            const gym = getActiveGym();
+            if (isDumbbellExerciseName(name) || name === "해머 컬") {
+                const step = parseFloat(gym.dumbbellInterval) || 2.0;
+                increment = Math.ceil(increment / step) * step;
+            } else if (isBarbellExerciseName(name)) {
+                const plates = (gym.availablePlates || []).map(Number).filter(value => value > 0);
+                if (plates.length) {
+                    const step = Math.min(...plates) * 2;
+                    increment = Math.ceil(increment / step) * step;
+                }
+            }
             if (isAssistedMachineExercise(name)) {
                 return Math.max(0, weight - increment);
             }
@@ -6852,21 +6860,23 @@
 
             if (previous.length) {
                 const prevLast = previous[previous.length - 1];
-                const prevWeight = parseFloat(prevLast.weight) || parseFloat(ex.defaultWeight) || getTargetWeightForExercise(fallbackEx || ex);
-                const prevTargetWeight = parseFloat(prevLast.targetWeight) || prevWeight;
-                const prevTargetReps = clampTargetRepsFrontend(prevLast.targetReps, minReps, maxReps);
-                const allSucceeded = previous.every(log => logSucceededFrontend(log, ex.rpeTarget));
-
-                if (allSucceeded && prevTargetReps < maxReps) {
-                    ex.targetWeight = prevWeight;
-                    ex.targetReps = prevTargetReps + 1;
-                } else if (allSucceeded) {
-                    ex.targetWeight = getProgressedWeightFrontend(name, prevWeight);
-                    ex.targetReps = minReps;
-                } else {
-                    ex.targetWeight = prevTargetWeight;
-                    ex.targetReps = prevTargetReps;
-                }
+                const allSucceeded = previous.length >= ex.sets && previous.every(log => logSucceededFrontend(log, ex.rpeTarget));
+                ex.progressionSets = previous.map(log => {
+                    const weight = Number(log.weight) || 0;
+                    const reps = parseInt(log.reps) || 0;
+                    if (!allSucceeded) {
+                        return { setNo: parseInt(log.setNo) || 1, weight, reps, rpe: Number(log.rpe) || ex.rpeTarget,
+                            targetWeight: Number(log.targetWeight ?? weight),
+                            targetReps: Number(log.targetReps ?? reps) };
+                    }
+                    const currentReps = clampTargetRepsFrontend(reps, minReps, maxReps);
+                    const nextWeight = currentReps < maxReps ? weight : getProgressedWeightFrontend(name, weight);
+                    const nextReps = currentReps < maxReps ? currentReps + 1 : minReps;
+                    return { setNo: parseInt(log.setNo) || 1, weight: nextWeight, reps: nextReps, rpe: ex.rpeTarget,
+                        targetWeight: nextWeight, targetReps: nextReps };
+                });
+                ex.targetWeight = ex.progressionSets[0].targetWeight;
+                ex.targetReps = ex.progressionSets[0].targetReps;
 
                 const bySet = {};
                 previous.forEach(log => {
@@ -6892,9 +6902,10 @@
                 ex.targetReps = minReps;
                 ex.previousLog = null;
                 ex.previousSets = [];
+                ex.progressionSets = [];
+                ex.targetWeight = resolveEquipmentWeightFrontend(name, ex.targetWeight);
             }
 
-            ex.targetWeight = resolveEquipmentWeightFrontend(name, ex.targetWeight);
             return ex;
         }
 
@@ -7566,8 +7577,8 @@
                     
                     const weightVal = parseFloat(row.querySelector(".weight-input").value) || 0;
                     const repsVal = parseInt(row.querySelector(".reps-input").value) || 0;
-                    const targetWeight = weightVal > 0 ? weightVal : (parseFloat(row.dataset.targetWeight) || 0);
-                    const targetReps = repsVal > 0 ? repsVal : (parseInt(row.dataset.targetReps) || 0);
+                    const targetWeight = parseFloat(row.dataset.targetWeight) || 0;
+                    const targetReps = parseInt(row.dataset.targetReps) || 0;
                     const targetRpe = parseFloat(row.dataset.targetRpe) || parseFloat(ex.rpeTarget) || 8.0;
                     
                     const rpeInput = row.querySelector(".rpe-input-field");

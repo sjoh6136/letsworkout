@@ -109,6 +109,13 @@ For this app, keep `루마니안 데드리프트` on lower/legs days unless the 
 
 The app uses double progression.
 
+- Use per-set history, not the last set's weight for the entire exercise.
+- If any set fails, restore performed kg/reps/RPE in the inputs while retaining prior kg/reps benchmarks and routine target RPE for success evaluation.
+- Input synchronization to later rows must not overwrite success benchmarks. Finish must save actual input values separately from those benchmarks.
+- On reps-only progression or failure retry, never re-round the existing weight.
+- On weight progression, add an increment rounded upward to the gym's dumbbell interval or paired minimum plate increment. Assisted machines decrease assistance weight instead.
+- Run `python -B -m unittest discover -s tests -v` and `node tests/test_progression_frontend.js` for progression changes.
+
 Progression sequence:
 
 1. Increase reps first within the target rep range.
