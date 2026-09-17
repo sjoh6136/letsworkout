@@ -2089,10 +2089,10 @@ def next_progression_sets(ex, previous, gym):
             targets.append({"targetWeight": weight, "targetReps": reps,
                             "weight": weight, "reps": reps, "rpe": rpe_target})
         else:
-            targets.append({"targetWeight": as_float(log.get("targetWeight"), weight),
-                            "targetReps": max(min_reps, as_int(log.get("targetReps"), reps)),
-                            "weight": weight, "reps": reps,
-                            "rpe": as_float(log.get("rpe")) or rpe_target})
+            retry_weight = as_float(log.get("targetWeight"), weight)
+            retry_reps = max(min_reps, as_int(log.get("targetReps"), reps))
+            targets.append({"targetWeight": retry_weight, "targetReps": retry_reps,
+                            "weight": retry_weight, "reps": retry_reps, "rpe": rpe_target})
         targets[-1]["setNo"] = as_int(log.get("setNo"), len(targets))
     return targets
 

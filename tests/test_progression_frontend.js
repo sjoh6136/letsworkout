@@ -50,9 +50,9 @@ const row = wrap.children[1];
 assert.equal(row.dataset.targetWeight, 9);
 assert.equal(row.dataset.targetReps, 11);
 assert.equal(row.dataset.targetRpe, 8);
-assert(row.innerHTML.includes('weight-input" value="7.5"'));
-assert(row.innerHTML.includes('reps-input" value="10"'));
-assert(row.innerHTML.includes('rpe-input-field" value="9"'));
+assert(row.innerHTML.includes('weight-input" value="9"'));
+assert(row.innerHTML.includes('reps-input" value="11"'));
+assert(row.innerHTML.includes('rpe-input-field" value="8"'));
 assert.equal(ctx.setSucceededFrontend({ exercise: ex.name, completed: true,
     weight: 7.5, targetWeight: 9, reps: 11, targetReps: 11, rpe: 8, targetRpe: 8 }), false);
 for (const field of ['weight', 'reps']) {
@@ -87,15 +87,15 @@ const fly = { name: '케이블 플라이', sets: 3, repsRange: '12-15', rpeTarge
 ctx.logs = [13, 11, 11].map((reps, index) => ({ exercise: fly.name, setNo: index + 1,
     weight: 20.1, targetWeight: 20.1, reps, targetReps: reps, rpe: 8, status: 'SUCCESS' }));
 result = ctx.buildReplacementExercise(fly.name, fly);
-assert.deepEqual(Array.from(result.progressionSets, s => s.reps), [13, 11, 11]);
+assert.deepEqual(Array.from(result.progressionSets, s => s.reps), [13, 12, 12]);
 assert.deepEqual(Array.from(result.progressionSets, s => s.targetReps), [13, 12, 12]);
 for (let setNo = 1; setNo <= 3; setNo++) {
     const flyRow = ctx.createSetRow(result, 0, setNo).children[1];
-    assert(flyRow.innerHTML.includes(`reps-input" value="${[13, 11, 11][setNo - 1]}"`));
+    assert(flyRow.innerHTML.includes(`reps-input" value="${[13, 12, 12][setNo - 1]}"`));
 }
 const ohp = { name: '오버헤드 프레스 (OHP - 바벨)', sets: 3, repsRange: '10-12', rpeTarget: 7 };
 ctx.logs = [10, 9, 8].map((reps, index) => ({ exercise: ohp.name, setNo: index + 1,
     weight: 30, targetWeight: 30, reps, targetReps: reps, rpe: 7, status: 'SUCCESS' }));
 result = ctx.buildReplacementExercise(ohp.name, ohp);
-assert.deepEqual(Array.from(result.progressionSets, s => s.reps), [10, 9, 8]);
+assert.deepEqual(Array.from(result.progressionSets, s => s.reps), [10, 10, 10]);
 console.log('frontend progression, input rendering and downstream synchronization: PASS');

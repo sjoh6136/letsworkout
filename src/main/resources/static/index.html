@@ -6866,9 +6866,10 @@
                     const weight = Number(log.weight) || 0;
                     const reps = parseInt(log.reps) || 0;
                     if (!allSucceeded) {
-                        return { setNo: parseInt(log.setNo) || 1, weight, reps, rpe: Number(log.rpe) || ex.rpeTarget,
-                            targetWeight: Number(log.targetWeight ?? weight),
-                            targetReps: Math.max(minReps, Number(log.targetReps ?? reps)) };
+                        const retryWeight = Number(log.targetWeight ?? weight);
+                        const retryReps = Math.max(minReps, Number(log.targetReps ?? reps));
+                        return { setNo: parseInt(log.setNo) || 1, weight: retryWeight, reps: retryReps, rpe: ex.rpeTarget,
+                            targetWeight: retryWeight, targetReps: retryReps };
                     }
                     const currentReps = clampTargetRepsFrontend(reps, minReps, maxReps);
                     const nextWeight = currentReps < maxReps ? weight : getProgressedWeightFrontend(name, weight);

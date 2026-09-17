@@ -43,7 +43,7 @@ class ProgressionTests(unittest.TestCase):
             log.update(exercise=self.ex["name"], weight=20.1, targetWeight=20.1,
                        reps=reps, targetReps=reps)
         result = self.targets()
-        self.assertEqual([s["reps"] for s in result], [13, 11, 11])
+        self.assertEqual([s["reps"] for s in result], [13, 12, 12])
         self.assertEqual([s["weight"] for s in result], [20.1] * 3)
         self.assertEqual([s["targetReps"] for s in result], [13, 12, 12])
 
@@ -51,7 +51,7 @@ class ProgressionTests(unittest.TestCase):
         self.ex.update(name="오버헤드 프레스 (OHP - 바벨)", rpeTarget=7)
         for log, reps in zip(self.logs, [10, 9, 8]):
             log.update(exercise=self.ex["name"], reps=reps, targetReps=reps, rpe=7)
-        self.assertEqual([s["reps"] for s in self.targets()], [10, 9, 8])
+        self.assertEqual([s["reps"] for s in self.targets()], [10, 10, 10])
 
     def test_save_cannot_use_corrupt_below_range_target(self):
         ex = {**self.ex, "repsRange": "12-15"}
@@ -64,16 +64,22 @@ class ProgressionTests(unittest.TestCase):
             log.update(reps=12, targetReps=12)
         self.assertEqual([(s["weight"], s["reps"]) for s in self.targets()], [(11.5, 10)] * 3)
 
-    def test_failures_preserve_inputs_and_original_targets(self):
+    def test_failures_retry_original_targets_not_actual_performance(self):
         for change in ({"weight": 7.5}, {"reps": 10}, {"rpe": 9}, {"completed": False}):
             with self.subTest(change=change):
                 logs = copy.deepcopy(self.logs)
                 logs[2].update(change, status="FAIL")
                 result = NS["next_progression_sets"](self.ex, logs, self.gym)
                 for log, target in zip(logs, result):
-                    self.assertEqual((target["weight"], target["reps"], target["rpe"]),
-                                     (log["weight"], log["reps"], log["rpe"]))
+                    self.assertEqual((target["weight"], target["reps"], target["rpe"]), (9, 11, 8))
                     self.assertEqual((target["targetWeight"], target["targetReps"]), (9, 11))
+
+    def test_failure_within_range_retries_higher_original_target(self):
+        for log in self.logs:
+            log.update(targetReps=12)
+        result = self.targets()
+        self.assertEqual([s["reps"] for s in result], [12, 12, 12])
+        self.assertEqual([s["rpe"] for s in result], [8, 8, 8])
 
     def test_retry_below_original_target_saves_fail(self):
         log = {**self.logs[2], "weight": 7.5, "completed": True, "targetRpe": 8}
@@ -104,7 +110,7 @@ class ProgressionTests(unittest.TestCase):
         routine = {"2": [{"id": "Day 2", "exercises": [self.ex]}]}
         ex = NS["apply_progression"](routine, state)["2"][0]["exercises"][0]
         self.assertEqual(ex["targetWeight"], 9)
-        self.assertEqual(ex["progressionSets"][2]["weight"], 7.5)
+        self.assertEqual(ex["progressionSets"][2]["weight"], 9)
         self.assertNotIn("progressionSets", self.ex)
 
     def test_every_routine_exercise_keeps_weight_during_reps_progression(self):
