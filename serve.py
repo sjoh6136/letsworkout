@@ -2070,7 +2070,9 @@ def next_progression_sets(ex, previous, gym):
     min_reps, max_reps = parse_reps_range(ex.get("repsRange"))
     rpe_target = as_float(ex.get("rpeTarget"), 8.0)
     succeeded = len(previous) >= as_int(ex.get("sets")) and all(
-        str(log.get("status", "")).upper() != "FAIL" and set_succeeded(log, rpe_target)
+        str(log.get("status", "")).upper() != "FAIL"
+        and as_int(log.get("reps")) >= min_reps
+        and set_succeeded(log, rpe_target)
         for log in previous
     )
     targets = []
@@ -2088,7 +2090,7 @@ def next_progression_sets(ex, previous, gym):
                             "weight": weight, "reps": reps, "rpe": rpe_target})
         else:
             targets.append({"targetWeight": as_float(log.get("targetWeight"), weight),
-                            "targetReps": as_int(log.get("targetReps"), reps),
+                            "targetReps": max(min_reps, as_int(log.get("targetReps"), reps)),
                             "weight": weight, "reps": reps,
                             "rpe": as_float(log.get("rpe")) or rpe_target})
         targets[-1]["setNo"] = as_int(log.get("setNo"), len(targets))
@@ -2142,7 +2144,7 @@ def set_succeeded(log, rpe_target=None):
     )
 
 
-def routine_exercise_lookup(routines, split):
+def routine_exercise_lookup(routines, split, day_id=None):
     lookup = {}
     for day in routines.get(str(split), []):
         for ex in day.get("exercises", []):
@@ -2151,6 +2153,9 @@ def routine_exercise_lookup(routines, split):
         for day in days:
             for ex in day.get("exercises", []):
                 lookup.setdefault(ex.get("name"), ex)
+    for day in routines.get(str(split), []):
+        if day.get("id") == day_id:
+            lookup.update({ex.get("name"): ex for ex in day.get("exercises", [])})
     return lookup
 
 
@@ -2269,6 +2274,9 @@ def normalize_logs(raw_logs, split, week, day_id, exercise_defs=None, submission
         log["reps"] = as_int(log.get("reps"))
         log["rpe"] = as_float(log.get("rpe"))
         ex_def = exercise_defs.get(log.get("exercise"), {})
+        if split != 0 and ex_def.get("repsRange"):
+            min_reps, _ = parse_reps_range(ex_def["repsRange"])
+            log["targetReps"] = max(min_reps, log["targetReps"])
         log["targetRpe"] = as_float(log.get("targetRpe"), as_float(ex_def.get("rpeTarget"), 8.0))
         if log_checked(log) and log["rpe"] <= 0:
             log["rpe"] = log["targetRpe"]
@@ -2372,10 +2380,7 @@ def day_number(day_id):
 
 def evaluate_and_update(state, logs, split, week, day_id, routines=None):
     routines = routines or load_routines()
-    exercise_defs = routine_exercise_lookup(routines, split)
-    for day in routines.get(str(split), []):
-        if day.get("id") == day_id:
-            exercise_defs.update({ex.get("name"): ex for ex in day.get("exercises", [])})
+    exercise_defs = routine_exercise_lookup(routines, split, day_id)
 
     logs_by_exercise = {}
     for log in logs:
@@ -2806,7 +2811,7 @@ def workout_finish():
     submission_id = str(body.get("submissionId") or "").strip()
     date = normalize_workout_date(body.get("date"))
     active_routines = routines_for_progress(load_routine_progress(username, user_id))
-    exercise_defs = routine_exercise_lookup(active_routines, split)
+    exercise_defs = routine_exercise_lookup(active_routines, split, day_id)
     logs = normalize_logs(body.get("logs", []), split, week, day_id, exercise_defs, submission_id, username, user_id)
     for log in logs:
         log["date"] = date

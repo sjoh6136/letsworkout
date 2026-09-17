@@ -37,6 +37,28 @@ class ProgressionTests(unittest.TestCase):
     def test_reps_only_preserves_nine_kg(self):
         self.assertEqual([(s["weight"], s["reps"]) for s in self.targets()], [(9, 12)] * 3)
 
+    def test_fly_13_11_11_legacy_success_must_not_progress(self):
+        self.ex.update(name="케이블 플라이", repsRange="12-15")
+        for log, reps in zip(self.logs, [13, 11, 11]):
+            log.update(exercise=self.ex["name"], weight=20.1, targetWeight=20.1,
+                       reps=reps, targetReps=reps)
+        result = self.targets()
+        self.assertEqual([s["reps"] for s in result], [13, 11, 11])
+        self.assertEqual([s["weight"] for s in result], [20.1] * 3)
+        self.assertEqual([s["targetReps"] for s in result], [13, 12, 12])
+
+    def test_ohp_legacy_success_below_range_keeps_entire_session(self):
+        self.ex.update(name="오버헤드 프레스 (OHP - 바벨)", rpeTarget=7)
+        for log, reps in zip(self.logs, [10, 9, 8]):
+            log.update(exercise=self.ex["name"], reps=reps, targetReps=reps, rpe=7)
+        self.assertEqual([s["reps"] for s in self.targets()], [10, 9, 8])
+
+    def test_save_cannot_use_corrupt_below_range_target(self):
+        ex = {**self.ex, "repsRange": "12-15"}
+        log = {**self.logs[0], "targetReps": 11, "reps": 11, "completed": True}
+        saved = NS["normalize_logs"]([log], 2, 1, "Day 2", {ex["name"]: ex}, username="sjoh")[0]
+        self.assertEqual((saved["status"], saved["targetReps"]), ("FAIL", 12))
+
     def test_weight_uses_interval_from_actual_weight(self):
         for log in self.logs:
             log.update(reps=12, targetReps=12)

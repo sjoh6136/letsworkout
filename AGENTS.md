@@ -113,6 +113,7 @@ The app uses double progression.
 - If any set fails, restore performed kg/reps/RPE in the inputs while retaining prior kg/reps benchmarks and routine target RPE for success evaluation.
 - Input synchronization to later rows must not overwrite success benchmarks. Finish must save actual input values separately from those benchmarks.
 - On reps-only progression or failure retry, never re-round the existing weight.
+- Historical SUCCESS is insufficient if actual reps are below the current routine range minimum; treat the entire exercise session as a retry. Never clamp failed performed reps upward before increasing them. Keep performed input reps unchanged and require at least the routine minimum in success benchmarks.
 - On weight progression, add an increment rounded upward to the gym's dumbbell interval or paired minimum plate increment. Assisted machines decrease assistance weight instead.
 - Run `python -B -m unittest discover -s tests -v` and `node tests/test_progression_frontend.js` for progression changes.
 

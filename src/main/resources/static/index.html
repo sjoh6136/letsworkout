@@ -6860,14 +6860,15 @@
 
             if (previous.length) {
                 const prevLast = previous[previous.length - 1];
-                const allSucceeded = previous.length >= ex.sets && previous.every(log => logSucceededFrontend(log, ex.rpeTarget));
+                const allSucceeded = previous.length >= ex.sets && previous.every(log =>
+                    (parseInt(log.reps) || 0) >= minReps && logSucceededFrontend(log, ex.rpeTarget));
                 ex.progressionSets = previous.map(log => {
                     const weight = Number(log.weight) || 0;
                     const reps = parseInt(log.reps) || 0;
                     if (!allSucceeded) {
                         return { setNo: parseInt(log.setNo) || 1, weight, reps, rpe: Number(log.rpe) || ex.rpeTarget,
                             targetWeight: Number(log.targetWeight ?? weight),
-                            targetReps: Number(log.targetReps ?? reps) };
+                            targetReps: Math.max(minReps, Number(log.targetReps ?? reps)) };
                     }
                     const currentReps = clampTargetRepsFrontend(reps, minReps, maxReps);
                     const nextWeight = currentReps < maxReps ? weight : getProgressedWeightFrontend(name, weight);
@@ -7578,7 +7579,8 @@
                     const weightVal = parseFloat(row.querySelector(".weight-input").value) || 0;
                     const repsVal = parseInt(row.querySelector(".reps-input").value) || 0;
                     const targetWeight = parseFloat(row.dataset.targetWeight) || 0;
-                    const targetReps = parseInt(row.dataset.targetReps) || 0;
+                    const minimumReps = isFreeWorkout ? 0 : parseRepsRangeFrontend(ex.repsRange)[0];
+                    const targetReps = Math.max(minimumReps, parseInt(row.dataset.targetReps) || 0);
                     const targetRpe = parseFloat(row.dataset.targetRpe) || parseFloat(ex.rpeTarget) || 8.0;
                     
                     const rpeInput = row.querySelector(".rpe-input-field");

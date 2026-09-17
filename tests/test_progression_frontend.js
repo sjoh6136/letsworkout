@@ -83,4 +83,19 @@ ctx.applyDraftRows({ rows: [{ exIdx: 0, rows: [{ setNo: 1, weight: 0, reps: 11,
 assert.equal(rows['row-0-1'].dataset.targetWeight, 0);
 assert.equal(rows['row-0-1'].dataset.targetReps, 12);
 assert.equal(draftInputs['.weight-input'].value, 0);
+const fly = { name: '케이블 플라이', sets: 3, repsRange: '12-15', rpeTarget: 8 };
+ctx.logs = [13, 11, 11].map((reps, index) => ({ exercise: fly.name, setNo: index + 1,
+    weight: 20.1, targetWeight: 20.1, reps, targetReps: reps, rpe: 8, status: 'SUCCESS' }));
+result = ctx.buildReplacementExercise(fly.name, fly);
+assert.deepEqual(Array.from(result.progressionSets, s => s.reps), [13, 11, 11]);
+assert.deepEqual(Array.from(result.progressionSets, s => s.targetReps), [13, 12, 12]);
+for (let setNo = 1; setNo <= 3; setNo++) {
+    const flyRow = ctx.createSetRow(result, 0, setNo).children[1];
+    assert(flyRow.innerHTML.includes(`reps-input" value="${[13, 11, 11][setNo - 1]}"`));
+}
+const ohp = { name: '오버헤드 프레스 (OHP - 바벨)', sets: 3, repsRange: '10-12', rpeTarget: 7 };
+ctx.logs = [10, 9, 8].map((reps, index) => ({ exercise: ohp.name, setNo: index + 1,
+    weight: 30, targetWeight: 30, reps, targetReps: reps, rpe: 7, status: 'SUCCESS' }));
+result = ctx.buildReplacementExercise(ohp.name, ohp);
+assert.deepEqual(Array.from(result.progressionSets, s => s.reps), [10, 9, 8]);
 console.log('frontend progression, input rendering and downstream synchronization: PASS');
