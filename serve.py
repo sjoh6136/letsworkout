@@ -2069,30 +2069,38 @@ def progression_target_weight(exercise_name, previous_weight, gym=None):
 def next_progression_sets(ex, previous, gym):
     min_reps, max_reps = parse_reps_range(ex.get("repsRange"))
     rpe_target = as_float(ex.get("rpeTarget"), 8.0)
+    assisted = is_assisted_machine_exercise(ex.get("name"))
+    recorded_target_weights = [
+        as_float(log.get("targetWeight"), as_float(log.get("weight"))) for log in previous
+    ]
+    target_weight = (
+        min(recorded_target_weights) if assisted else max(recorded_target_weights)
+    ) if recorded_target_weights else as_float(ex.get("defaultWeight"))
+    target_reps = max(
+        [min_reps] + [as_int(log.get("targetReps"), min_reps) for log in previous]
+    )
     succeeded = len(previous) >= as_int(ex.get("sets")) and all(
         str(log.get("status", "")).upper() != "FAIL"
-        and as_int(log.get("reps")) >= min_reps
-        and set_succeeded(log, rpe_target)
+        and log_checked(log)
+        and as_int(log.get("reps")) >= target_reps
+        and weight_meets_target({**log, "targetWeight": target_weight})
+        and 0 < as_float(log.get("rpe")) <= rpe_target
         for log in previous
     )
+    if succeeded:
+        if target_reps < max_reps:
+            next_weight = target_weight
+            next_reps = target_reps + 1
+        else:
+            next_weight = progression_target_weight(ex.get("name"), target_weight, gym)
+            next_reps = min_reps
+    else:
+        next_weight = target_weight
+        next_reps = target_reps
     targets = []
     for log in previous:
-        weight = as_float(log.get("weight"))
-        reps = as_int(log.get("reps"))
-        if succeeded:
-            reps = clamp_target_reps(reps, min_reps, max_reps)
-            if reps < max_reps:
-                reps += 1
-            else:
-                weight = progression_target_weight(ex.get("name"), weight, gym)
-                reps = min_reps
-            targets.append({"targetWeight": weight, "targetReps": reps,
-                            "weight": weight, "reps": reps, "rpe": rpe_target})
-        else:
-            retry_weight = as_float(log.get("targetWeight"), weight)
-            retry_reps = max(min_reps, as_int(log.get("targetReps"), reps))
-            targets.append({"targetWeight": retry_weight, "targetReps": retry_reps,
-                            "weight": retry_weight, "reps": retry_reps, "rpe": rpe_target})
+        targets.append({"targetWeight": next_weight, "targetReps": next_reps,
+                        "weight": next_weight, "reps": next_reps, "rpe": rpe_target})
         targets[-1]["setNo"] = as_int(log.get("setNo"), len(targets))
     return targets
 

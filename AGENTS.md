@@ -110,6 +110,7 @@ For this app, keep `루마니안 데드리프트` on lower/legs days unless the 
 The app uses double progression.
 
 - Use per-set history, not the last set's weight for the entire exercise.
+- A routine exercise has one shared target kg/reps across all sets. Recover legacy uneven targets using the hardest stored target (highest reps; highest normal weight or lowest assistance weight), then apply that shared target to every set.
 - If any set fails, retry the prior target kg/reps for every set and routine target RPE in both inputs and success benchmarks. Actual failed performance belongs only in previous history, never in the next target inputs.
 - Input synchronization to later rows must not overwrite success benchmarks. Finish must save actual input values separately from those benchmarks.
 - On reps-only progression or failure retry, never re-round the existing weight.

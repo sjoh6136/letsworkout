@@ -43,9 +43,9 @@ class ProgressionTests(unittest.TestCase):
             log.update(exercise=self.ex["name"], weight=20.1, targetWeight=20.1,
                        reps=reps, targetReps=reps)
         result = self.targets()
-        self.assertEqual([s["reps"] for s in result], [13, 12, 12])
+        self.assertEqual([s["reps"] for s in result], [13, 13, 13])
         self.assertEqual([s["weight"] for s in result], [20.1] * 3)
-        self.assertEqual([s["targetReps"] for s in result], [13, 12, 12])
+        self.assertEqual([s["targetReps"] for s in result], [13, 13, 13])
 
     def test_ohp_legacy_success_below_range_keeps_entire_session(self):
         self.ex.update(name="오버헤드 프레스 (OHP - 바벨)", rpeTarget=7)
@@ -81,6 +81,14 @@ class ProgressionTests(unittest.TestCase):
         self.assertEqual([s["reps"] for s in result], [12, 12, 12])
         self.assertEqual([s["rpe"] for s in result], [8, 8, 8])
 
+    def test_uneven_corrupt_targets_retry_one_exercise_target(self):
+        self.ex.update(name="오버헤드 프레스 (OHP - 바벨)", repsRange="6-8", rpeTarget=8)
+        for log, reps in zip(self.logs, [8, 5, 5]):
+            log.update(exercise=self.ex["name"], weight=30, targetWeight=30,
+                       reps=reps, targetReps=reps, rpe=8)
+        result = self.targets()
+        self.assertEqual([(s["weight"], s["reps"]) for s in result], [(30, 8)] * 3)
+
     def test_retry_below_original_target_saves_fail(self):
         log = {**self.logs[2], "weight": 7.5, "completed": True, "targetRpe": 8}
         saved = NS["normalize_logs"]([log], 2, 1, "Day 2", username="sjoh")[0]
@@ -88,7 +96,7 @@ class ProgressionTests(unittest.TestCase):
 
     def test_last_set_does_not_override_other_sets(self):
         self.logs[0].update(weight=10)
-        self.assertEqual([s["weight"] for s in self.targets()], [10, 9, 9])
+        self.assertEqual([s["weight"] for s in self.targets()], [9, 9, 9])
 
     def test_missing_sets_do_not_progress(self):
         result = NS["next_progression_sets"](self.ex, self.logs[:2], self.gym)
