@@ -2088,11 +2088,14 @@ def next_progression_sets(ex, previous, gym):
         for log in previous
     )
     if succeeded:
+        # Use the weight achieved by every set, preserving one shared target.
+        performed_weights = [as_float(log.get("weight")) for log in previous]
+        successful_weight = max(performed_weights) if assisted else min(performed_weights)
         if target_reps < max_reps:
-            next_weight = target_weight
+            next_weight = successful_weight
             next_reps = target_reps + 1
         else:
-            next_weight = progression_target_weight(ex.get("name"), target_weight, gym)
+            next_weight = progression_target_weight(ex.get("name"), successful_weight, gym)
             next_reps = min_reps
     else:
         next_weight = target_weight

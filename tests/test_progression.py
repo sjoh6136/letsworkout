@@ -98,6 +98,32 @@ class ProgressionTests(unittest.TestCase):
         self.logs[0].update(weight=10)
         self.assertEqual([s["weight"] for s in self.targets()], [9, 9, 9])
 
+    def test_success_uses_weight_achieved_by_every_set(self):
+        self.ex.update(name="힙 어브덕션", repsRange="12-15")
+        for log in self.logs:
+            log.update(exercise=self.ex["name"], weight=97.5, targetWeight=38.5,
+                       reps=12, targetReps=12)
+        self.assertEqual([(s["weight"], s["reps"]) for s in self.targets()], [(97.5, 13)] * 3)
+        self.logs[0]["weight"] = 100
+        self.assertEqual([s["weight"] for s in self.targets()], [97.5] * 3)
+        for log in self.logs:
+            log.update(reps=15, targetReps=15)
+        self.assertEqual([(s["weight"], s["reps"]) for s in self.targets()], [(100, 12)] * 3)
+        self.logs[2].update(reps=14, status="FAIL")
+        self.assertEqual([(s["weight"], s["reps"]) for s in self.targets()], [(38.5, 15)] * 3)
+
+    def test_assisted_success_uses_assistance_achieved_by_every_set(self):
+        self.ex.update(name="머신 풀업", repsRange="8-10")
+        for log, weight in zip(self.logs, [25, 30, 30]):
+            log.update(exercise=self.ex["name"], weight=weight, targetWeight=40,
+                       reps=9, targetReps=9)
+        self.assertEqual([(s["weight"], s["reps"]) for s in self.targets()], [(30, 10)] * 3)
+        for log in self.logs:
+            log.update(reps=10, targetReps=10)
+        self.assertEqual([(s["weight"], s["reps"]) for s in self.targets()], [(25, 8)] * 3)
+        self.logs[2].update(rpe=9, status="FAIL")
+        self.assertEqual([(s["weight"], s["reps"]) for s in self.targets()], [(40, 10)] * 3)
+
     def test_missing_sets_do_not_progress(self):
         result = NS["next_progression_sets"](self.ex, self.logs[:2], self.gym)
         self.assertEqual([s["reps"] for s in result], [11, 11])

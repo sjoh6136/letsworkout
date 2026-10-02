@@ -6873,11 +6873,18 @@
                     && (parseFloat(log.rpe) || 0) <= ex.rpeTarget);
                 let nextWeight = targetWeight;
                 let nextReps = targetReps;
-                if (allSucceeded && targetReps < maxReps) {
-                    nextReps = targetReps + 1;
-                } else if (allSucceeded) {
-                    nextWeight = getProgressedWeightFrontend(name, targetWeight);
-                    nextReps = minReps;
+                if (allSucceeded) {
+                    const performedWeights = previous.map(log => Number(log.weight) || 0);
+                    const successfulWeight = isAssistedMachineExercise(name)
+                        ? Math.max(...performedWeights)
+                        : Math.min(...performedWeights);
+                    if (targetReps < maxReps) {
+                        nextWeight = successfulWeight;
+                        nextReps = targetReps + 1;
+                    } else {
+                        nextWeight = getProgressedWeightFrontend(name, successfulWeight);
+                        nextReps = minReps;
+                    }
                 }
                 ex.progressionSets = previous.map(log => {
                     return { setNo: parseInt(log.setNo) || 1, weight: nextWeight, reps: nextReps, rpe: ex.rpeTarget,

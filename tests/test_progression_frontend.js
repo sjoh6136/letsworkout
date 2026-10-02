@@ -104,3 +104,24 @@ ctx.logs = [8, 5, 5].map((reps, index) => ({ exercise: unevenOHP.name, setNo: in
 result = ctx.buildReplacementExercise(unevenOHP.name, unevenOHP);
 assert.deepEqual(Array.from(result.progressionSets, s => s.reps), [8, 8, 8]);
 console.log('frontend progression, input rendering and downstream synchronization: PASS');
+
+for (const [name, weights, targetWeight, repsRange, reps, expectedWeight, incrementedWeight, minReps, maxReps] of [
+    ['힙 어브덕션', [100, 97.5, 97.5], 38.5, '12-15', 12, 97.5, 100, 12, 15],
+    ['머신 풀업', [25, 30, 30], 40, '8-10', 9, 30, 25, 8, 10],
+]) {
+    const exercise = { name, sets: 3, repsRange, rpeTarget: 8 };
+    ctx.logs = weights.map((weight, i) => ({ exercise: name, setNo: i + 1,
+        weight, targetWeight, reps, targetReps: reps, rpe: 8, status: 'SUCCESS' }));
+    let progressed = ctx.buildReplacementExercise(name, exercise);
+    assert.deepEqual(Array.from(progressed.progressionSets, s => [s.weight, s.reps]),
+        [[expectedWeight, reps + 1], [expectedWeight, reps + 1], [expectedWeight, reps + 1]]);
+    ctx.logs.forEach(log => { log.reps = maxReps; log.targetReps = maxReps; });
+    progressed = ctx.buildReplacementExercise(name, exercise);
+    assert.equal(progressed.targetWeight, incrementedWeight);
+    assert.equal(progressed.targetReps, minReps);
+    ctx.logs[2].status = 'FAIL';
+    progressed = ctx.buildReplacementExercise(name, exercise);
+    assert.equal(progressed.targetWeight, targetWeight);
+    assert.equal(progressed.targetReps, maxReps);
+}
+console.log('successful performed weights and failed target retries: PASS');
