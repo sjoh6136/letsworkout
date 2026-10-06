@@ -4781,12 +4781,17 @@
         function getWorkoutSessionsFromLogs(logs = []) {
             const sessions = [];
             let lastKey = null;
+            let seenSets = new Set();
             logs.forEach(log => {
                 const key = log.submissionId
                     ? String(log.submissionId)
                     : [log.date || "", log.split || "", log.week || "", log.day || ""].join("|");
-                if (key === lastKey) return;
-                sessions.push(log);
+                const setKey = JSON.stringify([log.exercise, parseInt(log.setNo) || 1]);
+                if (key !== lastKey || seenSets.has(setKey)) {
+                    sessions.push(log);
+                    seenSets = new Set();
+                }
+                seenSets.add(setKey);
                 lastKey = key;
             });
             return sessions;
@@ -6811,41 +6816,48 @@
         }
 
         function findExerciseTemplate(name, fallbackEx = null) {
-            const currentSplitDays = routineData[String(oneRms.activeSplit)] || [];
-            for (const day of currentSplitDays) {
-                const found = (day.exercises || []).find(ex => ex.name === name);
-                if (found) return JSON.parse(JSON.stringify(found));
-            }
+            const day = (routineData[String(oneRms.activeSplit)] || []).find(day => day.id === currentDayId);
+            const found = (day?.exercises || []).find(ex => ex.name === name);
+            if (found && activeWorkoutMode !== "free") return JSON.parse(JSON.stringify(found));
+            // Preserve the slot's programming, but never another exercise's weight/history.
+            return {
+                name, sets: fallbackEx?.sets || 3,
+                repsRange: fallbackEx?.repsRange || "8-12",
+                rpeTarget: fallbackEx?.rpeTarget || 8,
+                restSeconds: fallbackEx?.restSeconds || 90,
+                coreLift: false, coreLiftType: null, intensity: 0,
+                defaultWeight: 0, targetWeight: 0,
+                previousLog: null, previousSets: [], progressionSets: []
+            };
+        }
 
-            for (const days of Object.values(routineData || {})) {
-                for (const day of days || []) {
-                    const found = (day.exercises || []).find(ex => ex.name === name);
-                    if (found) return JSON.parse(JSON.stringify(found));
-                }
-            }
-
-            const base = JSON.parse(JSON.stringify(fallbackEx || {}));
-            base.name = name;
-            base.coreLift = false;
-            base.coreLiftType = null;
-            base.intensity = 0.0;
-            base.defaultWeight = fallbackEx ? getTargetWeightForExercise(fallbackEx) : 0.0;
-            return base;
+        function exerciseSessions(name, dayId = null) {
+            const split = activeWorkoutMode === "free" ? 0 : parseInt(oneRms.activeSplit);
+            const sessions = [];
+            let lastKey = null;
+            let lastSet = 0;
+            (completedLogs || []).forEach(log => {
+                if (parseInt(log.split) !== split || log.exercise !== name || !log.date
+                    || (dayId != null && String(log.day || "") !== String(dayId))) return;
+                const key = JSON.stringify([log.date, parseInt(log.week) || 1, log.day, log.submissionId || ""]);
+                const setNo = parseInt(log.setNo) || 1;
+                if (key !== lastKey || setNo <= lastSet) sessions.push([]);
+                sessions[sessions.length - 1].push(log);
+                lastKey = key;
+                lastSet = setNo;
+            });
+            return sessions.map((logs, index) => ({ logs, index }))
+                .sort((a, b) => String(b.logs[0].date).localeCompare(String(a.logs[0].date)) || b.index - a.index)
+                .map(session => session.logs);
         }
 
         function latestExerciseSessionLogs(name, dayId = null) {
-            const split = parseInt(oneRms.activeSplit);
-            const logs = (completedLogs || []).filter(log =>
-                parseInt(log.split) === split
-                && log.exercise === name
-                && (!dayId || String(log.day || "") === String(dayId))
-                && log.date
-            );
-            if (!logs.length) return [];
-            const latestDate = logs.reduce((latest, log) => log.date > latest ? log.date : latest, logs[0].date);
-            return logs
-                .filter(log => log.date === latestDate)
-                .sort((a, b) => (parseInt(a.setNo) || 0) - (parseInt(b.setNo) || 0));
+            return exerciseSessions(name, dayId)[0] || [];
+        }
+
+        function exerciseAlreadyInSession(name, exceptIndex = null) {
+            return (getActiveWorkoutDayObj()?.exercises || []).some((ex, index) =>
+                index !== exceptIndex && ex.name === name);
         }
 
         function buildReplacementExercise(name, fallbackEx) {
@@ -6856,7 +6868,7 @@
             ex.rpeTarget = parseFloat(ex.rpeTarget || fallbackEx?.rpeTarget || 8.0);
 
             const [minReps, maxReps] = parseRepsRangeFrontend(ex.repsRange);
-            const previous = latestExerciseSessionLogs(name);
+            const previous = latestExerciseSessionLogs(name, activeWorkoutMode === "free" ? "Free Workout" : currentDayId);
 
             if (previous.length) {
                 const prevLast = previous[previous.length - 1];
@@ -6909,7 +6921,7 @@
                     return log ? { weight: log.weight, reps: log.reps } : null;
                 });
             } else {
-                let targetWeight = parseFloat(ex.defaultWeight) || getTargetWeightForExercise(fallbackEx || ex);
+                let targetWeight = parseFloat(ex.defaultWeight) || 0;
                 if (ex.coreLift && ex.coreLiftType) {
                     targetWeight = (parseFloat(oneRms[ex.coreLiftType]) || 100.0) * (parseFloat(ex.intensity) || 0);
                 }
@@ -6945,23 +6957,10 @@
         }
 
         function groupExerciseLogsBySession(name) {
-            const split = parseInt(oneRms.activeSplit);
-            const groups = {};
-            (completedLogs || []).forEach(log => {
-                if (parseInt(log.split) !== split || log.exercise !== name || !log.date) return;
-                const key = `${log.date}|${log.week || ""}|${log.day || ""}`;
-                if (!groups[key]) {
-                    groups[key] = { date: log.date, week: log.week, day: log.day, logs: [], exercise: name, replacement: false };
-                }
-                groups[key].logs.push(log);
-            });
-
-            return Object.values(groups)
-                .map(group => ({
-                    ...group,
-                    logs: group.logs.sort((a, b) => (parseInt(a.setNo) || 0) - (parseInt(b.setNo) || 0))
-                }))
-                .sort((a, b) => String(b.date).localeCompare(String(a.date)));
+            return exerciseSessions(name).map(logs => ({
+                date: logs[0].date, week: logs[0].week, day: logs[0].day,
+                logs, exercise: name, replacement: false
+            }));
         }
 
         function groupReplacementLogsByOriginal(name) {
@@ -7292,7 +7291,7 @@
             const list = document.getElementById("replacement-exercise-list");
             list.innerHTML = "";
             const candidates = getAllKnownExerciseNames()
-                .filter(name => name !== ex.name && getExerciseMuscleGroup(name) === muscle)
+                .filter(name => name !== ex.name && !exerciseAlreadyInSession(name, exIdx) && getExerciseMuscleGroup(name) === muscle)
                 .sort((a, b) => a.localeCompare(b, "ko"));
 
             if (!candidates.length) {
@@ -7379,7 +7378,7 @@
             });
             list.appendChild(tabs);
 
-            const candidates = groups[muscle] || [];
+            const candidates = (groups[muscle] || []).filter(name => !exerciseAlreadyInSession(name));
             if (!candidates.length) {
                 const empty = document.createElement("div");
                 empty.className = "replacement-item";
@@ -7422,6 +7421,10 @@
 
         function addFreeExerciseByName(name) {
             if (activeWorkoutMode !== "free" || !activeWorkoutDay) return;
+            if (exerciseAlreadyInSession(name)) {
+                alert("이미 포함된 운동입니다. 기존 종목에서 세트를 추가해주세요.");
+                return;
+            }
             activeWorkoutDay.exercises.push(normalizeFreeWorkoutExercise(name));
             renderExercises(activeWorkoutDay);
             closeExerciseReplacement();
@@ -7434,6 +7437,10 @@
             const currentEx = dayObj?.exercises?.[exIdx];
             if (!dayObj || !currentEx || exIdx == null) return;
 
+            if (exerciseAlreadyInSession(name, exIdx)) {
+                alert("이미 포함된 운동입니다. 다른 종목을 선택해주세요.");
+                return;
+            }
             const replacement = buildReplacementExercise(name, currentEx);
             replacement.originalExercise = currentEx.originalExercise || currentEx.name;
             replacement.replacedExercise = currentEx.name;
@@ -7565,6 +7572,11 @@
 
             const dayObj = activeWorkoutDay || activeRoutine?.find(d => d.id === currentDayId);
             if (!dayObj) return;
+            const exerciseNames = (dayObj.exercises || []).map(ex => ex.name);
+            if (new Set(exerciseNames).size !== exerciseNames.length) {
+                alert("같은 운동이 두 번 포함되어 있습니다. 중복 종목을 교체하거나 삭제해주세요.");
+                return;
+            }
             if (isFreeWorkout && !(dayObj.exercises || []).length) {
                 alert("자유운동에 운동을 먼저 추가해주세요.");
                 return;

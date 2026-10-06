@@ -7,7 +7,7 @@ const names = ['getTargetWeightForExercise', 'normalizeExerciseText', 'isDumbbel
     'isBarbellExerciseName', 'getExerciseIncrementFrontend', 'isAssistedMachineExercise',
     'exerciseWeightMeetsTargetFrontend', 'getProgressedWeightFrontend', 'setSucceededFrontend',
     'logSucceededFrontend', 'parseRepsRangeFrontend', 'clampTargetRepsFrontend',
-    'buildReplacementExercise', 'createSetRow', 'handleSetValueChange', 'applyDraftRows'];
+    'roundToStep', 'resolveEquipmentWeightFrontend', 'buildReplacementExercise', 'createSetRow', 'handleSetValueChange', 'applyDraftRows'];
 const functions = names.map(name => {
     const start = html.indexOf(`        function ${name}(`);
     assert(start >= 0, name);
@@ -25,7 +25,7 @@ const ctx = {
     latestExerciseSessionLogs: () => ctx.logs,
     formatPreviousCell: () => '-', formatIntensityCell: () => '-',
     setSwipeDeleteState: () => {}, bindSetSwipeDelete: () => {},
-    oneRms: { activeSplit: 2 }, routineData: {},
+    oneRms: { activeSplit: 2 }, routineData: {}, currentDayId: "Day 3", activeWorkoutMode: "routine",
     activeWorkoutDay: { exercises: [{ sets: 3 }] },
     calculateVolume: () => {},
     document: {
@@ -125,3 +125,70 @@ for (const [name, weights, targetWeight, repsRange, reps, expectedWeight, increm
     assert.equal(progressed.targetReps, maxReps);
 }
 console.log('successful performed weights and failed target retries: PASS');
+
+// Exercise isolation tests use the real lookup functions, replacing the earlier stubs.
+for (const name of ['findExerciseTemplate', 'exerciseSessions', 'latestExerciseSessionLogs',
+                    'exerciseAlreadyInSession', 'groupExerciseLogsBySession']) {
+    const start = html.indexOf(`        function ${name}(`);
+    const end = html.indexOf('\n        }', start);
+    vm.runInContext(html.slice(start, end + '\n        }'.length), ctx);
+}
+ctx.getActiveWorkoutDayObj = () => ctx.activeWorkoutDay;
+ctx.routineData = JSON.parse(fs.readFileSync(path.join(__dirname, '../data/routines.json'), 'utf8'));
+ctx.currentDayId = 'Day 3';
+const hip = ctx.findExerciseTemplate('힙 어브덕션');
+assert.equal(hip.repsRange, '12-15');
+assert.equal(hip.rpeTarget, 9);
+ctx.logs = undefined;
+ctx.completedLogs = [
+    {exercise:'힙 어브덕션',split:2,day:'Day 3',date:'2026-10-01',week:1,setNo:1,weight:97.5},
+    {exercise:'힙 어브덕션',split:2,day:'Day 1',date:'2026-10-06',week:2,setNo:1,weight:40}
+];
+assert.equal(ctx.latestExerciseSessionLogs('힙 어브덕션', 'Day 3')[0].weight, 97.5);
+for (const [regular, single] of [['레그 익스텐션','싱글 레그 레그 익스텐션'],['레그 컬','싱글 레그 라잉 레그 컬']]) {
+    ctx.completedLogs = [[regular,40,15],[single,15,12]].flatMap(([exercise,weight,reps]) =>
+        [1,2,3].map(setNo => ({exercise,weight,reps,setNo,split:2,day:'Day 3',date:'2026-10-06',
+            week:1,targetWeight:weight,targetReps:reps,rpe:8,status:'SUCCESS'})));
+    assert.equal(ctx.latestExerciseSessionLogs(regular, 'Day 3')[0].weight, 40);
+    assert.equal(ctx.latestExerciseSessionLogs(single, 'Day 3')[0].weight, 15);
+    const target = ctx.buildReplacementExercise(single, {sets:3,repsRange:'12-15',rpeTarget:8});
+    assert.equal(target.targetWeight, 15);
+    assert.equal(target.targetReps, 13);
+}
+const log = {exercise:'힙 어브덕션',split:2,day:'Day 3',date:'2026-10-06',week:1,
+    weight:97.5,targetWeight:97.5,reps:12,targetReps:12,rpe:8};
+for (const useIds of [true, false]) {
+    ctx.completedLogs = ['FAIL','SUCCESS'].flatMap((status, i) => [1,2,3].map(setNo =>
+        ({...log,status,setNo,submissionId:useIds ? `session-${i}` : ''})));
+    assert.equal(ctx.latestExerciseSessionLogs(log.exercise,'Day 3').length,3);
+    assert.equal(ctx.latestExerciseSessionLogs(log.exercise,'Day 3')[0].status,'SUCCESS');
+    assert.equal(ctx.groupExerciseLogsBySession(log.exercise).length,2);
+    assert.equal(ctx.buildReplacementExercise(log.exercise,hip).targetReps,13);
+}
+ctx.completedLogs = [];
+const replacement = ctx.buildReplacementExercise('머신 로우', {name:'바벨 로우',targetWeight:100,sets:3,repsRange:'8-10',rpeTarget:8});
+assert.equal(replacement.targetWeight,0);
+assert.equal(replacement.repsRange,'8-10');
+ctx.activeWorkoutDay={exercises:[{name:'레그 컬'},{name:'싱글 레그 라잉 레그 컬'}]};
+assert.equal(ctx.exerciseAlreadyInSession('레그 컬',1),true);
+assert.equal(ctx.exerciseAlreadyInSession('레그 컬',0),false);
+assert.equal(ctx.exerciseAlreadyInSession('레그 익스텐션'),false);
+console.log('day, exercise, session isolation and duplicate prevention: PASS');
+
+for (const name of ['replaceExerciseWithName', 'addFreeExerciseByName', 'getWorkoutSessionsFromLogs']) {
+    const start = html.indexOf(`        function ${name}(`);
+    vm.runInContext(html.slice(start, html.indexOf('\n        }',start) + '\n        }'.length),ctx);
+}
+let alerts = 0;
+ctx.alert = () => { alerts++; };
+ctx.replacementExerciseIdx = 1;
+ctx.replaceExerciseWithName('레그 컬');
+assert.equal(alerts,1);
+assert.equal(ctx.activeWorkoutDay.exercises[1].name,'싱글 레그 라잉 레그 컬');
+ctx.activeWorkoutMode = 'free';
+ctx.addFreeExerciseByName('레그 컬');
+assert.equal(alerts,2);
+assert.equal(ctx.activeWorkoutDay.exercises.length,2);
+const repeated = ['FAIL','SUCCESS'].flatMap(status => [1,2,3].map(setNo => ({...log,status,setNo})));
+assert.equal(ctx.getWorkoutSessionsFromLogs(repeated).length,2);
+console.log('duplicate action guards and repeated session progress: PASS');

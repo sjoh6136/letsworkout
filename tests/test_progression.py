@@ -12,7 +12,7 @@ FUNCTIONS = {"as_float", "as_int", "sheet_bool", "parse_reps_range", "clamp_targ
              "active_gym", "is_barbell_exercise", "round_to_step", "resolve_equipment_weight",
              "get_increment", "is_assisted_machine_exercise", "weight_meets_target",
              "progression_target_weight", "latest_exercise_logs", "log_checked",
-             "set_succeeded", "next_progression_sets", "apply_progression", "normalize_logs"}
+             "set_succeeded", "next_progression_sets", "apply_progression", "normalize_logs", "duplicate_exercise_sets", "workout_sessions_from_logs", "routine_exercise_lookup", "workout_exercise_lookup"}
 DEFS = json.loads((ROOT / "data/exercise_definitions.json").read_text(encoding="utf-8-sig"))
 NS = {"copy": copy, "math": math, "re": re,
       "ASSISTED_MACHINE_EXERCISES": {"머신 딥스", "머신 풀업"},
@@ -123,6 +123,41 @@ class ProgressionTests(unittest.TestCase):
         self.assertEqual([(s["weight"], s["reps"]) for s in self.targets()], [(25, 8)] * 3)
         self.logs[2].update(rpe=9, status="FAIL")
         self.assertEqual([(s["weight"], s["reps"]) for s in self.targets()], [(40, 10)] * 3)
+
+    def test_latest_session_separates_days_names_and_repeated_sessions(self):
+        lookup = NS["latest_exercise_logs"]
+        for regular, single in [("레그 익스텐션", "싱글 레그 레그 익스텐션"),
+                                ("레그 컬", "싱글 레그 라잉 레그 컬")]:
+            logs = [{**self.logs[0], "exercise": name, "weight": weight, "day": day}
+                    for name, weight, day in [(single, 15, "Day 3"), (regular, 40, "Day 3"),
+                                              (single, 80, "Day 1")]]
+            self.assertEqual(lookup(logs, 2, single, "Day 3")[0]["weight"], 15)
+            self.assertEqual(lookup(logs, 2, regular, "Day 3")[0]["weight"], 40)
+        for use_ids in [True, False]:
+            logs = [{**log, "status": status, "submissionId": str(i) if use_ids else ""}
+                    for i, status in enumerate(["FAIL", "SUCCESS"]) for log in self.logs]
+            latest = lookup(logs, 2, self.ex["name"], "Day 2")
+            self.assertEqual(len(NS["workout_sessions_from_logs"](logs)), 2)
+            self.assertEqual(len(latest), 3)
+            self.assertTrue(all(log["status"] == "SUCCESS" for log in latest))
+            self.assertEqual(NS["next_progression_sets"](self.ex, latest, self.gym)[0]["reps"], 12)
+
+    def test_replacement_save_uses_current_slot_not_another_day(self):
+        routines = {"2": [
+            {"id": "Day 1", "exercises": [{"name": "교체 운동", "repsRange": "15-20", "sets": 3, "rpeTarget": 9}]},
+            {"id": "Day 3", "exercises": [{"name": "원래 운동", "repsRange": "6-8", "sets": 3, "rpeTarget": 7}]}]}
+        defs = NS["workout_exercise_lookup"](routines, 2, "Day 3",
+                [{"originalExercise": "원래 운동", "exercise": "교체 운동"}])
+        self.assertEqual(defs["교체 운동"]["repsRange"], "6-8")
+        raw = {**self.logs[0], "exercise": "교체 운동", "reps": 6, "targetReps": 6, "rpe": 7, "targetRpe": 7}
+        saved = NS["normalize_logs"]([raw], 2, 1, "Day 3", defs)[0]
+        self.assertEqual((saved["targetReps"], saved["status"]), (6, "SUCCESS"))
+
+    def test_duplicate_exercises_rejected_but_distinct_names_allowed(self):
+        check = NS["duplicate_exercise_sets"]
+        self.assertFalse(check(self.logs))
+        self.assertTrue(check(self.logs + self.logs))
+        self.assertFalse(check(self.logs + [{**log, "exercise": "다른 운동"} for log in self.logs]))
 
     def test_missing_sets_do_not_progress(self):
         result = NS["next_progression_sets"](self.ex, self.logs[:2], self.gym)

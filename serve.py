@@ -1882,6 +1882,7 @@ def split_logs_since_baseline(state, split, baseline):
 def workout_sessions_from_logs(logs):
     sessions = []
     last_key = None
+    seen_sets = set()
     for log in logs:
         key = str(log.get("submissionId") or "").strip()
         if not key:
@@ -1891,9 +1892,11 @@ def workout_sessions_from_logs(logs):
                 str(log.get("week") or ""),
                 str(log.get("day") or ""),
             ])
-        if key == last_key:
-            continue
-        sessions.append(log)
+        set_key = (log.get("exercise"), as_int(log.get("setNo"), 1))
+        if key != last_key or set_key in seen_sets:
+            sessions.append(log)
+            seen_sets = set()
+        seen_sets.add(set_key)
         last_key = key
     return sessions
 
@@ -2120,18 +2123,26 @@ def one_rm_for(one_rms, lift_type):
 
 
 def latest_exercise_logs(logs, split, exercise_name, day_id=None):
-    matching = [
-        log
-        for log in logs
-        if log.get("split") == split
-        and log.get("exercise") == exercise_name
-        and (day_id is None or str(log.get("day") or "") == str(day_id))
-        and log.get("date")
-    ]
-    if not matching:
+    # Sheets A-M has no submission ID. Preserve append order and use a set
+    # number restart to distinguish repeated sessions after a Sheets reload.
+    sessions = []
+    last_key = None
+    last_set = 0
+    for log in logs:
+        if (as_int(log.get("split")) != split or log.get("exercise") != exercise_name
+                or (day_id is not None and str(log.get("day") or "") != str(day_id))
+                or not log.get("date")):
+            continue
+        key = (log.get("date"), as_int(log.get("week"), 1), log.get("day"),
+               str(log.get("submissionId") or ""))
+        set_no = as_int(log.get("setNo"), 1)
+        if key != last_key or set_no <= last_set:
+            sessions.append([])
+        sessions[-1].append(log)
+        last_key, last_set = key, set_no
+    if not sessions:
         return []
-    latest_date = max(log["date"] for log in matching)
-    return [log for log in matching if log.get("date") == latest_date]
+    return max(enumerate(sessions), key=lambda item: (item[1][0]["date"], item[0]))[1]
 
 
 def log_checked(log):
@@ -2168,6 +2179,19 @@ def routine_exercise_lookup(routines, split, day_id=None):
         if day.get("id") == day_id:
             lookup.update({ex.get("name"): ex for ex in day.get("exercises", [])})
     return lookup
+
+
+def workout_exercise_lookup(routines, split, day_id, replacements=None):
+    exercise_defs = routine_exercise_lookup(routines, split, day_id)
+    # Replacements absent from today keep the original slot's programming.
+    today_names = {ex.get("name") for day in routines.get(str(split), [])
+                   if day.get("id") == day_id for ex in day.get("exercises", [])}
+    for replacement in replacements or []:
+        name = replacement.get("exercise")
+        original = replacement.get("originalExercise")
+        if name not in today_names and original in today_names:
+            exercise_defs[name] = {**exercise_defs[original], "name": name}
+    return exercise_defs
 
 
 def apply_progression(routines, state):
@@ -2262,6 +2286,16 @@ def target_muscle(exercise_name):
     if any(token in name for token in ["컬", "curl", "트라이셉스", "triceps", "푸시다운", "푸쉬다운", "pushdown"]):
         return "팔"
     return "기타"
+
+
+def duplicate_exercise_sets(raw_logs):
+    seen = set()
+    for log in raw_logs or []:
+        key = (str(log.get("exercise") or "").strip(), as_int(log.get("setNo"), 1))
+        if key in seen:
+            return True
+        seen.add(key)
+    return False
 
 
 def normalize_logs(raw_logs, split, week, day_id, exercise_defs=None, submission_id="", username="", user_id=""):
@@ -2389,9 +2423,9 @@ def day_number(day_id):
     return int(match.group(0)) if match else 1
 
 
-def evaluate_and_update(state, logs, split, week, day_id, routines=None):
+def evaluate_and_update(state, logs, split, week, day_id, routines=None, exercise_defs=None):
     routines = routines or load_routines()
-    exercise_defs = routine_exercise_lookup(routines, split, day_id)
+    exercise_defs = exercise_defs if exercise_defs is not None else routine_exercise_lookup(routines, split, day_id)
 
     logs_by_exercise = {}
     for log in logs:
@@ -2822,7 +2856,9 @@ def workout_finish():
     submission_id = str(body.get("submissionId") or "").strip()
     date = normalize_workout_date(body.get("date"))
     active_routines = routines_for_progress(load_routine_progress(username, user_id))
-    exercise_defs = routine_exercise_lookup(active_routines, split, day_id)
+    exercise_defs = workout_exercise_lookup(active_routines, split, day_id, body.get("replacements", []))
+    if duplicate_exercise_sets(body.get("logs", [])):
+        return jsonify({"error": "한 세션에 같은 운동을 두 번 넣을 수 없습니다. 중복 종목을 확인해주세요."}), 400
     logs = normalize_logs(body.get("logs", []), split, week, day_id, exercise_defs, submission_id, username, user_id)
     for log in logs:
         log["date"] = date
@@ -2886,7 +2922,7 @@ def workout_finish():
         replacements_saved_to_sheet = append_workout_replacements_to_sheet(replacements, username, user_id)
         replacements_sheet_ms = int((time.perf_counter() - replacements_started_at) * 1000)
 
-    feedback = free_workout_feedback(logs) if split == 0 else evaluate_and_update(copy.deepcopy(state), logs, split, week, day_id, active_routines)
+    feedback = free_workout_feedback(logs) if split == 0 else evaluate_and_update(copy.deepcopy(state), logs, split, week, day_id, active_routines, exercise_defs)
     state["logs"].extend(logs)
     state["replacements"] = merge_replacements(state.get("replacements", []), replacements)
     submission_sheet_ms = 0
