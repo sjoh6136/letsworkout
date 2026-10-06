@@ -423,6 +423,7 @@ class GoogleSheetsStore:
         self.spreadsheet = None
         self._worksheets = {}
         self._ensured_user_tabs = set()
+        self._shared_workout_tabs_ready = False
         if SHEETS_ENABLED:
             self.connect()
 
@@ -510,6 +511,8 @@ class GoogleSheetsStore:
         self.ensure_shared_workout_tabs()
 
     def ensure_shared_workout_tabs(self):
+        if self._shared_workout_tabs_ready:
+            return
         settings = self.worksheet(self.SETTINGS_TAB, rows=100, cols=6)
         logs = self.worksheet(self.LOGS_TAB, rows=1000, cols=13)
         gym_settings = self.worksheet(self.GYM_SETTINGS_TAB, rows=100, cols=8)
@@ -525,6 +528,7 @@ class GoogleSheetsStore:
         self.ensure_header(submissions, "A1:H1", self.SUBMISSIONS_HEADER)
         self.ensure_header(routine_progress, "A1:G1", self.ROUTINE_PROGRESS_HEADER)
         self.ensure_header(cardio_logs, "A1:G1", self.CARDIO_LOGS_HEADER)
+        self._shared_workout_tabs_ready = True
 
     def ensure_user_tabs(self, username="", user_id=""):
         actor = self.sheet_actor(username, user_id)
@@ -2855,7 +2859,9 @@ def workout_finish():
     day_id = body.get("day") or "Day 1"
     submission_id = str(body.get("submissionId") or "").strip()
     date = normalize_workout_date(body.get("date"))
+    routine_started_at = time.perf_counter()
     active_routines = routines_for_progress(load_routine_progress(username, user_id))
+    routine_load_ms = int((time.perf_counter() - routine_started_at) * 1000)
     exercise_defs = workout_exercise_lookup(active_routines, split, day_id, body.get("replacements", []))
     if duplicate_exercise_sets(body.get("logs", [])):
         return jsonify({"error": "한 세션에 같은 운동을 두 번 넣을 수 없습니다. 중복 종목을 확인해주세요."}), 400
@@ -2922,7 +2928,7 @@ def workout_finish():
         replacements_saved_to_sheet = append_workout_replacements_to_sheet(replacements, username, user_id)
         replacements_sheet_ms = int((time.perf_counter() - replacements_started_at) * 1000)
 
-    feedback = free_workout_feedback(logs) if split == 0 else evaluate_and_update(copy.deepcopy(state), logs, split, week, day_id, active_routines, exercise_defs)
+    feedback = free_workout_feedback(logs) if split == 0 else evaluate_and_update(state, logs, split, week, day_id, active_routines, exercise_defs)
     state["logs"].extend(logs)
     state["replacements"] = merge_replacements(state.get("replacements", []), replacements)
     submission_sheet_ms = 0
@@ -2938,6 +2944,7 @@ def workout_finish():
     feedback["submissionId"] = submission_id
     feedback["saveTimingMs"] = {
         "load": load_ms,
+        "routineLoad": routine_load_ms,
         "duplicateCheck": duplicate_check_ms,
         "logsSheet": logs_sheet_ms,
         "replacementsSheet": replacements_sheet_ms,
@@ -2947,7 +2954,7 @@ def workout_finish():
     print(
         f"[finish] saved submission={submission_id or '-'} logs={len(logs)} replacements={len(replacements)} "
         f"user={username or user_id or '-'} sheet={logs_saved_to_sheet if store.connected else 'local'} load={load_ms}ms "
-        f"duplicate_check={duplicate_check_ms}ms logs_sheet={logs_sheet_ms}ms "
+        f"routine_load={routine_load_ms}ms duplicate_check={duplicate_check_ms}ms logs_sheet={logs_sheet_ms}ms "
         f"replacements_sheet={replacements_sheet_ms}ms submission_sheet={submission_sheet_ms}ms "
         f"total={feedback['saveTimingMs']['total']}ms",
         flush=True,

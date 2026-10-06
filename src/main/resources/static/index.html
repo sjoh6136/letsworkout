@@ -7215,8 +7215,11 @@
             const safeSeconds = parseInt(seconds, 10);
             if (!ex || !Number.isFinite(safeSeconds) || safeSeconds <= 0) return;
 
+            const restartActiveRest = activeRestExerciseIdx === restPickerExerciseIdx
+                && (restTimerInterval != null || restTimerRemainingMs > 0);
             ex.restSeconds = safeSeconds;
             saveExerciseRestSecondsPreference(ex, safeSeconds);
+            if (restartActiveRest) startRestTimerForExercise(restPickerExerciseIdx);
             updateExerciseMeta(restPickerExerciseIdx, ex);
             scheduleActiveWorkoutDraftSave(0);
             closeRestPicker();
@@ -7560,6 +7563,17 @@
         }
 
         // Submit completed workout logs
+        function handleRejectedWorkoutFinish(err, submissionId) {
+            if (err?.retryable !== false) return false;
+            // Keep the editable draft; only remove the rejected immutable request.
+            saveActiveWorkoutDraftSync();
+            removePendingWorkoutSubmission(submissionId);
+            activeFinishPendingSubmissionId = null;
+            setFinishButtonSaving(false);
+            alert(`저장하지 못했습니다. 입력을 확인한 뒤 다시 저장해주세요.\n${finishErrorMessage(err)}`);
+            return true;
+        }
+
         async function finishWorkout() {
             if (activeWorkoutMode === "cardio") {
                 return finishCardioWorkout();
@@ -7670,6 +7684,7 @@
                 const data = await submitWorkoutPayloadWithRetry(payload, FINISH_ACTIVE_RETRY_ATTEMPTS);
                 handleWorkoutFinishSaved(data, submissionId);
             } catch (err) {
+                if (handleRejectedWorkoutFinish(err, submissionId)) return;
                 console.warn("운동 기록 저장 대기열 전환", err);
                 activeFinishPendingSubmissionId = submissionId;
                 saveActiveWorkoutDraftSync();
