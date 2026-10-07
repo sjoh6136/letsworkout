@@ -3319,6 +3319,9 @@
                 </div>
                 <button class="close-btn" type="button" onclick="closeExerciseHistory()">×</button>
             </div>
+            <label for="history-day-select">운동일</label>
+            <select id="history-day-select" onchange="renderExerciseHistory()"></select>
+            <p id="history-target-reason" style="white-space:pre-line;font-size:12px;line-height:1.6;color:var(--text-muted)"></p>
             <div class="history-record-grid">
                 <div class="history-record-box">
                     <span>최고 중량</span>
@@ -4079,6 +4082,7 @@
             activeWorkoutDay = null;
             setActiveWorkoutMode("routine");
             setFinishButtonSaving(false);
+            showWorkoutSaveState(data.sheetsConnected === false ? "서버 임시 저장 완료 · Sheets 연결 확인 필요" : "서버 저장 완료", true);
             showFeedbackModal(data);
         }
 
@@ -4092,6 +4096,7 @@
                 activeFinishPendingSubmissionId = null;
             }
             setFinishButtonSaving(false);
+            showWorkoutSaveState(data.sheetsConnected === false ? "서버 임시 저장 완료 · Sheets 연결 확인 필요" : "서버 저장 완료", true);
             showFeedbackModal(data);
         }
 
@@ -4104,6 +4109,7 @@
             const pending = loadPendingWorkoutSubmissions();
             if (!pending.length) return;
 
+            showWorkoutSaveState("기기에 보관됨 · 서버에 다시 저장 중");
             const remaining = [];
             let savedAny = false;
             let handledActive = false;
@@ -4113,6 +4119,7 @@
                 for (const payload of pending) {
                     try {
                         const data = await submitWorkoutPayloadWithRetry(payload, options.attempts || 1);
+                        showWorkoutSaveState(data.sheetsConnected === false ? "서버 임시 저장 완료 · Sheets 연결 확인 필요" : "서버 저장 완료", true);
                         savedAny = true;
                         if (payload.submissionId) savedSubmissionIds.add(payload.submissionId);
                         if (payload.submissionId && payload.submissionId === activeFinishPendingSubmissionId) {
@@ -4131,6 +4138,7 @@
                 }
 
                 const savedRemaining = savePendingWorkoutSubmissions(remaining);
+                if (remaining.length) showWorkoutSaveState(savedRemaining ? "기기에 보관됨 · 연결되면 다시 저장합니다" : "기기 보관 실패 · 화면을 유지해주세요");
                 if (savedRemaining && remaining.length) {
                     schedulePendingWorkoutRetry(PENDING_WORKOUT_BACKGROUND_RETRY_MS);
                 }
@@ -4156,6 +4164,7 @@
             const pending = loadPendingCardioSubmissions();
             if (!pending.length) return false;
 
+            showWorkoutSaveState("기기에 보관됨 · 서버에 다시 저장 중");
             const remaining = [];
             let savedAny = false;
             let handledActive = false;
@@ -4164,6 +4173,7 @@
                 for (const payload of pending) {
                     try {
                         const data = await submitCardioPayloadWithRetry(payload, options.attempts || 1);
+                        showWorkoutSaveState(data.sheetsConnected === false ? "서버 임시 저장 완료 · Sheets 연결 확인 필요" : "서버 저장 완료", true);
                         savedAny = true;
                         if (payload.submissionId && payload.submissionId === activeCardioFinishPendingSubmissionId) {
                             handledActive = true;
@@ -4181,6 +4191,7 @@
                 }
 
                 const savedRemaining = savePendingCardioSubmissions(remaining);
+                if (remaining.length) showWorkoutSaveState(savedRemaining ? "기기에 보관됨 · 연결되면 다시 저장합니다" : "기기 보관 실패 · 화면을 유지해주세요");
                 if (savedRemaining && remaining.length) {
                     schedulePendingCardioRetry(PENDING_WORKOUT_BACKGROUND_RETRY_MS);
                 }
@@ -6956,18 +6967,19 @@
             return ex;
         }
 
-        function groupExerciseLogsBySession(name) {
-            return exerciseSessions(name).map(logs => ({
+        function groupExerciseLogsBySession(name, dayId = null) {
+            return exerciseSessions(name, dayId).map(logs => ({
                 date: logs[0].date, week: logs[0].week, day: logs[0].day,
                 logs, exercise: name, replacement: false
             }));
         }
 
-        function groupReplacementLogsByOriginal(name) {
-            const split = parseInt(oneRms.activeSplit);
+        function groupReplacementLogsByOriginal(name, dayId = null) {
+            const split = activeWorkoutMode === "free" ? 0 : parseInt(oneRms.activeSplit);
             const groups = {};
             (replacementLogs || []).forEach(item => {
-                if (parseInt(item.split) !== split || item.originalExercise !== name || !item.date) return;
+                if (parseInt(item.split) !== split || item.originalExercise !== name || !item.date
+                    || (dayId != null && item.day !== dayId)) return;
                 const key = item.submissionId || `${item.date}|${item.week || ""}|${item.day || ""}|${item.originalExercise}|${item.exercise}`;
                 if (groups[key]) return;
                 groups[key] = {
@@ -6986,14 +6998,25 @@
                 };
             });
 
-            return Object.values(groups)
-                .sort((a, b) => String(b.date).localeCompare(String(a.date)));
+            return Object.values(groups).map(group => {
+                const sessions = exerciseSessions(group.exercise, group.day).filter(logs =>
+                    logs[0].date === group.date && Number(logs[0].week) === Number(group.week));
+                if (sessions.length === 1) {
+                    const point = buildHistoryPointFromGroup({ ...group, replacement: false, logs: sessions[0] });
+                    if (point) Object.assign(group, { bestWeight: point.weight, estimatedOneRm: point.oneRm,
+                        volume: point.volume, bestReps: Math.max(...sessions[0].map(log => Number(log.reps) || 0)),
+                        summary: summarizeSessionLogs(sessions[0]) });
+                } else if (sessions.length > 1) {
+                    group.summary = `${group.summary} (교체 당시 요약)`;
+                }
+                return group;
+            }).sort((a, b) => String(b.date).localeCompare(String(a.date)));
         }
 
-        function getHistoryGroupsForExercise(name) {
+        function getHistoryGroupsForExercise(name, dayId = null) {
             return [
-                ...groupExerciseLogsBySession(name),
-                ...groupReplacementLogsByOriginal(name)
+                ...groupExerciseLogsBySession(name, dayId),
+                ...groupReplacementLogsByOriginal(name, dayId)
             ].sort((a, b) => String(b.date).localeCompare(String(a.date)));
         }
 
@@ -7026,8 +7049,8 @@
             return `성공 ${successCount}/${logs.length} · 평균 RPE ${avgRpe}`;
         }
 
-        function calculateExerciseRecords(name) {
-            const logs = (completedLogs || []).filter(log => log.exercise === name && (parseFloat(log.weight) || 0) > 0 && (parseInt(log.reps) || 0) > 0);
+        function calculateExerciseRecords(name, dayId = null) {
+            const logs = exerciseSessions(name, dayId).flat().filter(log => (parseFloat(log.weight) || 0) > 0 && (parseInt(log.reps) || 0) > 0);
             if (!logs.length) {
                 return { bestWeight: "-", bestReps: "-", estimatedOneRm: "-" };
             }
@@ -7086,8 +7109,8 @@
             };
         }
 
-        function buildExerciseHistoryPoints(name) {
-            return getHistoryGroupsForExercise(name)
+        function buildExerciseHistoryPoints(name, dayId = null) {
+            return getHistoryGroupsForExercise(name, dayId)
                 .map(buildHistoryPointFromGroup)
                 .filter(point => point && (point.weight > 0 || point.oneRm > 0 || point.volume > 0))
                 .slice(0, 5)
@@ -7238,17 +7261,42 @@
             const ex = dayObj?.exercises?.[exIdx];
             if (!ex) return;
 
-            const targetWeight = getTargetWeightForExercise(ex);
-            document.getElementById("history-exercise-title").innerText = ex.name;
-            document.getElementById("history-exercise-subtitle").innerText = `다음 목표 ${formatKg(targetWeight)}kg × ${ex.targetReps}회`;
             activeHistoryExerciseName = ex.name;
+            historySourceExercise = ex;
             historyChartMetric = "weight";
-            activeHistoryPoints = buildExerciseHistoryPoints(ex.name);
-            setHistoryMetric("weight");
+            const dayId = activeWorkoutMode === "free" ? "Free Workout" : currentDayId;
+            const days = new Map([[dayId, dayObj.name || dayId]]);
+            if (activeWorkoutMode !== "free") {
+                (routineData[String(oneRms.activeSplit)] || []).forEach(day => {
+                    if (day.exercises.some(item => item.name === ex.name)) days.set(day.id, day.name || day.id);
+                });
+            }
+            getHistoryGroupsForExercise(ex.name).forEach(group => {
+                if (!days.has(group.day)) days.set(group.day, group.day);
+            });
+            const select = document.getElementById("history-day-select");
+            select.replaceChildren(...Array.from(days, ([id, name]) => new Option(name, id)));
+            select.value = dayId;
+            renderExerciseHistory();
+            scheduleActiveWorkoutHeaderSpaceUpdate();
+            document.getElementById("exercise-history-overlay").classList.add("active");
+        }
+
+        function renderExerciseHistory() {
+            const dayId = document.getElementById("history-day-select").value;
+            const ex = activeWorkoutMode === "free" || dayId === currentDayId ? historySourceExercise
+                : (routineData[String(oneRms.activeSplit)] || []).find(day => day.id === dayId)?.exercises.find(item => item.name === activeHistoryExerciseName);
+            const name = activeHistoryExerciseName;
+            document.getElementById("history-exercise-title").innerText = name;
+            document.getElementById("history-exercise-subtitle").innerText = ex
+                ? `목표 ${formatKg(getTargetWeightForExercise(ex))}kg × ${ex.targetReps}회` : "선택한 운동일의 기록";
+            document.getElementById("history-target-reason").innerText = ex ? describeProgression(ex, dayId) : "현재 루틴에 없는 종목입니다.";
+            activeHistoryPoints = buildExerciseHistoryPoints(name, dayId);
+            setHistoryMetric(historyChartMetric);
 
             const list = document.getElementById("history-session-list");
             list.innerHTML = "";
-            const groups = getHistoryGroupsForExercise(ex.name).slice(0, 5);
+            const groups = getHistoryGroupsForExercise(name, dayId).slice(0, 5);
             if (!groups.length) {
                 const empty = document.createElement("div");
                 empty.className = "history-item";
@@ -7269,12 +7317,10 @@
                 });
             }
 
-            const records = calculateExerciseRecords(ex.name);
+            const records = calculateExerciseRecords(name, dayId);
             document.getElementById("history-best-weight").innerText = records.bestWeight;
             document.getElementById("history-best-reps").innerText = records.bestReps;
             document.getElementById("history-estimated-1rm").innerText = records.estimatedOneRm;
-            scheduleActiveWorkoutHeaderSpaceUpdate();
-            document.getElementById("exercise-history-overlay").classList.add("active");
         }
 
         function closeExerciseHistory() {
@@ -7570,6 +7616,7 @@
             removePendingWorkoutSubmission(submissionId);
             activeFinishPendingSubmissionId = null;
             setFinishButtonSaving(false);
+            showWorkoutSaveState("저장되지 않음 · 입력을 확인해주세요");
             alert(`저장하지 못했습니다. 입력을 확인한 뒤 다시 저장해주세요.\n${finishErrorMessage(err)}`);
             return true;
         }
@@ -7676,7 +7723,8 @@
                 replacements
             };
 
-            queuePendingWorkoutSubmission(payload);
+            const locallyQueued = queuePendingWorkoutSubmission(payload);
+            showWorkoutSaveState(locallyQueued ? "기기에 보관됨 · 서버 저장 중" : "기기 보관 실패 · 서버 저장 중 · 화면을 유지해주세요");
             saveActiveWorkoutDraftSync();
             isFinishingWorkout = true;
             setFinishButtonSaving(true);
@@ -7686,7 +7734,8 @@
             } catch (err) {
                 if (handleRejectedWorkoutFinish(err, submissionId)) return;
                 console.warn("운동 기록 저장 대기열 전환", err);
-                activeFinishPendingSubmissionId = submissionId;
+                showWorkoutSaveState(locallyQueued ? "기기에 보관됨 · 연결되면 다시 저장합니다" : "저장 확인 실패 · 화면을 유지하고 다시 저장해주세요");
+                activeFinishPendingSubmissionId = locallyQueued ? submissionId : null;
                 saveActiveWorkoutDraftSync();
                 schedulePendingWorkoutRetry(PENDING_WORKOUT_RETRY_DELAY_MS);
             } finally {
@@ -7718,7 +7767,8 @@
                 memo: ""
             };
 
-            queuePendingCardioSubmission(payload);
+            const locallyQueued = queuePendingCardioSubmission(payload);
+            showWorkoutSaveState(locallyQueued ? "기기에 보관됨 · 서버 저장 중" : "기기 보관 실패 · 서버 저장 중 · 화면을 유지해주세요");
             isFinishingWorkout = true;
             setFinishButtonSaving(true);
             try {
@@ -7726,9 +7776,10 @@
                 handleCardioFinishSaved(data, payload);
             } catch (err) {
                 console.warn("유산소 기록 저장 대기열 전환", err);
-                activeCardioFinishPendingSubmissionId = submissionId;
+                showWorkoutSaveState(locallyQueued ? "기기에 보관됨 · 연결되면 다시 저장합니다" : "저장 확인 실패 · 화면을 유지하고 다시 저장해주세요");
+                activeCardioFinishPendingSubmissionId = locallyQueued ? submissionId : null;
                 schedulePendingCardioRetry(PENDING_WORKOUT_RETRY_DELAY_MS);
-                alert("유산소 기록 저장이 지연 중입니다. 네트워크가 안정되면 자동으로 다시 저장합니다.");
+                alert(locallyQueued ? "유산소 기록 저장이 지연 중입니다. 네트워크가 안정되면 자동으로 다시 저장합니다." : "기기에 보관하지 못했습니다. 화면을 유지하고 다시 저장해주세요.");
             } finally {
                 isFinishingWorkout = false;
                 const stillPending = loadPendingCardioSubmissions().some(item => item.submissionId === submissionId);
@@ -8073,8 +8124,15 @@
             }
 
             const exGroups = {};
+            const occurrences = {};
             (dayLogs || []).forEach(log => {
-                if (!exGroups[log.exercise]) {
+                const baseKey = JSON.stringify([log.split, log.week, log.day, log.exercise]);
+                const occurrence = occurrences[baseKey] || { index: 0, lastSet: 0 };
+                if (Number(log.setNo) <= occurrence.lastSet) occurrence.index += 1;
+                occurrence.lastSet = Number(log.setNo);
+                occurrences[baseKey] = occurrence;
+                const key = `${baseKey}|${occurrence.index}`;
+                if (!exGroups[key]) {
                     let dayNameString = parseInt(log.split, 10) === 0 ? "자유운동" : `Week ${log.week} ${log.day}`;
                     const routine = routineData[String(log.split)];
                     if (routine) {
@@ -8084,12 +8142,13 @@
                         }
                     }
                     
-                    exGroups[log.exercise] = {
+                    exGroups[key] = {
+                        exercise: log.exercise,
                         dayName: dayNameString,
                         sets: []
                     };
                 }
-                exGroups[log.exercise].sets.push(log);
+                exGroups[key].sets.push(log);
             });
 
             for (const exName in exGroups) {
@@ -8104,15 +8163,15 @@
                     const badgeClass = isSuccess ? "log-set-badge" : "log-set-badge fail";
                     const rpeText = set.rpe > 0 ? `, RPE ${set.rpe}` : "";
                     setBadgesHTML += `
-                        <span class="${badgeClass}">
-                            Set ${set.setNo}: ${set.weight}kg × ${set.reps}회${rpeText}
-                        </span>
+                        <button type="button" class="${badgeClass}" ${set.sheetRow && set.rowVersion ? `onclick="openSavedLogEditor(${Number(set.sheetRow)})"` : "disabled"}>
+                            Set ${set.setNo}: ${set.weight}kg × ${set.reps}회${rpeText}${set.sheetRow && set.rowVersion ? " · 수정" : ""}
+                        </button>
                     `;
                 });
 
                 item.innerHTML = `
                     <div class="log-ex-name">
-                        <span>💪 ${exName}</span>
+                        <span>💪 ${escapeHtml(group.exercise)}</span>
                         <span style="font-size:11px; font-weight:400; color:var(--text-muted);">${group.dayName.split(" | ")[0] || group.dayName}</span>
                     </div>
                     <div class="log-set-list">
@@ -8138,5 +8197,39 @@
             });
         }
     </script>
+    <div id="workout-save-state" role="status" aria-live="polite" hidden></div>
+    <div class="overlay bottom-sheet-modal" id="saved-log-editor">
+        <form class="bottom-sheet-panel" onsubmit="event.preventDefault(); saveEditedLog(false)">
+            <div class="sheet-title-row">
+                <div><h3 id="saved-log-title">기록 수정</h3><p id="saved-log-context"></p></div>
+                <button class="close-btn" type="button" onclick="closeSavedLogEditor()" aria-label="기록 수정 닫기">×</button>
+            </div>
+            <p style="font-size:12px;color:var(--text-muted)">수정한 기록은 다음 운동의 목표에 반영됩니다. 진행 중인 운동의 입력은 유지됩니다.</p>
+            <div class="saved-log-fields">
+                <label>무게(kg)<input id="saved-log-weight" type="number" inputmode="decimal" min="0" step="any" required></label>
+                <label>횟수<input id="saved-log-reps" type="number" inputmode="numeric" min="0" step="1" required></label>
+                <label>RPE<input id="saved-log-rpe" type="number" inputmode="decimal" min="0" max="10" step="any" required></label>
+            </div>
+            <label><input id="saved-log-completed" type="checkbox"> 세트 수행 완료 (목표 달성 여부는 자동 판정)</label>
+            <p id="saved-log-message" role="status" style="font-size:13px;white-space:pre-line"></p>
+            <div class="saved-log-actions">
+                <button type="button" onclick="saveEditedLog(true)">직전 수정 되돌리기</button>
+                <button type="submit">수정 저장</button>
+            </div>
+        </form>
+    </div>
+    <style>
+        #history-day-select { width:100%; margin:8px 0; padding:10px; border-radius:8px; background:var(--bg-card,#18181e); color:var(--text-main,#fff); border:1px solid var(--card-border); font-size:14px; }
+        #workout-save-state { position:fixed; bottom:calc(80px + var(--safe-bottom)); left:50%; transform:translateX(-50%); z-index:10001; width:max-content; max-width:90vw; padding:10px 14px; border-radius:12px; background:#24242b; color:#fff; font-size:12px; pointer-events:none; box-shadow:0 3px 12px #0006; }
+        .saved-log-fields { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:10px; margin:18px 0; }
+        .saved-log-fields label { font-size:12px; }
+        .saved-log-fields input { display:block; width:100%; box-sizing:border-box; margin-top:6px; padding:10px 6px; border:1px solid var(--card-border); border-radius:8px; background:#101014; color:#fff; font-size:16px; }
+        .saved-log-actions { display:flex; gap:10px; margin-top:16px; }
+        .saved-log-actions button { flex:1; padding:12px 6px; border:1px solid var(--card-border); border-radius:8px; background:#25252d; color:#fff; }
+        .saved-log-actions button[type=submit] { background:var(--accent,#675cff); }
+        button.log-set-badge { font-family:inherit; text-align:left; cursor:pointer; }
+        button.log-set-badge:disabled { opacity:1; cursor:default; }
+    </style>
+    <script src="/workout-history.js"></script>
 </body>
 </html>

@@ -43,6 +43,7 @@ const calls=[];
 ctx.saveActiveWorkoutDraftSync=()=>calls.push('draft');
 ctx.removePendingWorkoutSubmission=id=>calls.push(id);
 ctx.setFinishButtonSaving=value=>calls.push(value);
+ctx.showWorkoutSaveState=()=>{};
 ctx.alert=()=>calls.push('alert');ctx.finishErrorMessage=err=>err.message;
 assert.equal(ctx.handleRejectedWorkoutFinish({retryable:true},'keep'),false);
 assert.equal(calls.length,0);

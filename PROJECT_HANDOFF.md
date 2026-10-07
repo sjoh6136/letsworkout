@@ -327,3 +327,13 @@ Invoke-RestMethod -Uri 'https://letsworkout-nm75.onrender.com/healthz' -TimeoutS
 당시 백엔드 테스트 15개와 프론트 점진적 과부하 테스트가 통과했고, Render `/healthz`가 커밋 `554cc3b4655200340f3379a0f08166e051c483b8`을 반환했다.
 
 새 작업을 시작할 때는 실제 GitHub HEAD와 Render `/healthz`를 다시 확인한다.
+
+## 14. 2026-10-07 기록 화면 보완
+
+- 종목 기록창에서 현재 운동일을 기본으로 목표 근거와 최근 그래프를 표시한다. 운동일 선택으로 A/B를 구분하며, 분할·운동일·정확한 종목명이 일치하는 기록만 집계한다.
+- 훈련일지의 세트 버튼에서 실제 무게·횟수·RPE·수행 여부를 수정하거나 직전 수정을 되돌릴 수 있다. 진행 중인 운동 입력은 유지하고 다음 루틴 조회에 수정 기록을 반영한다.
+- `workout_log_edits.py`는 해당 사용자의 행을 확인하고 `Workout_Logs` H–K만 수정한다. A–M 열 순서, 기존 목표 L–M, 루틴 진행도, 1RM은 변경하지 않는다.
+- 수정 전후 값은 공용 `Workout_Log_Edits`에 먼저 보관한다. 열은 `EditId, Username, LogRow, ChangedAt, Before, After, Action`이다. 수정할 때만 생성하며 사용자별 레거시 탭은 사용하지 않는다.
+- 기록 조회의 `sheetRow`, `rowVersion`은 응답 메타데이터이며 시트 열을 추가하지 않는다. 버전이 달라지면 덮어쓰기를 거절하며, 같은 수정 요청의 재시도는 중복 적용하지 않는다.
+- 기기 대기열 저장 여부, 서버 저장 중, 재시도 대기, 서버 저장 완료를 표시한다. 이상 입력 경고 기능은 추가하지 않았다.
+- 추가 프론트 코드: `src/main/resources/static/workout-history.js`. 추가 검증: `tests/test_log_edits.py`, `node tests/test_workout_history_frontend.js`.

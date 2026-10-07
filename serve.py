@@ -14,6 +14,7 @@ from pathlib import Path
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 from flask import Flask, g, jsonify, make_response, request, send_from_directory
+from workout_log_edits import edit_saved_log, row_version, EditConflict
 
 
 ROOT = Path(__file__).resolve().parent
@@ -807,9 +808,11 @@ class GoogleSheetsStore:
         logs = self.worksheet(self.LOGS_TAB, rows=1000, cols=13)
         rows = logs.get("A2:M") or []
         parsed = []
-        for row in rows:
+        for sheet_row, row in enumerate(rows, start=2):
             log = self.parse_log_row(row, actor)
             if log and normalize_username(log.get("username")) == actor:
+                log["sheetRow"] = sheet_row
+                log["rowVersion"] = row_version(row)
                 parsed.append(log)
         return parsed
 
@@ -2758,6 +2761,39 @@ def two_day_program():
 @app.route("/api/workout/logs")
 def workout_logs():
     return jsonify(load_state(username=current_request_username(), user_id=current_request_user_id()).get("logs", []))
+
+
+@app.route("/api/workout/logs/<int:row_number>/edit", methods=["POST"])
+def edit_workout_log(row_number):
+    username = current_request_username()
+    user_id = current_request_user_id()
+    store = sheets_store()
+    if not store.connected:
+        return jsonify({"error": "Google Sheets에 연결한 뒤 다시 시도해주세요."}), 503
+    body = request.get_json(silent=True) or {}
+    def target_rpe_for(row):
+        split = as_int(row[2])
+        if split == 0:
+            return 8.0
+        routines = routines_for_progress(load_routine_progress(username, user_id))
+        replacements = [r for r in store.load_replacements(username, user_id)
+                        if r.get("date") == row[0] and as_int(r.get("split")) == split
+                        and as_int(r.get("week")) == as_int(row[3]) and r.get("day") == row[4]]
+        definitions = workout_exercise_lookup(routines, split, row[4], replacements)
+        return as_float(definitions.get(row[5], {}).get("rpeTarget"), 8.0)
+    try:
+        result = edit_saved_log(store, normalize_username(username), row_number,
+                                str(body.get("rowVersion") or ""), str(body.get("editId") or ""),
+                                body, target_rpe_for, undo=body.get("undo") is True)
+        invalidate_state_cache(username)
+        return jsonify(result)
+    except EditConflict as exc:
+        return jsonify({"error": str(exc)}), 409
+    except ValueError as exc:
+        return jsonify({"error": str(exc)}), 400
+    except Exception:
+        invalidate_state_cache(username)
+        return jsonify({"error": "수정 저장을 확인하지 못했습니다. 같은 화면에서 다시 저장해주세요."}), 503
 
 
 @app.route("/api/cardio/logs")
