@@ -1658,7 +1658,7 @@ textarea,
 }
 
 
-/* Larger, text-free set completion control. */
+/* Compact visible box within a 48px set-completion touch target. */
 .set-row.checked {
     opacity: 1;
 }
@@ -1666,18 +1666,34 @@ textarea,
     opacity: 0.55;
 }
 .set-row .check-btn {
-    width: 64px;
+    width: 48px;
     height: 48px;
     padding: 0;
-    border: 2px solid #73737d;
-    border-radius: 8px;
-    background: #25252d;
+    border: 0;
+    border-radius: 6px;
+    background: transparent;
     touch-action: manipulation;
     -webkit-tap-highlight-color: transparent;
 }
+.set-row .check-btn::before {
+    content: "";
+    display: block;
+    width: 40px;
+    height: 32px;
+    box-sizing: border-box;
+    border: 1px solid #62626C;
+    border-radius: 6px;
+    background: transparent;
+    pointer-events: none;
+    transition: background-color 0.08s ease, border-color 0.08s ease;
+}
 .set-row .check-btn.checked {
-    background: #32D074;
-    border-color: #32D074;
+    background: transparent;
+    border: 0;
+}
+.set-row .check-btn.checked::before {
+    background: #38966C;
+    border-color: #38966C;
 }
 .set-row .check-btn:active {
     transform: scale(0.96);
