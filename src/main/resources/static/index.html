@@ -2169,7 +2169,7 @@
 
         .set-row {
             display: grid;
-            grid-template-columns: 24px 1.3fr 1.3fr 0.9fr 0.9fr 0.8fr 34px;
+            grid-template-columns: 24px 1.3fr 1.3fr 0.9fr 0.9fr 0.8fr 64px;
             align-items: center;
             gap: 4px;
             padding: 8px 0;
@@ -2881,7 +2881,7 @@
         }
 
     </style>
-    <link rel="stylesheet" href="/styles.css?v=20260813-layout-6">
+    <link rel="stylesheet" href="/styles.css?v=20261013-set-complete">
 </head>
 <body>
     <!-- Login / First Account Setup -->
@@ -4544,7 +4544,10 @@
                     row.dataset.targetRpe = savedRow.targetRpe || savedRow.rpe || row.dataset.targetRpe || "";
                     const checkBtn = row.querySelector(".check-btn");
                     row.classList.toggle("checked", !!savedRow.checked);
-                    if (checkBtn) checkBtn.classList.toggle("checked", !!savedRow.checked);
+                    if (checkBtn) {
+                        checkBtn.classList.toggle("checked", !!savedRow.checked);
+                        checkBtn.setAttribute("aria-pressed", String(!!savedRow.checked));
+                    }
                 });
             });
         }
@@ -6117,7 +6120,7 @@
                         <div class="set-target-info">Kg</div>
                         <div class="set-target-info">Reps</div>
                         <div class="set-target-info">RPE</div>
-                        <div style="width: 34px;"></div>
+                        <div></div>
                     </div>
                 </div>
                 <div class="exercise-actions">
@@ -6274,11 +6277,7 @@
                     <input type="number" class="rpe-input-field" value="${inputRpe}" min="5" max="10" step="0.5" inputmode="decimal" oninput="scheduleActiveWorkoutDraftSave()" onchange="calculateVolume()">
                     <span>RPE</span>
                 </div>
-                <button class="check-btn" onclick="toggleSet(${exIdx}, ${setNo})">
-                    <svg viewBox="0 0 24 24">
-                        <polyline points="20 6 9 17 4 12"></polyline>
-                    </svg>
-                </button>
+                <button type="button" class="check-btn" aria-label="세트 완료" aria-pressed="false" onclick="toggleSet(${exIdx}, ${setNo})"></button>
             `;
             const wrap = document.createElement("div");
             wrap.className = "set-swipe-wrap";
@@ -6681,6 +6680,7 @@
                 startRestTimerForExercise(exIdx);
             }
 
+            btn.setAttribute("aria-pressed", String(row.classList.contains("checked")));
             calculateVolume();
         }
 
