@@ -2881,7 +2881,7 @@
         }
 
     </style>
-    <link rel="stylesheet" href="/styles.css?v=20261013-set-compact">
+    <link rel="stylesheet" href="/styles.css?v=20261015-set-spacing">
 </head>
 <body>
     <!-- Login / First Account Setup -->
@@ -6263,7 +6263,7 @@
                 <div class="set-no">${setNo}</div>
                 <div class="set-prev-info">${formatPreviousCell(ex, setNo)}</div>
                 <div class="set-target-info set-intensity-info">
-                    <div style="font-weight:700; color:var(--text-muted); font-size:12.5px;">${formatIntensityCell(ex)}</div>
+                    <div style="font-weight:400; color:var(--text-muted); font-size:inherit;">${formatIntensityCell(ex)}</div>
                 </div>
                 <div class="input-group">
                     <input type="number" class="weight-input" value="${inputWeight}" step="2.5" min="0" inputmode="decimal" oninput="scheduleActiveWorkoutDraftSave()" onchange="handleSetValueChange(${exIdx}, ${setNo}, 'weight', this)">
