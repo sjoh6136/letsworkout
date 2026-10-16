@@ -126,6 +126,38 @@ for (const [name, weights, targetWeight, repsRange, reps, expectedWeight, increm
 }
 console.log('successful performed weights and failed target retries: PASS');
 
+const lunge = {name:'덤벨 워킹 런지',sets:3,repsRange:'10-12',rpeTarget:8};
+gym.dumbbellInterval = 2;
+ctx.logs = [10,8,7].map((reps,i)=>({exercise:lunge.name,setNo:i+1,
+    weight:i===0?27.5:25,targetWeight:26,reps,targetReps:10,rpe:8,status:'FAIL'}));
+result = ctx.buildReplacementExercise(lunge.name,lunge);
+assert.deepEqual(Array.from(result.progressionSets,s=>[s.weight,s.reps]),[[25,10],[25,10],[25,10]]);
+const lungeRow = ctx.createSetRow(result,0,1).children[1];
+assert.equal(lungeRow.dataset.targetWeight,25);
+assert(lungeRow.innerHTML.includes('weight-input" value="25"'));
+ctx.logs.forEach((log,i)=>Object.assign(log,{weight:i===2?27.5:25,targetWeight:25,reps:10,status:'SUCCESS'}));
+result = ctx.buildReplacementExercise(lunge.name,lunge);
+assert.equal(result.targetWeight,27.5);
+assert.equal(result.targetReps,11);
+ctx.logs.forEach(log=>Object.assign(log,{reps:12,targetReps:12}));
+result = ctx.buildReplacementExercise(lunge.name,lunge);
+assert.equal(result.targetWeight,33.5);
+assert.equal(result.targetReps,10);
+for (const weight of [0,-1,NaN]) {
+    Object.assign(ctx.logs[2],{weight,status:'FAIL'});
+    result = ctx.buildReplacementExercise(lunge.name,lunge);
+    assert.equal(result.targetWeight,25);
+    assert.equal(result.targetReps,12);
+}
+const lyingCurl={name:'싱글 레그 라잉 레그 컬',sets:3,repsRange:'12-15',rpeTarget:8};
+ctx.logs=[1,2,3].map(setNo=>({exercise:lyingCurl.name,setNo,weight:20,targetWeight:22.7,
+    reps:15,targetReps:13,rpe:8,status:'FAIL'}));
+result=ctx.buildReplacementExercise(lyingCurl.name,lyingCurl);
+assert.equal(result.targetWeight,22.7);
+assert.equal(result.targetReps,13);
+gym.dumbbellInterval = 2.5;
+console.log('walking lunge last actual weight exception and unchanged lying leg curl: PASS');
+
 // Exercise isolation tests use the real lookup functions, replacing the earlier stubs.
 for (const name of ['findExerciseTemplate', 'exerciseSessions', 'latestExerciseSessionLogs',
                     'exerciseAlreadyInSession', 'groupExerciseLogsBySession']) {

@@ -2089,6 +2089,12 @@ def next_progression_sets(ex, previous, gym):
     target_reps = max(
         [min_reps] + [as_int(log.get("targetReps"), min_reps) for log in previous]
     )
+    # Walking lunges use the dumbbell actually available in the last set.
+    last_lunge_weight = 0.0
+    if ex.get("name") == "덤벨 워킹 런지" and previous:
+        last_lunge_weight = as_float(max(previous, key=lambda log: as_int(log.get("setNo"))).get("weight"))
+        if not math.isfinite(last_lunge_weight) or last_lunge_weight <= 0:
+            last_lunge_weight = 0.0
     succeeded = len(previous) >= as_int(ex.get("sets")) and all(
         str(log.get("status", "")).upper() != "FAIL"
         and log_checked(log)
@@ -2100,7 +2106,7 @@ def next_progression_sets(ex, previous, gym):
     if succeeded:
         # Use the weight achieved by every set, preserving one shared target.
         performed_weights = [as_float(log.get("weight")) for log in previous]
-        successful_weight = max(performed_weights) if assisted else min(performed_weights)
+        successful_weight = last_lunge_weight or (max(performed_weights) if assisted else min(performed_weights))
         if target_reps < max_reps:
             next_weight = successful_weight
             next_reps = target_reps + 1
@@ -2108,7 +2114,7 @@ def next_progression_sets(ex, previous, gym):
             next_weight = progression_target_weight(ex.get("name"), successful_weight, gym)
             next_reps = min_reps
     else:
-        next_weight = target_weight
+        next_weight = last_lunge_weight or target_weight
         next_reps = target_reps
     targets = []
     for log in previous:

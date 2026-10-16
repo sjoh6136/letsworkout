@@ -37,6 +37,36 @@ class ProgressionTests(unittest.TestCase):
     def test_reps_only_preserves_nine_kg(self):
         self.assertEqual([(s["weight"], s["reps"]) for s in self.targets()], [(9, 12)] * 3)
 
+    def test_walking_lunge_retries_last_actual_weight_without_rounding(self):
+        self.ex.update(name="덤벨 워킹 런지")
+        self.gym["dumbbellInterval"] = 2
+        for log, weight, reps in zip(self.logs, [27.5, 25, 25], [10, 8, 7]):
+            log.update(exercise=self.ex["name"], weight=weight, targetWeight=26,
+                       reps=reps, targetReps=10, status="FAIL")
+        self.logs.reverse()  # Set number, not input order, identifies the last set.
+        self.assertEqual([(s["weight"], s["reps"]) for s in self.targets()], [(25, 10)] * 3)
+
+    def test_walking_lunge_success_and_invalid_last_weight(self):
+        self.ex.update(name="덤벨 워킹 런지")
+        self.gym["dumbbellInterval"] = 2
+        for log, weight in zip(self.logs, [25, 25, 27.5]):
+            log.update(exercise=self.ex["name"], weight=weight, targetWeight=25,
+                       reps=10, targetReps=10)
+        self.assertEqual([(s["weight"], s["reps"]) for s in self.targets()], [(27.5, 11)] * 3)
+        for log in self.logs:
+            log.update(reps=12, targetReps=12)
+        self.assertEqual([(s["weight"], s["reps"]) for s in self.targets()], [(33.5, 10)] * 3)
+        for weight in (0, -1, float("nan")):
+            self.logs[-1].update(weight=weight, status="FAIL")
+            self.assertEqual([(s["weight"], s["reps"]) for s in self.targets()], [(25, 12)] * 3)
+
+    def test_lying_leg_curl_keeps_original_failed_target(self):
+        self.ex.update(name="싱글 레그 라잉 레그 컬", repsRange="12-15")
+        for log in self.logs:
+            log.update(exercise=self.ex["name"], weight=20, targetWeight=22.7,
+                       reps=15, targetReps=13, status="FAIL")
+        self.assertEqual([(s["weight"], s["reps"]) for s in self.targets()], [(22.7, 13)] * 3)
+
     def test_fly_13_11_11_legacy_success_must_not_progress(self):
         self.ex.update(name="케이블 플라이", repsRange="12-15")
         for log, reps in zip(self.logs, [13, 11, 11]):

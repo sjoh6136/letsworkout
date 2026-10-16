@@ -40,6 +40,9 @@ assert(ctx.describeProgression(ex,'Day 1').includes('이전 기록 없음'));
 ctx.completedLogs=make('머신 풀업','Day 3',40,12);
 assert(ctx.describeProgression({...ex,name:'머신 풀업',repsRange:'8-12'},'Day 3').includes('보조중량 감소'));
 ctx.showWorkoutSaveState('기기에 보관됨 · 서버 저장 중');
+ctx.completedLogs=make('덤벨 워킹 런지','Day 3',25,10).map(log=>({...log,targetWeight:26,status:'FAIL'}));
+assert(ctx.describeProgression({...ex,name:'덤벨 워킹 런지',repsRange:'10-12'},'Day 3')
+    .includes('마지막 실제 중량 25kg 적용, 목표 10회 유지'));
 assert.equal(elements['workout-save-state'].hidden,false);
 assert(elements['workout-save-state'].textContent.includes('기기에 보관됨'));
 ctx.showWorkoutSaveState('서버 저장 완료',true);

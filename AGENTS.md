@@ -114,6 +114,7 @@ The app uses double progression.
 - If any set fails, retry the prior target kg/reps for every set and routine target RPE in both inputs and success benchmarks. Actual failed performance belongs only in previous history, never in the next target inputs.
 - Input synchronization to later rows must not overwrite success benchmarks. Finish must save actual input values separately from those benchmarks.
 - On reps-only progression or failure retry, never re-round the existing weight.
+- Exception requested on 2026-10-16: only `덤벨 워킹 런지` bases next weight on the previous session's last set actual positive weight. Failure retains target reps but retries that actual weight without re-rounding. Success uses that weight for the existing reps/weight progression. See progression_rules.md; do not rewrite saved logs or apply this exception to other exercises.
 - Historical SUCCESS is insufficient if actual reps are below the current routine range minimum; treat the entire exercise session as a retry. Never clamp failed performed reps upward before increasing them. Retry stored targets, with at least the routine range minimum for legacy below-range targets.
 - On weight progression, add an increment rounded upward to the gym's dumbbell interval or paired minimum plate increment. Assisted machines decrease assistance weight instead.
 - Run `python -B -m unittest discover -s tests -v` and `node tests/test_progression_frontend.js` for progression changes.

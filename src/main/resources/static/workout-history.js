@@ -28,12 +28,18 @@ function describeProgression(ex, dayId) {
     const enoughSets = previous.length >= Number(ex.baseSets || ex.sets);
     const actual = `이전 수행 ${summarizeSessionLogs(previous)}`;
     const target = `이전 공통 목표 ${formatKg(weight)}kg × ${reps}회 · RPE ${rpe} 이하`;
+    const lastWeight = Number(previous[previous.length - 1].weight);
+    const useLastLungeWeight = ex.name === "덤벨 워킹 런지" && Number.isFinite(lastWeight) && lastWeight > 0;
     let reason;
     if (!enoughSets || failures.length) {
         const detail = !enoughSets ? "기본 세트 수 미달" : `${failures.map(log => log.setNo).join(", ")}세트 목표 미달/미완료`;
-        reason = `${detail} → 모든 세트에 이전 공통 목표 유지`;
+        reason = useLastLungeWeight
+            ? `${detail} → 마지막 실제 중량 ${formatKg(lastWeight)}kg 적용, 목표 ${reps}회 유지`
+            : `${detail} → 모든 세트에 이전 공통 목표 유지`;
     } else if (reps < maxReps) {
-        reason = "모든 세트 성공 → 모든 세트에서 수행한 중량 기준, 목표 1회 증가";
+        reason = useLastLungeWeight
+            ? `모든 세트 성공 → 마지막 실제 중량 ${formatKg(lastWeight)}kg 기준, 목표 1회 증가`
+            : "모든 세트 성공 → 모든 세트에서 수행한 중량 기준, 목표 1회 증가";
     } else {
         reason = isAssistedMachineExercise(ex.name)
             ? `최대 반복으로 모든 세트 성공 → 보조중량 감소, ${minReps}회부터 시작`

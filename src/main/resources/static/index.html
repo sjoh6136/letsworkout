@@ -6888,19 +6888,22 @@
                     ? Math.min(...recordedTargetWeights)
                     : Math.max(...recordedTargetWeights);
                 const targetReps = Math.max(minReps, ...previous.map(log => parseInt(log.targetReps) || minReps));
+                const lastWeight = Number(prevLast.weight);
+                const lastLungeWeight = name === "덤벨 워킹 런지" && Number.isFinite(lastWeight) && lastWeight > 0
+                    ? lastWeight : 0;
                 const allSucceeded = previous.length >= ex.sets && previous.every(log =>
                     String(log.status || "").toUpperCase() !== "FAIL"
                     && (parseInt(log.reps) || 0) >= targetReps
                     && exerciseWeightMeetsTargetFrontend(name, log.weight, targetWeight)
                     && (parseFloat(log.rpe) || 0) > 0
                     && (parseFloat(log.rpe) || 0) <= ex.rpeTarget);
-                let nextWeight = targetWeight;
+                let nextWeight = lastLungeWeight || targetWeight;
                 let nextReps = targetReps;
                 if (allSucceeded) {
                     const performedWeights = previous.map(log => Number(log.weight) || 0);
-                    const successfulWeight = isAssistedMachineExercise(name)
+                    const successfulWeight = lastLungeWeight || (isAssistedMachineExercise(name)
                         ? Math.max(...performedWeights)
-                        : Math.min(...performedWeights);
+                        : Math.min(...performedWeights));
                     if (targetReps < maxReps) {
                         nextWeight = successfulWeight;
                         nextReps = targetReps + 1;
@@ -8230,6 +8233,6 @@
         button.log-set-badge { font-family:inherit; text-align:left; cursor:pointer; }
         button.log-set-badge:disabled { opacity:1; cursor:default; }
     </style>
-    <script src="/workout-history.js"></script>
+    <script src="/workout-history.js?v=20261016-lunge"></script>
 </body>
 </html>
