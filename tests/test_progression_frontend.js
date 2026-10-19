@@ -3,7 +3,7 @@ const vm = require('vm');
 const assert = require('assert');
 const path = require('path');
 const html = fs.readFileSync(path.join(__dirname, '../src/main/resources/static/index.html'), 'utf8');
-const names = ['getTargetWeightForExercise', 'normalizeExerciseText', 'isDumbbellExerciseName',
+const names = ['uniformPerformedSession', 'getTargetWeightForExercise', 'normalizeExerciseText', 'isDumbbellExerciseName',
     'isBarbellExerciseName', 'getExerciseIncrementFrontend', 'isAssistedMachineExercise',
     'exerciseWeightMeetsTargetFrontend', 'getProgressedWeightFrontend', 'setSucceededFrontend',
     'logSucceededFrontend', 'parseRepsRangeFrontend', 'clampTargetRepsFrontend',
@@ -153,10 +153,39 @@ const lyingCurl={name:'싱글 레그 라잉 레그 컬',sets:3,repsRange:'12-15'
 ctx.logs=[1,2,3].map(setNo=>({exercise:lyingCurl.name,setNo,weight:20,targetWeight:22.7,
     reps:15,targetReps:13,rpe:8,status:'FAIL'}));
 result=ctx.buildReplacementExercise(lyingCurl.name,lyingCurl);
-assert.equal(result.targetWeight,22.7);
-assert.equal(result.targetReps,13);
+assert.equal(result.targetWeight,22.5);
+assert.equal(result.targetReps,12);
 gym.dumbbellInterval = 2.5;
-console.log('walking lunge last actual weight exception and unchanged lying leg curl: PASS');
+console.log('walking lunge last weight and adjusted lying leg curl: PASS');
+
+const pull = {name:'리버스 그립 랫 풀다운',sets:3,repsRange:'6-8',rpeTarget:8};
+for (const [weight,reps,nextWeight,nextReps] of [[60,6,60,7],[65,5,65,6],[60,8,65,6]]) {
+    ctx.logs=[1,2,3].map(setNo=>({setNo,weight,reps,targetWeight:65,targetReps:7,rpe:8,status:'FAIL'}));
+    result=ctx.buildReplacementExercise(pull.name,pull);
+    assert.equal(result.targetWeight,nextWeight);
+    assert.equal(result.targetReps,nextReps);
+}
+ctx.logs=[1,2,3].map(setNo=>({setNo,weight:20,reps:12,targetWeight:20,targetReps:14,rpe:8,status:'FAIL'}));
+assert.equal(ctx.buildReplacementExercise(fly.name,fly).targetReps,13);
+ctx.logs.forEach(log=>Object.assign(log,{reps:10,targetReps:10}));
+assert.equal(ctx.buildReplacementExercise(fly.name,fly).targetReps,12);
+ctx.logs.forEach(log=>Object.assign(log,{rpe:9,targetReps:20}));
+assert.equal(ctx.buildReplacementExercise(fly.name,fly).targetReps,15);
+for (const change of [{completed:false},{checked:false},{rpe:0},{rpe:9}]) {
+    ctx.logs=[1,2,3].map(setNo=>({setNo,weight:60,reps:6,targetWeight:65,targetReps:7,rpe:8,status:'FAIL'}));
+    Object.assign(ctx.logs[2],change);
+    result=ctx.buildReplacementExercise(pull.name,pull);
+    assert.equal(result.targetWeight,65);
+    assert.equal(result.targetReps,7);
+}
+console.log('actual working load, one-rep progression, range boundaries, completion and RPE: PASS');
+
+const staleRange = {...fly,targetReps:10,progressionSets:[{setNo:1,reps:10,targetReps:10,weight:20,targetWeight:20}]};
+const boundedRow = ctx.createSetRow(staleRange,0,1).children[1];
+assert.equal(boundedRow.dataset.targetReps,12);
+assert(boundedRow.innerHTML.includes('reps-input" value="12"'));
+const actualRow = ctx.createSetRow(staleRange,0,1,{reps:10}).children[1];
+assert(actualRow.innerHTML.includes('reps-input" value="10"'));
 
 // Exercise isolation tests use the real lookup functions, replacing the earlier stubs.
 for (const name of ['findExerciseTemplate', 'exerciseSessions', 'latestExerciseSessionLogs',

@@ -109,13 +109,14 @@ For this app, keep `루마니안 데드리프트` on lower/legs days unless the 
 
 The app uses double progression.
 
-- Use per-set history, not the last set's weight for the entire exercise.
-- A routine exercise has one shared target kg/reps across all sets. Recover legacy uneven targets using the hardest stored target (highest reps; highest normal weight or lowest assistance weight), then apply that shared target to every set.
-- If any set fails, retry the prior target kg/reps for every set and routine target RPE in both inputs and success benchmarks. Actual failed performance belongs only in previous history, never in the next target inputs.
-- Input synchronization to later rows must not overwrite success benchmarks. Finish must save actual input values separately from those benchmarks.
-- On reps-only progression or failure retry, never re-round the existing weight.
-- Exception requested on 2026-10-16: only `덤벨 워킹 런지` bases next weight on the previous session's last set actual positive weight. Failure retains target reps but retries that actual weight without re-rounding. Success uses that weight for the existing reps/weight progression. See progression_rules.md; do not rewrite saved logs or apply this exception to other exercises.
-- Historical SUCCESS is insufficient if actual reps are below the current routine range minimum; treat the entire exercise session as a retry. Never clamp failed performed reps upward before increasing them. Retry stored targets, with at least the routine range minimum for legacy below-range targets.
+- Use the latest session for the exact split / Day / exercise. All sets receive one shared next target.
+- As requested on 2026-10-19, a full session at identical actual kg/reps with valid RPE uses those actual values, even if they are lower than the recommendation. Do not advance from stored target reps.
+- Explicit unchecked flags, missing sets, RPE 0, and RPE above the routine limit prevent this adjustment. Legacy Sheets rows have no checked flag: SUCCESS/FAIL plus positive RPE is the completion proxy (finish saves unchecked RPE as 0). This cannot recover every historical manual edit; never rewrite saved logs automatically.
+- Otherwise retain the existing all-set success checks; mixed failed sets retry the prior common target. Successful sessions use the minimum actual reps and the weight achieved by every set (minimum normal load / maximum assistance).
+- Next reps always stay within the current routine range. Actual reps below the minimum return to the minimum without clamping then adding 1. At/above the maximum, increase weight and reset to the minimum.
+- Preserve actual user inputs and saved logs, including their original recommendation benchmarks. Clamp generated recommendations, not user-entered performance or drafts.
+- Do not re-round weights during reps-only progression or retries.
+- Preserve the walking-lunge last actual weight exception for mixed sessions; uniform completed sessions follow the shared actual-performance rule.
 - On weight progression, add an increment rounded upward to the gym's dumbbell interval or paired minimum plate increment. Assisted machines decrease assistance weight instead.
 - Run `python -B -m unittest discover -s tests -v` and `node tests/test_progression_frontend.js` for progression changes.
 

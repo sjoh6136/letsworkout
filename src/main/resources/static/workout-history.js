@@ -18,7 +18,7 @@ function describeProgression(ex, dayId) {
     const [minReps, maxReps] = parseRepsRangeFrontend(ex.repsRange);
     const weights = previous.map(log => Number(log.targetWeight ?? log.weight) || 0);
     const weight = isAssistedMachineExercise(ex.name) ? Math.min(...weights) : Math.max(...weights);
-    const reps = Math.max(minReps, ...previous.map(log => parseInt(log.targetReps) || minReps));
+    const reps = clampTargetRepsFrontend(Math.max(minReps, ...previous.map(log => parseInt(log.targetReps) || minReps)), minReps, maxReps);
     const rpe = Number(ex.rpeTarget) || 8;
     const failures = previous.filter(log => !setSucceededFrontend({
         exercise: ex.name, completed: String(log.status || "").toUpperCase() === "SUCCESS",
@@ -30,13 +30,17 @@ function describeProgression(ex, dayId) {
     const target = `이전 공통 목표 ${formatKg(weight)}kg × ${reps}회 · RPE ${rpe} 이하`;
     const lastWeight = Number(previous[previous.length - 1].weight);
     const useLastLungeWeight = ex.name === "덤벨 워킹 런지" && Number.isFinite(lastWeight) && lastWeight > 0;
+    const uniform = uniformPerformedSession(previous, Number(ex.baseSets || ex.sets), rpe);
+    const performedReps = Math.min(...previous.map(log => parseInt(log.reps) || 0));
     let reason;
-    if (!enoughSets || failures.length) {
+    if (!uniform && (!enoughSets || failures.length)) {
         const detail = !enoughSets ? "기본 세트 수 미달" : `${failures.map(log => log.setNo).join(", ")}세트 목표 미달/미완료`;
         reason = useLastLungeWeight
             ? `${detail} → 마지막 실제 중량 ${formatKg(lastWeight)}kg 적용, 목표 ${reps}회 유지`
             : `${detail} → 모든 세트에 이전 공통 목표 유지`;
-    } else if (reps < maxReps) {
+    } else if (performedReps < minReps) {
+        reason = `실제 수행 기준 → 반복 범위 하단 ${minReps}회부터 다시 시작`;
+    } else if (performedReps < maxReps) {
         reason = useLastLungeWeight
             ? `모든 세트 성공 → 마지막 실제 중량 ${formatKg(lastWeight)}kg 기준, 목표 1회 증가`
             : "모든 세트 성공 → 모든 세트에서 수행한 중량 기준, 목표 1회 증가";

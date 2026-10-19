@@ -2076,6 +2076,28 @@ def progression_target_weight(exercise_name, previous_weight, gym=None):
     return as_float(previous_weight) + increment
 
 
+def uniform_performed_session(previous, required_sets, rpe_target):
+    """A consistent completed session establishes the user's chosen working load.
+
+    Sheets A-M does not retain checked separately. The finish flow writes RPE 0
+    for unchecked sets, so legacy FAIL rows with positive RPE can still qualify.
+    Explicit unchecked flags always take precedence.
+    """
+    if not previous or len(previous) < required_sets:
+        return False
+    weight = as_float(previous[0].get("weight"))
+    reps = as_int(previous[0].get("reps"))
+    if not math.isfinite(weight) or weight < 0 or reps <= 0:
+        return False
+    return all(
+        as_float(log.get("weight")) == weight and as_int(log.get("reps")) == reps
+        and 0 < as_float(log.get("rpe")) <= rpe_target
+        and (log_checked(log) if "completed" in log or "checked" in log
+             else str(log.get("status", "")).upper() in {"SUCCESS", "FAIL"})
+        for log in previous
+    )
+
+
 def next_progression_sets(ex, previous, gym):
     min_reps, max_reps = parse_reps_range(ex.get("repsRange"))
     rpe_target = as_float(ex.get("rpeTarget"), 8.0)
@@ -2086,9 +2108,9 @@ def next_progression_sets(ex, previous, gym):
     target_weight = (
         min(recorded_target_weights) if assisted else max(recorded_target_weights)
     ) if recorded_target_weights else as_float(ex.get("defaultWeight"))
-    target_reps = max(
+    target_reps = clamp_target_reps(max(
         [min_reps] + [as_int(log.get("targetReps"), min_reps) for log in previous]
-    )
+    ), min_reps, max_reps)
     # Walking lunges use the dumbbell actually available in the last set.
     last_lunge_weight = 0.0
     if ex.get("name") == "덤벨 워킹 런지" and previous:
@@ -2103,13 +2125,17 @@ def next_progression_sets(ex, previous, gym):
         and 0 < as_float(log.get("rpe")) <= rpe_target
         for log in previous
     )
+    uniform = uniform_performed_session(previous, as_int(ex.get("sets")), rpe_target)
+    succeeded = uniform or succeeded
     if succeeded:
+        performed_reps = min(as_int(log.get("reps")) for log in previous)
         # Use the weight achieved by every set, preserving one shared target.
         performed_weights = [as_float(log.get("weight")) for log in previous]
         successful_weight = last_lunge_weight or (max(performed_weights) if assisted else min(performed_weights))
-        if target_reps < max_reps:
+        if performed_reps < max_reps:
             next_weight = successful_weight
-            next_reps = target_reps + 1
+            # Below-range performance returns to the minimum, without +1 after clamping.
+            next_reps = clamp_target_reps(performed_reps + 1, min_reps, max_reps)
         else:
             next_weight = progression_target_weight(ex.get("name"), successful_weight, gym)
             next_reps = min_reps

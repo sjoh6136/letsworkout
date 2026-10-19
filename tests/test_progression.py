@@ -8,7 +8,7 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 SOURCE = ast.parse((ROOT / "serve.py").read_text(encoding="utf-8-sig"))
-FUNCTIONS = {"as_float", "as_int", "sheet_bool", "parse_reps_range", "clamp_target_reps",
+FUNCTIONS = {"uniform_performed_session", "as_float", "as_int", "sheet_bool", "parse_reps_range", "clamp_target_reps",
              "active_gym", "is_barbell_exercise", "round_to_step", "resolve_equipment_weight",
              "get_increment", "is_assisted_machine_exercise", "weight_meets_target",
              "progression_target_weight", "latest_exercise_logs", "log_checked",
@@ -60,12 +60,54 @@ class ProgressionTests(unittest.TestCase):
             self.logs[-1].update(weight=weight, status="FAIL")
             self.assertEqual([(s["weight"], s["reps"]) for s in self.targets()], [(25, 12)] * 3)
 
-    def test_lying_leg_curl_keeps_original_failed_target(self):
+    def test_uniform_actual_max_reps_progresses_from_actual_weight(self):
         self.ex.update(name="싱글 레그 라잉 레그 컬", repsRange="12-15")
         for log in self.logs:
             log.update(exercise=self.ex["name"], weight=20, targetWeight=22.7,
                        reps=15, targetReps=13, status="FAIL")
-        self.assertEqual([(s["weight"], s["reps"]) for s in self.targets()], [(22.7, 13)] * 3)
+        self.assertEqual([(s["weight"], s["reps"]) for s in self.targets()], [(22.5, 12)] * 3)
+
+    def test_all_routine_targets_stay_within_current_range(self):
+        routines = json.loads((ROOT / "data/routines.json").read_text(encoding="utf-8-sig"))
+        for days in routines.values():
+            for day in days:
+                for ex in day["exercises"]:
+                    lo, hi = NS["parse_reps_range"](ex["repsRange"])
+                    for actual, stored, rpe in [(max(1, lo-2), lo-2, 8), (lo, hi+5, 10), (lo, hi, ex["rpeTarget"])]:
+                        logs = [{**self.logs[0], "exercise": ex["name"], "setNo": i+1,
+                                 "reps": actual, "targetReps": stored, "rpe": rpe, "status": "FAIL"}
+                                for i in range(ex["sets"])]
+                        targets = NS["next_progression_sets"](ex, logs, self.gym)
+                        self.assertTrue(all(lo <= x["reps"] <= hi for x in targets), ex["name"])
+
+    def test_adjusted_actual_session_ignores_old_recommendation(self):
+        self.ex.update(name="리버스 그립 랫 풀다운", repsRange="6-8")
+        for actual_weight, actual_reps, expected in [(60, 6, (60, 7)), (65, 5, (65, 6)), (60, 8, (65, 6))]:
+            for log in self.logs:
+                log.update(weight=actual_weight, reps=actual_reps, targetWeight=65,
+                           targetReps=7, status="FAIL")
+            self.assertEqual([(x["weight"], x["reps"]) for x in self.targets()], [expected] * 3)
+
+    def test_actual_twelve_advances_once_and_targets_stay_in_range(self):
+        self.ex.update(repsRange="12-15")
+        for log in self.logs:
+            log.update(reps=12, targetReps=14, status="FAIL")
+        self.assertEqual([x["reps"] for x in self.targets()], [13] * 3)
+        for log in self.logs:
+            log.update(reps=10, targetReps=10)
+        self.assertEqual([x["reps"] for x in self.targets()], [12] * 3)
+        for log in self.logs:
+            log.update(targetReps=20, rpe=9)
+        self.assertEqual([x["reps"] for x in self.targets()], [15] * 3)
+
+    def test_uniform_performance_requires_completion_and_rpe(self):
+        for change in ({"completed": False}, {"checked": False}, {"rpe": 0}, {"rpe": 9}):
+            logs = copy.deepcopy(self.logs)
+            for log in logs:
+                log.update(weight=7.5, reps=10, status="FAIL")
+            logs[2].update(change)
+            result = NS["next_progression_sets"](self.ex, logs, self.gym)
+            self.assertEqual([(x["weight"], x["reps"]) for x in result], [(9, 11)] * 3)
 
     def test_fly_13_11_11_legacy_success_must_not_progress(self):
         self.ex.update(name="케이블 플라이", repsRange="12-15")

@@ -6250,10 +6250,11 @@
 
             const planned = ex.progressionSets?.find(set => set.setNo === setNo);
             const targetWeight = copiedValues.targetWeight ?? copiedValues.weight ?? planned?.targetWeight ?? getTargetWeightForExercise(ex);
-            const targetReps = copiedValues.targetReps ?? copiedValues.reps ?? planned?.targetReps ?? ex.targetReps;
+            const [minReps, maxReps] = parseRepsRangeFrontend(ex.repsRange);
+            const targetReps = clampTargetRepsFrontend(copiedValues.targetReps ?? copiedValues.reps ?? planned?.targetReps ?? ex.targetReps, minReps, maxReps);
             const targetRpe = ex.rpeTarget;
             const inputWeight = copiedValues.weight ?? planned?.weight ?? targetWeight;
-            const inputReps = copiedValues.reps ?? planned?.reps ?? targetReps;
+            const inputReps = copiedValues.reps ?? clampTargetRepsFrontend(planned?.reps ?? targetReps, minReps, maxReps);
             const inputRpe = copiedValues.rpe ?? planned?.rpe ?? targetRpe;
             row.dataset.targetWeight = targetWeight;
             row.dataset.targetReps = targetReps;
@@ -6871,6 +6872,17 @@
                 index !== exceptIndex && ex.name === name);
         }
 
+        function uniformPerformedSession(previous, requiredSets, rpeTarget) {
+            if (!previous.length || previous.length < requiredSets) return false;
+            const weight = Number(previous[0].weight);
+            const reps = parseInt(previous[0].reps) || 0;
+            if (!Number.isFinite(weight) || weight < 0 || reps <= 0) return false;
+            return previous.every(log => Number(log.weight) === weight && parseInt(log.reps) === reps
+                && Number(log.rpe) > 0 && Number(log.rpe) <= rpeTarget
+                && ("completed" in log ? log.completed === true : "checked" in log ? log.checked === true
+                    : ["SUCCESS", "FAIL"].includes(String(log.status || "").toUpperCase())));
+        }
+
         function buildReplacementExercise(name, fallbackEx) {
             const ex = findExerciseTemplate(name, fallbackEx);
             ex.name = name;
@@ -6887,11 +6899,12 @@
                 const targetWeight = isAssistedMachineExercise(name)
                     ? Math.min(...recordedTargetWeights)
                     : Math.max(...recordedTargetWeights);
-                const targetReps = Math.max(minReps, ...previous.map(log => parseInt(log.targetReps) || minReps));
+                const targetReps = clampTargetRepsFrontend(Math.max(minReps, ...previous.map(log => parseInt(log.targetReps) || minReps)), minReps, maxReps);
                 const lastWeight = Number(prevLast.weight);
                 const lastLungeWeight = name === "덤벨 워킹 런지" && Number.isFinite(lastWeight) && lastWeight > 0
                     ? lastWeight : 0;
-                const allSucceeded = previous.length >= ex.sets && previous.every(log =>
+                const allSucceeded = uniformPerformedSession(previous, ex.sets, ex.rpeTarget)
+                    || previous.length >= ex.sets && previous.every(log =>
                     String(log.status || "").toUpperCase() !== "FAIL"
                     && (parseInt(log.reps) || 0) >= targetReps
                     && exerciseWeightMeetsTargetFrontend(name, log.weight, targetWeight)
@@ -6904,9 +6917,10 @@
                     const successfulWeight = lastLungeWeight || (isAssistedMachineExercise(name)
                         ? Math.max(...performedWeights)
                         : Math.min(...performedWeights));
-                    if (targetReps < maxReps) {
+                    const performedReps = Math.min(...previous.map(log => parseInt(log.reps) || 0));
+                    if (performedReps < maxReps) {
                         nextWeight = successfulWeight;
-                        nextReps = targetReps + 1;
+                        nextReps = clampTargetRepsFrontend(performedReps + 1, minReps, maxReps);
                     } else {
                         nextWeight = getProgressedWeightFrontend(name, successfulWeight);
                         nextReps = minReps;
@@ -8233,6 +8247,6 @@
         button.log-set-badge { font-family:inherit; text-align:left; cursor:pointer; }
         button.log-set-badge:disabled { opacity:1; cursor:default; }
     </style>
-    <script src="/workout-history.js?v=20261016-lunge"></script>
+    <script src="/workout-history.js?v=20261019-actual"></script>
 </body>
 </html>
