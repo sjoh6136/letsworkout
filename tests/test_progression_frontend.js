@@ -187,6 +187,17 @@ assert(boundedRow.innerHTML.includes('reps-input" value="12"'));
 const actualRow = ctx.createSetRow(staleRange,0,1,{reps:10}).children[1];
 assert(actualRow.innerHTML.includes('reps-input" value="10"'));
 
+for (const name of [pull.name,'머신 풀업','머신 딥스']) {
+    const assisted=name!==pull.name;
+    ctx.logs=[1,2,3].map(setNo=>({exercise:name,setNo,weight:0,reps:8,targetWeight:65,targetReps:8,rpe:8,status:'FAIL',completed:true}));
+    const target=ctx.buildReplacementExercise(name,{...pull,name});
+    assert.equal(target.targetWeight,assisted?0:65);
+    assert.equal(target.targetReps,assisted?6:8);
+}
+ctx.logs=[1,2,3].map(setNo=>({exercise:pull.name,setNo,weight:65,reps:6,targetWeight:65,targetReps:6,rpe:8,status:'SUCCESS'}));
+Object.assign(ctx.logs[2],{rpe:0,status:'FAIL'});
+assert.equal(ctx.buildReplacementExercise(pull.name,pull).targetReps,6);
+
 // Exercise isolation tests use the real lookup functions, replacing the earlier stubs.
 for (const name of ['findExerciseTemplate', 'exerciseSessions', 'latestExerciseSessionLogs',
                     'exerciseAlreadyInSession', 'groupExerciseLogsBySession']) {

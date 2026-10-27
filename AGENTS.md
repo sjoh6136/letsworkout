@@ -115,6 +115,9 @@ The app uses double progression.
 - Otherwise retain the existing all-set success checks; mixed failed sets retry the prior common target. Successful sessions use the minimum actual reps and the weight achieved by every set (minimum normal load / maximum assistance).
 - Next reps always stay within the current routine range. Actual reps below the minimum return to the minimum without clamping then adding 1. At/above the maximum, increase weight and reset to the minimum.
 - Preserve actual user inputs and saved logs, including their original recommendation benchmarks. Clamp generated recommendations, not user-entered performance or drafts.
+- New complete adjusted sessions must save SUCCESS while preserving original targetWeight/targetReps. Finish feedback and next-routine computation share the same session-success predicate.
+- Explicit non-completion must store RPE 0 in both finish and history-edit paths, so Sheets A-M reload cannot reinterpret it as completion. Keep the previous row in the edit audit; do not rewrite historical rows automatically.
+- Zero actual weight is valid for assisted machines only in progression; ordinary loaded exercises must have positive weight.
 - Do not re-round weights during reps-only progression or retries.
 - Preserve the walking-lunge last actual weight exception for mixed sessions; uniform completed sessions follow the shared actual-performance rule.
 - On weight progression, add an increment rounded upward to the gym's dumbbell interval or paired minimum plate increment. Assisted machines decrease assistance weight instead.

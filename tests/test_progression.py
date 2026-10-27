@@ -8,7 +8,7 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 SOURCE = ast.parse((ROOT / "serve.py").read_text(encoding="utf-8-sig"))
-FUNCTIONS = {"uniform_performed_session", "as_float", "as_int", "sheet_bool", "parse_reps_range", "clamp_target_reps",
+FUNCTIONS = {"progression_session_succeeded", "uniform_performed_session", "as_float", "as_int", "sheet_bool", "parse_reps_range", "clamp_target_reps",
              "active_gym", "is_barbell_exercise", "round_to_step", "resolve_equipment_weight",
              "get_increment", "is_assisted_machine_exercise", "weight_meets_target",
              "progression_target_weight", "latest_exercise_logs", "log_checked",
@@ -33,6 +33,40 @@ class ProgressionTests(unittest.TestCase):
 
     def targets(self):
         return NS["next_progression_sets"](self.ex, self.logs, self.gym)
+
+    def test_adjusted_save_status_survives_sheet_reload(self):
+        for log in self.logs:
+            log.update(weight=7.5, targetWeight=9, completed=True)
+        saved = NS["normalize_logs"](self.logs, 2, 1, "Day 2", {self.ex["name"]:self.ex})
+        self.assertEqual([x["status"] for x in saved], ["SUCCESS"] * 3)
+        self.assertEqual([x["targetWeight"] for x in saved], [9] * 3)
+        reloaded = [{k:v for k,v in x.items() if k not in ("completed", "checked", "targetRpe")} for x in saved]
+        self.assertEqual(NS["next_progression_sets"](self.ex,saved,self.gym), NS["next_progression_sets"](self.ex,reloaded,self.gym))
+        self.assertEqual(NS["next_progression_sets"](self.ex,reloaded,self.gym)[0]["weight"],7.5)
+
+    def test_unchecked_edit_does_not_progress_after_reload(self):
+        from workout_log_edits import edited_row
+        row = ["2026-10-27","test","2","1","Day 2",self.ex["name"],"3","9","11","8","SUCCESS","9","11"]
+        edited = edited_row(row, dict(weight=9,reps=11,rpe=8,completed=False),8)
+        self.logs[-1].update(rpe=float(edited[9]),status=edited[10])
+        self.assertEqual(edited[9],"0")
+        self.assertEqual([x["reps"] for x in self.targets()],[11]*3)
+
+    def test_unchecked_save_clears_rpe_before_sheet_reload(self):
+        self.logs[-1].update(completed=False, rpe=8)
+        saved=NS["normalize_logs"](self.logs,2,1,"Day 2",{self.ex["name"]:self.ex})
+        self.assertEqual(saved[-1]["rpe"],0)
+        reloaded=[{k:v for k,v in x.items() if k not in ("completed","checked")} for x in saved]
+        self.assertEqual([x["reps"] for x in NS["next_progression_sets"](self.ex,reloaded,self.gym)],[11]*3)
+
+    def test_zero_weight_only_allowed_for_assistance(self):
+        for name, allowed in [(self.ex["name"],False),("머신 풀업",True),("머신 딥스",True)]:
+            ex={**self.ex,"name":name}
+            logs=[{**x,"exercise":name,"weight":0,"reps":12,"targetReps":12,"status":"FAIL","completed":True} for x in self.logs]
+            saved=NS["normalize_logs"](logs,2,1,"Day 2",{name:ex})
+            self.assertEqual([x["status"] for x in saved],["SUCCESS" if allowed else "FAIL"]*3)
+            target=NS["next_progression_sets"](ex,saved,self.gym)[0]
+            self.assertEqual((target["weight"],target["reps"]),(0,10) if allowed else (9,12))
 
     def test_reps_only_preserves_nine_kg(self):
         self.assertEqual([(s["weight"], s["reps"]) for s in self.targets()], [(9, 12)] * 3)

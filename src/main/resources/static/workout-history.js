@@ -30,7 +30,7 @@ function describeProgression(ex, dayId) {
     const target = `이전 공통 목표 ${formatKg(weight)}kg × ${reps}회 · RPE ${rpe} 이하`;
     const lastWeight = Number(previous[previous.length - 1].weight);
     const useLastLungeWeight = ex.name === "덤벨 워킹 런지" && Number.isFinite(lastWeight) && lastWeight > 0;
-    const uniform = uniformPerformedSession(previous, Number(ex.baseSets || ex.sets), rpe);
+    const uniform = uniformPerformedSession(previous, Number(ex.baseSets || ex.sets), rpe, ex.name);
     const performedReps = Math.min(...previous.map(log => parseInt(log.reps) || 0));
     let reason;
     if (!uniform && (!enoughSets || failures.length)) {
@@ -59,8 +59,8 @@ function openSavedLogEditor(sheetRow) {
     document.getElementById("saved-log-title").textContent = `${log.exercise} · ${log.setNo}세트`;
     document.getElementById("saved-log-context").textContent = `${log.date} · ${Number(log.split) === 0 ? "자유운동" : `${log.split}분할 · Week ${log.week} · ${log.day}`}`;
     ["weight", "reps", "rpe"].forEach(key => { document.getElementById(`saved-log-${key}`).value = log[key]; });
-    document.getElementById("saved-log-completed").checked = String(log.status).toUpperCase() === "SUCCESS";
-    document.getElementById("saved-log-message").textContent = "원래 목표는 유지하며, 수정 전 기록은 보관됩니다.";
+    document.getElementById("saved-log-completed").checked = Number(log.rpe) > 0;
+    document.getElementById("saved-log-message").textContent = "원래 목표와 수정 전 기록은 보관됩니다. 완료 해제 시 RPE는 0으로 저장됩니다.";
     document.getElementById("saved-log-editor").classList.add("active");
 }
 

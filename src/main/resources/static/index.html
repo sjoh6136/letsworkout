@@ -6872,11 +6872,12 @@
                 index !== exceptIndex && ex.name === name);
         }
 
-        function uniformPerformedSession(previous, requiredSets, rpeTarget) {
+        function uniformPerformedSession(previous, requiredSets, rpeTarget, exerciseName = null) {
             if (!previous.length || previous.length < requiredSets) return false;
             const weight = Number(previous[0].weight);
             const reps = parseInt(previous[0].reps) || 0;
-            if (!Number.isFinite(weight) || weight < 0 || reps <= 0) return false;
+            const assisted = isAssistedMachineExercise(exerciseName || previous[0].exercise);
+            if (!Number.isFinite(weight) || weight < 0 || (weight === 0 && !assisted) || reps <= 0) return false;
             return previous.every(log => Number(log.weight) === weight && parseInt(log.reps) === reps
                 && Number(log.rpe) > 0 && Number(log.rpe) <= rpeTarget
                 && ("completed" in log ? log.completed === true : "checked" in log ? log.checked === true
@@ -6903,7 +6904,7 @@
                 const lastWeight = Number(prevLast.weight);
                 const lastLungeWeight = name === "덤벨 워킹 런지" && Number.isFinite(lastWeight) && lastWeight > 0
                     ? lastWeight : 0;
-                const allSucceeded = uniformPerformedSession(previous, ex.sets, ex.rpeTarget)
+                const allSucceeded = uniformPerformedSession(previous, ex.sets, ex.rpeTarget, name)
                     || previous.length >= ex.sets && previous.every(log =>
                     String(log.status || "").toUpperCase() !== "FAIL"
                     && (parseInt(log.reps) || 0) >= targetReps
@@ -8247,6 +8248,6 @@
         button.log-set-badge { font-family:inherit; text-align:left; cursor:pointer; }
         button.log-set-badge:disabled { opacity:1; cursor:default; }
     </style>
-    <script src="/workout-history.js?v=20261019-actual"></script>
+    <script src="/workout-history.js?v=20261027-consistency"></script>
 </body>
 </html>

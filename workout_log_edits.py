@@ -38,10 +38,12 @@ def edited_row(row, changes, target_rpe=8):
         raise ValueError("완료 여부를 선택해주세요.")
     if changes["completed"] and values["rpe"] <= 0:
         raise ValueError("완료한 세트의 RPE를 입력해주세요.")
+    if not changes["completed"]:
+        values["rpe"] = 0.0  # Preserve non-completion after the A-M row is reloaded.
     target_weight = float(before[11] or before[7] or 0)
     target_reps = int(float(before[12] or before[8] or 0))
     assisted = before[5] in {"머신 딥스", "머신 풀업"}
-    weight_ok = values["weight"] <= target_weight if assisted else values["weight"] >= target_weight
+    weight_ok = values["weight"] <= target_weight if assisted else values["weight"] > 0 and values["weight"] >= target_weight
     success = (changes["completed"] and weight_ok and values["reps"] > 0
                and values["reps"] >= target_reps and 0 < values["rpe"] <= target_rpe)
     after = before[:]

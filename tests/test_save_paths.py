@@ -44,6 +44,19 @@ class SavePathsTests(unittest.TestCase):
         self.assertEqual(len(calls), 7)
         self.assertTrue(store._shared_workout_tabs_ready)
 
+    def test_adjusted_session_feedback_matches_next_routine(self):
+        ns=runpy.run_path(str(ROOT / "tests/test_progression.py"))["NS"]
+        ns.update(sheets_connected=lambda:False,target_muscle=lambda name:"등")
+        nodes=[n for n in SOURCE.body if isinstance(n,ast.FunctionDef) and n.name in {"evaluate_and_update","format_weight"}]
+        exec(compile(ast.Module(body=nodes,type_ignores=[]),"feedback","exec"),ns)
+        ex=dict(name="리버스 그립 랫 풀다운",sets=3,repsRange="6-8",rpeTarget=8)
+        raw=[dict(exercise=ex["name"],setNo=i,weight=60,targetWeight=65,reps=6,targetReps=6,rpe=8,completed=True) for i in [1,2,3]]
+        logs=ns["normalize_logs"](raw,2,1,"Day 4",{ex["name"]:ex})
+        result=ns["evaluate_and_update"]({"logs":[],"gyms":[]},logs,2,1,"Day 4",{"2":[]},{ex["name"]:ex})
+        self.assertEqual((result["status"],result["completedSets"],result["totalVolume"]),("SUCCESS",3,1080))
+        self.assertIn("60kg × 7회",result["progressReport"][0])
+        self.assertEqual(ns["next_progression_sets"](ex,logs,{})[0]["reps"],7)
+
     def test_feedback_does_not_mutate_state(self):
         ns = runpy.run_path(str(ROOT / "tests/test_progression.py"))["NS"]
         ns.update(sheets_connected=lambda:False, target_muscle=lambda name:"하체")

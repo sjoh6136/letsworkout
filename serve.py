@@ -2076,7 +2076,7 @@ def progression_target_weight(exercise_name, previous_weight, gym=None):
     return as_float(previous_weight) + increment
 
 
-def uniform_performed_session(previous, required_sets, rpe_target):
+def uniform_performed_session(previous, required_sets, rpe_target, exercise_name=None):
     """A consistent completed session establishes the user's chosen working load.
 
     Sheets A-M does not retain checked separately. The finish flow writes RPE 0
@@ -2087,7 +2087,8 @@ def uniform_performed_session(previous, required_sets, rpe_target):
         return False
     weight = as_float(previous[0].get("weight"))
     reps = as_int(previous[0].get("reps"))
-    if not math.isfinite(weight) or weight < 0 or reps <= 0:
+    assisted = is_assisted_machine_exercise(exercise_name or previous[0].get("exercise"))
+    if not math.isfinite(weight) or weight < 0 or (weight == 0 and not assisted) or reps <= 0:
         return False
     return all(
         as_float(log.get("weight")) == weight and as_int(log.get("reps")) == reps
@@ -2096,6 +2097,23 @@ def uniform_performed_session(previous, required_sets, rpe_target):
              else str(log.get("status", "")).upper() in {"SUCCESS", "FAIL"})
         for log in previous
     )
+
+
+def progression_session_succeeded(ex, previous):
+    rpe_target = as_float(ex.get("rpeTarget"), 8.0)
+    required = as_int(ex.get("sets"), 1)
+    if uniform_performed_session(previous, required, rpe_target, ex.get("name")):
+        return True
+    if not previous or len(previous) < required:
+        return False
+    lo, hi = parse_reps_range(ex.get("repsRange"))
+    reps = clamp_target_reps(max([lo] + [as_int(log.get("targetReps"), lo) for log in previous]), lo, hi)
+    weights = [as_float(log.get("targetWeight"), as_float(log.get("weight"))) for log in previous]
+    weight = min(weights) if is_assisted_machine_exercise(ex.get("name")) else max(weights)
+    return all(str(log.get("status", "")).upper() != "FAIL" and log_checked(log)
+               and as_int(log.get("reps")) >= reps
+               and weight_meets_target({**log, "exercise": ex.get("name"), "targetWeight": weight})
+               and 0 < as_float(log.get("rpe")) <= rpe_target for log in previous)
 
 
 def next_progression_sets(ex, previous, gym):
@@ -2117,16 +2135,7 @@ def next_progression_sets(ex, previous, gym):
         last_lunge_weight = as_float(max(previous, key=lambda log: as_int(log.get("setNo"))).get("weight"))
         if not math.isfinite(last_lunge_weight) or last_lunge_weight <= 0:
             last_lunge_weight = 0.0
-    succeeded = len(previous) >= as_int(ex.get("sets")) and all(
-        str(log.get("status", "")).upper() != "FAIL"
-        and log_checked(log)
-        and as_int(log.get("reps")) >= target_reps
-        and weight_meets_target({**log, "targetWeight": target_weight})
-        and 0 < as_float(log.get("rpe")) <= rpe_target
-        for log in previous
-    )
-    uniform = uniform_performed_session(previous, as_int(ex.get("sets")), rpe_target)
-    succeeded = uniform or succeeded
+    succeeded = progression_session_succeeded(ex, previous)
     if succeeded:
         performed_reps = min(as_int(log.get("reps")) for log in previous)
         # Use the weight achieved by every set, preserving one shared target.
@@ -2366,8 +2375,21 @@ def normalize_logs(raw_logs, split, week, day_id, exercise_defs=None, submission
             log["rpe"] = log["targetRpe"]
         log["completed"] = log_checked(log)
         log["checked"] = log_checked(log)
+        if not log["completed"]:
+            log["rpe"] = 0.0  # A-M reload uses zero RPE to preserve explicit non-completion.
         log["status"] = "SUCCESS" if set_succeeded(log, log["targetRpe"]) else "FAIL"
         normalized.append(log)
+    # Keep recommendation benchmarks intact; classify complete adjusted sessions
+    # using the same actual-performance rule as the next routine.
+    groups = {}
+    for log in normalized:
+        groups.setdefault(log.get("exercise"), []).append(log)
+    for name, group in groups.items():
+        ex = exercise_defs.get(name, {})
+        if split != 0 and ex.get("sets") and uniform_performed_session(
+                group, as_int(ex["sets"]), as_float(ex.get("rpeTarget"), 8.0), name):
+            for log in group:
+                log["status"] = "SUCCESS"
     return normalized
 
 
@@ -2479,7 +2501,7 @@ def evaluate_and_update(state, logs, split, week, day_id, routines=None, exercis
     for exercise_name, ex_logs in logs_by_exercise.items():
         ex_def = exercise_defs.get(exercise_name, {})
         rpe_target = as_float(ex_def.get("rpeTarget"), 8.5)
-        ex_all_success = len(ex_logs) >= as_int(ex_def.get("sets"), 1) and all(set_succeeded(log, rpe_target) for log in ex_logs)
+        ex_all_success = progression_session_succeeded({**ex_def, "name": exercise_name}, ex_logs)
 
         if not ex_all_success:
             all_sets_success = False
@@ -2491,22 +2513,19 @@ def evaluate_and_update(state, logs, split, week, day_id, routines=None, exercis
                 total_rpe += log["rpe"]
                 rpe_count += 1
 
-        if ex_all_success:
-            targets = next_progression_sets({**ex_def, "name": exercise_name}, sorted(ex_logs, key=lambda log: as_int(log.get("setNo"))), active_gym(state))
-            summary = " / ".join(f"{format_weight(target['targetWeight'])}kg × {target['targetReps']}회" for target in targets)
-            progress_report.append(f"🔼 {exercise_name}: 다음 목표 {summary}")
-        else:
-            progress_report.append(f"❄️ {exercise_name}: 유지")
+        targets = next_progression_sets({**ex_def, "name": exercise_name}, sorted(ex_logs, key=lambda log: as_int(log.get("setNo"))), active_gym(state))
+        summary = " / ".join(f"{format_weight(target['targetWeight'])}kg × {target['targetReps']}회" for target in targets)
+        progress_report.append(f"{'🔼' if ex_all_success else '❄️'} {exercise_name}: 다음 목표 {summary}")
 
     avg_rpe = total_rpe / rpe_count if rpe_count else 0.0
 
     if has_failure:
         status = "FAIL"
-        feedback = f"⚠️ 목표를 채우지 못한 세트가 있습니다. 평균 RPE는 {avg_rpe:.1f}이고, 다음에는 같은 목표로 재도전합니다."
+        feedback = f"⚠️ 목표를 채우지 못한 세트가 있습니다. 평균 RPE는 {avg_rpe:.1f}입니다. 종목별 다음 목표를 확인해주세요."
     else:
         status = "SUCCESS"
         if all_sets_success:
-            feedback = "🎉 목표와 RPE 기준을 만족했습니다. 다음 목표로 진행합니다."
+            feedback = "🎉 수행과 RPE 기준을 만족했습니다. 실제 기록을 다음 목표에 반영했습니다."
         else:
             feedback = "훈련을 저장했습니다."
 
