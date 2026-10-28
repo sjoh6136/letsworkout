@@ -1379,12 +1379,23 @@ def workout_logs_already_saved(state, logs):
         key = log_duplicate_key(log)
         new_counts[key] = new_counts.get(key, 0) + 1
 
-    existing_counts = {}
+    sessions = []
+    last_session = None
+    seen_sets = set()
     for log in state.get("logs", []):
+        session = (str(log.get("submissionId") or ""), str(log.get("date") or ""),
+                   as_int(log.get("split")), as_int(log.get("week"), 1), str(log.get("day") or ""))
+        set_key = (log.get("exercise"), as_int(log.get("setNo"), 1))
+        # A-M reload loses submission IDs; a repeated exercise/set starts a new session.
+        if session != last_session or set_key in seen_sets:
+            sessions.append({})
+            seen_sets = set()
         key = log_duplicate_key(log)
-        existing_counts[key] = existing_counts.get(key, 0) + 1
+        sessions[-1][key] = sessions[-1].get(key, 0) + 1
+        seen_sets.add(set_key)
+        last_session = session
 
-    return all(existing_counts.get(key, 0) >= count for key, count in new_counts.items())
+    return any(existing_counts == new_counts for existing_counts in sessions)
 
 
 def normalize_cardio_log(raw, username="", user_id=""):

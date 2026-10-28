@@ -4273,6 +4273,7 @@
                     username: raw.username || authUser?.username || raw.userId || "single-user",
                     date: raw.date || getLocalDateString(new Date(createdAt)),
                     status: raw.status || "active",
+                    mode: raw.mode === "free" || raw.dayId === "Free Workout" ? "free" : "routine",
                     split: parseInt(raw.split, 10) || oneRms.activeSplit,
                     week: parseInt(raw.week, 10) || 1,
                     programDay: parseInt(raw.programDay, 10) || 1,
@@ -4465,6 +4466,7 @@
                 username: authUser?.username || "single-user",
                 date: getLocalDateString(new Date(activeWorkoutDraftCreatedAt)),
                 status: "active",
+                mode: activeWorkoutMode,
                 split: oneRms.activeSplit,
                 week: getActiveWeekNum(),
                 programDay: getActiveProgramDayNum(),
@@ -4588,7 +4590,8 @@
             pendingActiveWorkoutDraft = draft;
             const title = draft.routineSnapshot?.name || draft.dayObj?.name || draft.dayId || "진행 중 운동";
             const stale = Date.now() - (parseInt(draft.updatedAt || draft.savedAt, 10) || 0) > ACTIVE_WORKOUT_DRAFT_STALE_MS;
-            document.getElementById("draft-restore-title").innerText = `${draft.split}분할 ${draft.dayId} · ${title}`;
+            document.getElementById("draft-restore-title").innerText = draft.mode === "free" || draft.dayId === "Free Workout"
+                ? "자유운동" : `${draft.split}분할 ${draft.dayId} · ${title}`;
             document.getElementById("draft-restore-saved-at").innerText = `${formatDraftSavedAt(draft.updatedAt || draft.savedAt)}${stale ? " · 오래됨" : ""}`;
             document.getElementById("draft-restore-elapsed").innerText = formatDraftElapsed(draft.stopwatch?.elapsedMs || 0);
             document.getElementById("draft-restore-overlay").classList.add("active");
@@ -4632,7 +4635,8 @@
             if (!draft) return false;
 
             const split = String(draft.split || oneRms.activeSplit);
-            if (!routineData[split]) {
+            const isFreeWorkout = draft.mode === "free" || draft.dayId === "Free Workout";
+            if (!isFreeWorkout && !routineData[split]) {
                 alert("루틴 정보를 아직 불러오지 못했습니다. 잠시 후 다시 시도해주세요.");
                 return false;
             }
@@ -4643,10 +4647,10 @@
                 activeWorkoutDraftId = draft.draftId || generateDraftId();
                 activeWorkoutDraftCreatedAt = parseInt(draft.createdAt || draft.updatedAt || Date.now(), 10) || Date.now();
                 activeWorkoutSubmissionId = draft.submissionId || null;
-                oneRms.activeSplit = parseInt(split, 10) || oneRms.activeSplit;
+                if (!isFreeWorkout) oneRms.activeSplit = parseInt(split, 10) || oneRms.activeSplit;
                 currentDayId = draft.dayId;
                 activeWorkoutDay = JSON.parse(JSON.stringify(draft.routineSnapshot || draft.dayObj));
-                setActiveWorkoutMode("routine");
+                setActiveWorkoutMode(isFreeWorkout ? "free" : "routine");
 
                 document.getElementById("bottom-nav").style.display = "none";
                 setActiveWorkoutHeaderVisible(true);
@@ -4655,7 +4659,7 @@
                 });
                 document.getElementById("active-workout-view").classList.add("active");
 
-                document.getElementById("active-day-title").innerText = getProgramWorkoutTitle(
+                document.getElementById("active-day-title").innerText = isFreeWorkout ? "자유운동" : getProgramWorkoutTitle(
                     activeWorkoutDay,
                     draft.week || getActiveWeekNum(),
                     draft.programDay || getActiveProgramDayNum()
@@ -5870,8 +5874,17 @@
         }
 
         function startFreeWorkout() {
+            if (!activeWorkoutDay && !activeWorkoutDraftDisabled && DraftManager.hasDraftSignal()) {
+                promptActiveWorkoutDraftIfAvailable().then(found => {
+                    if (!found) {
+                        activeWorkoutDraftDisabled = true;
+                        startFreeWorkout();
+                    }
+                });
+                return;
+            }
             setActiveWorkoutMode("free");
-            activeWorkoutDraftDisabled = true;
+            activeWorkoutDraftDisabled = false;
             activeWorkoutDraftId = null;
             activeWorkoutDraftCreatedAt = Date.now();
             activeWorkoutSubmissionId = null;
