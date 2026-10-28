@@ -6160,7 +6160,8 @@
 
         function isDumbbellExerciseName(name) {
             const lower = normalizeExerciseText(name);
-            return lower.includes("덤벨") || lower.includes("db") || lower.includes("dumbbell");
+            return ["고블릿 스쿼트", "해머 컬"].includes(lower.trim())
+                || lower.includes("덤벨") || lower.includes("db") || lower.includes("dumbbell");
         }
 
         function isBarbellExerciseName(name) {
@@ -6765,23 +6766,29 @@
             return ASSISTED_MACHINE_EXERCISES.has(String(name || "").trim());
         }
 
+        function isBodyweightExercise(name) {
+            return ["체중 풀업", "체중 딥스", "친업"].includes(String(name || "").trim());
+        }
+
         function exerciseWeightMeetsTargetFrontend(name, weight, targetWeight) {
             const actual = parseFloat(weight);
             const target = parseFloat(targetWeight) || 0;
             if (isAssistedMachineExercise(name)) {
                 return Number.isFinite(actual) && actual >= 0 && actual <= target + 0.001;
             }
-            return (actual || 0) > 0 && (actual || 0) + 0.001 >= target;
+            return Number.isFinite(actual)
+                && (isBodyweightExercise(name) ? actual >= 0 : actual > 0)
+                && actual + 0.001 >= target;
         }
 
         function getProgressedWeightFrontend(name, previousWeight) {
             const weight = parseFloat(previousWeight) || 0;
             let increment = getExerciseIncrementFrontend(name);
             const gym = getActiveGym();
-            if (isDumbbellExerciseName(name) || name === "해머 컬") {
+            if (isDumbbellExerciseName(name)) {
                 const step = parseFloat(gym.dumbbellInterval) || 2.0;
                 increment = Math.ceil(increment / step) * step;
-            } else if (isBarbellExerciseName(name)) {
+            } else if (isBarbellExerciseName(name) || ["EZ바 컬", "EZ바 스컬크러셔"].includes(name)) {
                 const plates = (gym.availablePlates || []).map(Number).filter(value => value > 0);
                 if (plates.length) {
                     const step = Math.min(...plates) * 2;
@@ -6892,7 +6899,8 @@
             const weight = Number(previous[0].weight);
             const reps = parseInt(previous[0].reps) || 0;
             const assisted = isAssistedMachineExercise(exerciseName || previous[0].exercise);
-            if (!Number.isFinite(weight) || weight < 0 || (weight === 0 && !assisted) || reps <= 0) return false;
+            const allowsZero = assisted || isBodyweightExercise(exerciseName || previous[0].exercise);
+            if (!Number.isFinite(weight) || weight < 0 || (weight === 0 && !allowsZero) || reps <= 0) return false;
             return previous.every(log => Number(log.weight) === weight && parseInt(log.reps) === reps
                 && Number(log.rpe) > 0 && Number(log.rpe) <= rpeTarget
                 && ("completed" in log ? log.completed === true : "checked" in log ? log.checked === true

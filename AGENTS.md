@@ -117,7 +117,8 @@ The app uses double progression.
 - Preserve actual user inputs and saved logs, including their original recommendation benchmarks. Clamp generated recommendations, not user-entered performance or drafts.
 - New complete adjusted sessions must save SUCCESS while preserving original targetWeight/targetReps. Finish feedback and next-routine computation share the same session-success predicate.
 - Explicit non-completion must store RPE 0 in both finish and history-edit paths, so Sheets A-M reload cannot reinterpret it as completion. Keep the previous row in the edit audit; do not rewrite historical rows automatically.
-- Zero actual weight is valid for assisted machines only in progression; ordinary loaded exercises must have positive weight.
+- Zero actual weight is valid for assisted machines and added-load bodyweight exercises (`체중 풀업`, `체중 딥스`, `친업`); ordinary loaded exercises must have positive weight. Bodyweight exercises record added kg, progress reps at 0kg, then add the existing exercise increment at the rep maximum.
+- Treat `고블릿 스쿼트` and `해머 컬` as dumbbells for initial targets and weight increases. `EZ바 컬` and `EZ바 스컬크러셔` increases must use paired minimum plates without imposing the straight bar's 20kg minimum.
 - Do not re-round weights during reps-only progression or retries.
 - Preserve the walking-lunge last actual weight exception for mixed sessions; uniform completed sessions follow the shared actual-performance rule.
 - On weight progression, add an increment rounded upward to the gym's dumbbell interval or paired minimum plate increment. Assisted machines decrease assistance weight instead.

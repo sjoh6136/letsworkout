@@ -43,7 +43,9 @@ def edited_row(row, changes, target_rpe=8):
     target_weight = float(before[11] or before[7] or 0)
     target_reps = int(float(before[12] or before[8] or 0))
     assisted = before[5] in {"머신 딥스", "머신 풀업"}
-    weight_ok = values["weight"] <= target_weight if assisted else values["weight"] > 0 and values["weight"] >= target_weight
+    bodyweight = before[5] in {"체중 풀업", "체중 딥스", "친업"}
+    valid_weight = values["weight"] >= 0 if bodyweight else values["weight"] > 0
+    weight_ok = values["weight"] <= target_weight if assisted else valid_weight and values["weight"] >= target_weight
     success = (changes["completed"] and weight_ok and values["reps"] > 0
                and values["reps"] >= target_reps and 0 < values["rpe"] <= target_rpe)
     after = before[:]

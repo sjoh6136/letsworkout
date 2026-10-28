@@ -3,7 +3,7 @@ const vm = require('vm');
 const assert = require('assert');
 const path = require('path');
 const html = fs.readFileSync(path.join(__dirname, '../src/main/resources/static/index.html'), 'utf8');
-const names = ['uniformPerformedSession', 'getTargetWeightForExercise', 'normalizeExerciseText', 'isDumbbellExerciseName',
+const names = ['isBodyweightExercise', 'uniformPerformedSession', 'getTargetWeightForExercise', 'normalizeExerciseText', 'isDumbbellExerciseName',
     'isBarbellExerciseName', 'getExerciseIncrementFrontend', 'isAssistedMachineExercise',
     'exerciseWeightMeetsTargetFrontend', 'getProgressedWeightFrontend', 'setSucceededFrontend',
     'logSucceededFrontend', 'parseRepsRangeFrontend', 'clampTargetRepsFrontend',
@@ -268,3 +268,40 @@ assert.equal(ctx.activeWorkoutDay.exercises.length,2);
 const repeated = ['FAIL','SUCCESS'].flatMap(status => [1,2,3].map(setNo => ({...log,status,setNo})));
 assert.equal(ctx.getWorkoutSessionsFromLogs(repeated).length,2);
 console.log('duplicate action guards and repeated session progress: PASS');
+
+gym.dumbbellInterval = 2;
+gym.availablePlates = [2.5, 5];
+assert.equal(ctx.isBarbellExerciseName('고블릿 스쿼트'), false);
+assert.equal(ctx.resolveEquipmentWeightFrontend('고블릿 스쿼트', 8), 8);
+assert.equal(ctx.resolveEquipmentWeightFrontend('고블릿 스쿼트', 24), 24);
+assert.equal(ctx.getProgressedWeightFrontend('고블릿 스쿼트', 20), 26);
+gym.dumbbellInterval = 2.5;
+assert.equal(ctx.resolveEquipmentWeightFrontend('해머 컬', 12), 12.5);
+for (const name of ['EZ바 컬', 'EZ바 스컬크러셔']) {
+    assert.equal(ctx.getProgressedWeightFrontend(name, 20), 25);
+    assert.equal(ctx.resolveEquipmentWeightFrontend(name, 10), 10);
+}
+ctx.activeWorkoutMode = 'routine';
+for (const name of ['체중 풀업', '체중 딥스', '친업']) {
+    const bodyEx = {name, sets: 3, repsRange: '8-12', rpeTarget: 8};
+    ctx.logs = [1, 2, 3].map(setNo => ({exercise: name, setNo, weight: 0, targetWeight: 0,
+        reps: 10, targetReps: 10, rpe: 8, status: 'SUCCESS', completed: true}));
+    assert(ctx.setSucceededFrontend({...ctx.logs[0], targetRpe: 8}));
+    // Restore the test's session lookup stub, replaced by other test sections.
+    ctx.latestExerciseSessionLogs = () => ctx.logs;
+    let next = ctx.buildReplacementExercise(name, bodyEx);
+    assert.equal(next.targetWeight, 0);
+    assert.equal(next.targetReps, 11);
+    ctx.logs.forEach(log => { log.reps = 12; log.targetReps = 12; });
+    next = ctx.buildReplacementExercise(name, bodyEx);
+    assert.equal(next.targetWeight, 5);
+    assert.equal(next.targetReps, 8);
+    ctx.logs[2].rpe = 0;
+    ctx.logs[2].status = 'FAIL';
+    ctx.logs[2].completed = false;
+    next = ctx.buildReplacementExercise(name, bodyEx);
+    assert.equal(next.targetWeight, 0);
+    assert.equal(next.targetReps, 12);
+    assert.equal(ctx.exerciseWeightMeetsTargetFrontend(name, -1, 0), false);
+}
+console.log('named equipment steps and bodyweight zero-load progression: PASS');

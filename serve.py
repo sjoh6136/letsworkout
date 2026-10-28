@@ -2005,9 +2005,19 @@ def active_gym(state):
     return gyms[0] if gyms else copy.deepcopy(DEFAULT_GYM)
 
 
+def is_dumbbell_exercise(name):
+    lower = (name or "").strip().lower()
+    return lower in {"고블릿 스쿼트", "해머 컬"} or "덤벨" in lower or "dumbbell" in lower or "db" in lower
+
+
+def is_bodyweight_exercise(name):
+    # These exercises record added load, not the user's body weight.
+    return (name or "").strip() in {"체중 풀업", "체중 딥스", "친업"}
+
+
 def is_barbell_exercise(name):
     lower = (name or "").lower()
-    if "덤벨" in lower or "dumbbell" in lower:
+    if is_dumbbell_exercise(name):
         return False
     tokens = ["바벨", "barbell", "벤치프레스", "스쿼트", "데드리프트", "오버헤드 프레스", "ohp"]
     return any(token in lower for token in tokens)
@@ -2023,8 +2033,7 @@ def resolve_equipment_weight(exercise_name, target_weight, gym):
     if target_weight <= 0:
         return target_weight, False, target_weight
 
-    lower = (exercise_name or "").lower()
-    if "덤벨" in lower or "dumbbell" in lower:
+    if is_dumbbell_exercise(exercise_name):
         interval = as_float(gym.get("dumbbellInterval"), 2.0) or 2.0
         adjusted = round_to_step(target_weight, interval)
         return adjusted, adjusted != target_weight, target_weight
@@ -2068,16 +2077,18 @@ def weight_meets_target(log):
     target_weight = as_float(log.get("targetWeight"))
     if is_assisted_machine_exercise(log.get("exercise")):
         return weight >= 0 and weight <= target_weight + 0.001
-    return weight > 0 and weight + 0.001 >= target_weight
+    valid_weight = weight >= 0 if is_bodyweight_exercise(log.get("exercise")) else weight > 0
+    return valid_weight and weight + 0.001 >= target_weight
 
 
 def progression_target_weight(exercise_name, previous_weight, gym=None):
     increment = get_increment(exercise_name)
     gym = gym or {}
-    if "덤벨" in (exercise_name or "") or exercise_name == "해머 컬":
+    if is_dumbbell_exercise(exercise_name):
         step = as_float(gym.get("dumbbellInterval"), 2.0) or 2.0
         increment = math.ceil(increment / step) * step
-    elif is_barbell_exercise(exercise_name):
+    elif is_barbell_exercise(exercise_name) or exercise_name in {"EZ바 컬", "EZ바 스컬크러셔"}:
+        # EZ bars also take paired plates; do not impose a 20kg straight-bar minimum.
         plates = [as_float(p) for p in gym.get("availablePlates", []) if as_float(p) > 0]
         if plates:
             step = min(plates) * 2
@@ -2099,7 +2110,8 @@ def uniform_performed_session(previous, required_sets, rpe_target, exercise_name
     weight = as_float(previous[0].get("weight"))
     reps = as_int(previous[0].get("reps"))
     assisted = is_assisted_machine_exercise(exercise_name or previous[0].get("exercise"))
-    if not math.isfinite(weight) or weight < 0 or (weight == 0 and not assisted) or reps <= 0:
+    allows_zero = assisted or is_bodyweight_exercise(exercise_name or previous[0].get("exercise"))
+    if not math.isfinite(weight) or weight < 0 or (weight == 0 and not allows_zero) or reps <= 0:
         return False
     return all(
         as_float(log.get("weight")) == weight and as_int(log.get("reps")) == reps

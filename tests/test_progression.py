@@ -9,7 +9,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 SOURCE = ast.parse((ROOT / "serve.py").read_text(encoding="utf-8-sig"))
 FUNCTIONS = {"progression_session_succeeded", "uniform_performed_session", "as_float", "as_int", "sheet_bool", "parse_reps_range", "clamp_target_reps",
-             "active_gym", "is_barbell_exercise", "round_to_step", "resolve_equipment_weight",
+             "active_gym", "is_dumbbell_exercise", "is_bodyweight_exercise", "is_barbell_exercise", "round_to_step", "resolve_equipment_weight",
              "get_increment", "is_assisted_machine_exercise", "weight_meets_target",
              "progression_target_weight", "latest_exercise_logs", "log_checked",
              "set_succeeded", "next_progression_sets", "apply_progression", "normalize_logs", "duplicate_exercise_sets", "workout_sessions_from_logs", "routine_exercise_lookup", "workout_exercise_lookup"}
