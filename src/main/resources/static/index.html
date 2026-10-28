@@ -6307,7 +6307,9 @@
             const setCount = parseInt(ex?.sets) || 0;
 
             for (let nextSetNo = setNo + 1; nextSetNo <= setCount; nextSetNo++) {
-                const nextInput = document.querySelector(`#row-${exIdx}-${nextSetNo} ${selector}`);
+                const nextRow = document.getElementById(`row-${exIdx}-${nextSetNo}`);
+                if (!nextRow || nextRow.classList.contains("checked")) continue;
+                const nextInput = nextRow.querySelector(selector);
                 if (nextInput) {
                     nextInput.value = value;
                 }
@@ -7492,8 +7494,15 @@
                 alert("이미 포함된 운동입니다. 기존 종목에서 세트를 추가해주세요.");
                 return;
             }
-            activeWorkoutDay.exercises.push(normalizeFreeWorkoutExercise(name));
-            renderExercises(activeWorkoutDay);
+            const container = document.getElementById("workout-container");
+            if (!container) return;
+            const exercise = normalizeFreeWorkoutExercise(name);
+            const exIdx = activeWorkoutDay.exercises.length;
+            activeWorkoutDay.exercises.push(exercise);
+            container.insertBefore(
+                createExerciseCard(exercise, exIdx),
+                container.querySelector(".free-workout-add-card")
+            );
             closeExerciseReplacement();
             calculateVolume();
         }

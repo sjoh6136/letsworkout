@@ -57,7 +57,11 @@ assert.equal(ctx.setSucceededFrontend({ exercise: ex.name, completed: true,
     weight: 7.5, targetWeight: 9, reps: 11, targetReps: 11, rpe: 8, targetRpe: 8 }), false);
 for (const field of ['weight', 'reps']) {
     for (let n = 1; n <= 3; n++) {
-        rows[`row-0-${n}`] = { dataset: { targetWeight: 9, targetReps: 11 } };
+        rows[`row-0-${n}`] = {
+            dataset: { targetWeight: 9, targetReps: 11 },
+            classList: { contains: () => false },
+            querySelector: selector => inputs[`#row-0-${n} ${selector}`]
+        };
         inputs[`#row-0-${n} .${field}-input`] = { value: 'old' };
     }
     ctx.handleSetValueChange(0, 1, field, { value: '20' });
