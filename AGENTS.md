@@ -375,6 +375,8 @@ Must match the source routine. Multiple RPE values are allowed.
 
 ## Deployment Checklist
 
+- 사용자 보고 선호 (2026-10-28): 배포 완료 시 Render 대시보드 이미지나 스크린샷을 응답에 첨부하지 않는다. 검증은 그대로 수행하고, 사용자에게는 완료 여부를 짧은 텍스트로만 알린다.
+
 1. Confirm `git status --short`.
 2. Run local validation.
 3. Commit relevant files.
