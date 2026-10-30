@@ -6198,6 +6198,9 @@
                         locked: false};
                     ex.progressionSelection = choice;
                 }
+            } else if (field === "weight") {
+                // Keep the user's switch choice and rep baseline, but follow weight edits.
+                choice.weight = weight;
             }
             paintProgressionChoice(exIdx, ex);
         }

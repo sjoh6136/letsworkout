@@ -115,7 +115,7 @@ The app uses double progression.
 - Show `다음 루틴에도 반영` when weight/reps change. Easier load defaults OFF, harder load defaults ON (assisted machines invert the weight comparison). Same-weight fewer reps defaults OFF. Preserve a manual choice.
 - ON uses the displayed new baseline: all required sets must meet its weight/reps and RPE limit. Success advances once; failure, missing sets, or excessive RPE retries that new baseline. ON alone never means success.
 - OFF treats the session as failed for progression and retains the original recommendation. Unchanged sessions use strict original-goal success checks.
-- Freeze the candidate baseline when checking a set or choosing the toggle. Later actual failed reps must not overwrite it; the displayed baseline can be edited explicitly.
+- Freeze the candidate rep baseline when checking a set or choosing the toggle. Later actual failed reps must not overwrite it. Weight input edits continue updating the candidate weight while preserving ON/OFF, including after choosing the toggle (2026-10-30). The displayed baseline can also be edited explicitly.
 - Store choices in shared `Workout_Progression_Choices`, keyed by normalized username and submission ID, with the exact log row range and split/week/day. Keep Workout_Logs A:M unchanged. Save logs, choices, submission marker and replacements in one Sheets batch.
 - Do not silently fall back to old progression when choice loading fails. Replays of a submission must not duplicate logs; a changed payload under the same ID must be rejected.
 - Existing sessions without choice metadata keep the legacy behavior below. Do not backfill or rewrite historical logs.
