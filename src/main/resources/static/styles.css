@@ -1673,6 +1673,33 @@ textarea,
 }
 
 
+.progression-choice[hidden] { display: none; }
+.progression-choice {
+    display: flex; align-items: center; justify-content: space-between;
+    gap: 12px; margin-top: 8px; padding: 10px 2px;
+    border-top: 1px solid rgba(255,255,255,.08);
+    font-size: 12px; color: #b9bfc4;
+}
+.progression-basis {
+    display: block; padding: 5px 0; border: 0; background: none;
+    color: #8eac9d; font-size: 11px; text-align: left;
+}
+.progression-switch {
+    flex: 0 0 44px; width: 44px; height: 44px; border: 0;
+    position: relative; background: transparent;
+}
+.progression-switch::before {
+    content: ""; position: absolute; inset: 10px 1px;
+    border-radius: 14px; background: #43494d;
+}
+.progression-switch::after {
+    content: ""; position: absolute; width: 18px; height: 18px;
+    top: 13px; left: 4px; border-radius: 50%; background: #edf3ee;
+}
+.progression-switch[aria-checked="true"]::before { background: #347857; }
+.progression-switch[aria-checked="true"]::after { left: 22px; }
+.progression-switch:focus-visible { outline: 2px solid #8fb49d; border-radius: 8px; }
+
 /* Frosted completion surface within the existing 48px touch target. */
 .set-row.checked {
     opacity: 1;

@@ -15,6 +15,13 @@ function showWorkoutSaveState(message, completed = false) {
 function describeProgression(ex, dayId) {
     const previous = latestExerciseSessionLogs(ex.name, dayId);
     if (!previous.length) return "이 운동일의 이전 기록 없음 · 루틴 기본값과 설정한 1RM/장비 기준 목표입니다.";
+    const selected = nextChoiceTarget(ex, previous);
+    if (selected) {
+        const choice = previous[0].progressionChoice;
+        const reason = choice.mode === "off" ? "오늘만 변경 · 원래 목표 유지"
+            : selected.success ? "기준 달성 · 다음 단계로 증가" : "기준 미달 · 같은 기준 재도전";
+        return `이전 수행 ${summarizeSessionLogs(previous)}\n${reason}\n다음 ${formatKg(selected.weight)}kg × ${selected.reps}회`;
+    }
     const [minReps, maxReps] = parseRepsRangeFrontend(ex.repsRange);
     const weights = previous.map(log => Number(log.targetWeight ?? log.weight) || 0);
     const weight = isAssistedMachineExercise(ex.name) ? Math.min(...weights) : Math.max(...weights);

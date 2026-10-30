@@ -4,6 +4,7 @@ import json
 import math
 import re
 import unittest
+from progression_choices import session_choice, choice_succeeded
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -15,6 +16,7 @@ FUNCTIONS = {"progression_session_succeeded", "uniform_performed_session", "as_f
              "set_succeeded", "next_progression_sets", "apply_progression", "normalize_logs", "duplicate_exercise_sets", "workout_sessions_from_logs", "routine_exercise_lookup", "workout_exercise_lookup"}
 DEFS = json.loads((ROOT / "data/exercise_definitions.json").read_text(encoding="utf-8-sig"))
 NS = {"copy": copy, "math": math, "re": re,
+      "session_choice": session_choice, "choice_succeeded": choice_succeeded,
       "ASSISTED_MACHINE_EXERCISES": {"머신 딥스", "머신 풀업"},
       "load_exercise_definitions": lambda: {"large": DEFS["large_muscles"], "small": DEFS["small_muscles"]},
       "DEFAULT_GYM": {}, "today_iso": lambda: "2026-09-17", "normalize_username": lambda value: value.lower()}

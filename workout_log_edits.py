@@ -23,6 +23,9 @@ def row_version(row):
 
 def edited_row(row, changes, target_rpe=8):
     before = canonical_row(row)
+    choice = target_rpe if isinstance(target_rpe, dict) else None
+    if choice:
+        target_rpe = choice["rpeTarget"]
     values = {}
     for key in ("weight", "reps", "rpe"):
         try:
@@ -42,11 +45,13 @@ def edited_row(row, changes, target_rpe=8):
         values["rpe"] = 0.0  # Preserve non-completion after the A-M row is reloaded.
     target_weight = float(before[11] or before[7] or 0)
     target_reps = int(float(before[12] or before[8] or 0))
+    if choice:
+        target_weight, target_reps = choice["weight"], choice["reps"]
     assisted = before[5] in {"머신 딥스", "머신 풀업"}
     bodyweight = before[5] in {"체중 풀업", "체중 딥스", "친업"}
     valid_weight = values["weight"] >= 0 if bodyweight else values["weight"] > 0
     weight_ok = values["weight"] <= target_weight if assisted else valid_weight and values["weight"] >= target_weight
-    success = (changes["completed"] and weight_ok and values["reps"] > 0
+    success = ((not choice or choice["mode"] != "off") and changes["completed"] and weight_ok and values["reps"] > 0
                and values["reps"] >= target_reps and 0 < values["rpe"] <= target_rpe)
     after = before[:]
     after[7:11] = [f'{values["weight"]:g}', str(int(values["reps"])),

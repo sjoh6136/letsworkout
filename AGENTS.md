@@ -109,6 +109,19 @@ For this app, keep `루마니안 데드리프트` on lower/legs days unless the 
 
 The app uses double progression.
 
+### Explicit next-routine choice (2026-10-30, takes priority for new sessions)
+
+- New regular-workout submissions include `progressionChoices` for every exercise. Keep the original recommendation, chosen common baseline, and actual performed values separate.
+- Show `다음 루틴에도 반영` when weight/reps change. Easier load defaults OFF, harder load defaults ON (assisted machines invert the weight comparison). Same-weight fewer reps defaults OFF. Preserve a manual choice.
+- ON uses the displayed new baseline: all required sets must meet its weight/reps and RPE limit. Success advances once; failure, missing sets, or excessive RPE retries that new baseline. ON alone never means success.
+- OFF treats the session as failed for progression and retains the original recommendation. Unchanged sessions use strict original-goal success checks.
+- Freeze the candidate baseline when checking a set or choosing the toggle. Later actual failed reps must not overwrite it; the displayed baseline can be edited explicitly.
+- Store choices in shared `Workout_Progression_Choices`, keyed by normalized username and submission ID, with the exact log row range and split/week/day. Keep Workout_Logs A:M unchanged. Save logs, choices, submission marker and replacements in one Sheets batch.
+- Do not silently fall back to old progression when choice loading fails. Replays of a submission must not duplicate logs; a changed payload under the same ID must be rejected.
+- Existing sessions without choice metadata keep the legacy behavior below. Do not backfill or rewrite historical logs.
+
+### Legacy sessions without choice metadata
+
 - Use the latest session for the exact split / Day / exercise. All sets receive one shared next target.
 - As requested on 2026-10-19, a full session at identical actual kg/reps with valid RPE uses those actual values, even if they are lower than the recommendation. Do not advance from stored target reps.
 - Explicit unchecked flags, missing sets, RPE 0, and RPE above the routine limit prevent this adjustment. Legacy Sheets rows have no checked flag: SUCCESS/FAIL plus positive RPE is the completion proxy (finish saves unchecked RPE as 0). This cannot recover every historical manual edit; never rewrite saved logs automatically.

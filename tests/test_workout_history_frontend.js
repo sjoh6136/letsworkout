@@ -4,7 +4,7 @@ const assert = require('assert');
 const path = require('path');
 const root = path.join(__dirname, '../src/main/resources/static');
 const html = fs.readFileSync(path.join(root, 'index.html'), 'utf8');
-const names = ['isBodyweightExercise', 'uniformPerformedSession', 'clampTargetRepsFrontend', 'exerciseSessions','latestExerciseSessionLogs','groupExerciseLogsBySession',
+const names = ['nextChoiceTarget', 'isBodyweightExercise', 'uniformPerformedSession', 'clampTargetRepsFrontend', 'exerciseSessions','latestExerciseSessionLogs','groupExerciseLogsBySession',
     'groupReplacementLogsByOriginal','getHistoryGroupsForExercise','calculateExerciseRecords',
     'buildHistoryPointFromGroup','buildExerciseHistoryPoints','formatHistoryDateLabel',
     'summarizeSessionLogs','setSucceededFrontend','exerciseWeightMeetsTargetFrontend',

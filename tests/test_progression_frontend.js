@@ -3,7 +3,7 @@ const vm = require('vm');
 const assert = require('assert');
 const path = require('path');
 const html = fs.readFileSync(path.join(__dirname, '../src/main/resources/static/index.html'), 'utf8');
-const names = ['isBodyweightExercise', 'uniformPerformedSession', 'getTargetWeightForExercise', 'normalizeExerciseText', 'isDumbbellExerciseName',
+const names = ['nextChoiceTarget', 'isBodyweightExercise', 'uniformPerformedSession', 'getTargetWeightForExercise', 'normalizeExerciseText', 'isDumbbellExerciseName',
     'isBarbellExerciseName', 'getExerciseIncrementFrontend', 'isAssistedMachineExercise',
     'exerciseWeightMeetsTargetFrontend', 'getProgressedWeightFrontend', 'setSucceededFrontend',
     'logSucceededFrontend', 'parseRepsRangeFrontend', 'clampTargetRepsFrontend',
@@ -27,7 +27,7 @@ const ctx = {
     setSwipeDeleteState: () => {}, bindSetSwipeDelete: () => {},
     oneRms: { activeSplit: 2 }, routineData: {}, currentDayId: "Day 3", activeWorkoutMode: "routine",
     activeWorkoutDay: { exercises: [{ sets: 3 }] },
-    calculateVolume: () => {},
+    calculateVolume: () => {}, recordProgressionEdit: () => {},
     document: {
         createElement: () => ({ dataset: {}, children: [], appendChild(el) { this.children.push(el); } }),
         getElementById: id => rows[id],

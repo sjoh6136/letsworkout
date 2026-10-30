@@ -22,7 +22,7 @@ const container = {
     }
 };
 let volumeUpdates = 0, closed = 0, alerts = 0;
-const ctx = {
+const ctx = {recordProgressionEdit: () => {},
     oneRms: {activeSplit: 2}, routineData: {}, currentDayId: 2,
     activeWorkoutMode: 'free', activeWorkoutDay: {exercises: [{name: 'old', sets: 4}]},
     document: {

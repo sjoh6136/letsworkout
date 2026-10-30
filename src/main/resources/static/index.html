@@ -2881,7 +2881,7 @@
         }
 
     </style>
-    <link rel="stylesheet" href="/styles.css?v=20261027-frost">
+    <link rel="stylesheet" href="/styles.css?v=20261029-choices">
 </head>
 <body>
     <!-- Login / First Account Setup -->
@@ -6146,7 +6146,115 @@
             for (let s = 1; s <= ex.sets; s++) {
                 table.appendChild(createSetRow(ex, exIdx, s));
             }
+            if (activeWorkoutMode !== "free") {
+                const choice = document.createElement("div");
+                choice.id = `progression-choice-${exIdx}`;
+                choice.className = "progression-choice";
+                choice.hidden = true;
+                choice.innerHTML = `<div><span>다음 루틴에도 반영</span><button type="button" class="progression-basis" onclick="editProgressionBasis(${exIdx})"></button></div>
+                    <button type="button" class="progression-switch" role="switch" aria-label="다음 루틴에도 반영" aria-checked="false" onclick="toggleProgressionChoice(${exIdx})"></button>`;
+                card.insertBefore(choice, card.querySelector(".exercise-actions"));
+                paintProgressionChoice(exIdx, ex, choice);
+            }
             return card;
+        }
+
+        function originalProgressionBasis(ex) {
+            const [lo, hi] = parseRepsRangeFrontend(ex.repsRange);
+            return {originalWeight: getTargetWeightForExercise(ex),
+                originalReps: clampTargetRepsFrontend(ex.targetReps, lo, hi)};
+        }
+
+        function paintProgressionChoice(exIdx, ex, element = null) {
+            const el = element || document.getElementById(`progression-choice-${exIdx}`);
+            if (!el) return;
+            const choice = ex.progressionSelection;
+            el.hidden = !choice;
+            if (!choice) return;
+            el.querySelector(".progression-switch").setAttribute("aria-checked", String(choice.mode === "on"));
+            el.querySelector(".progression-basis").textContent = `새 기준 ${formatKg(choice.weight)}kg × ${choice.reps}회`;
+        }
+
+        function recordProgressionEdit(exIdx, field, input, row) {
+            if (activeWorkoutMode === "free") return;
+            const ex = getActiveWorkoutDayObj()?.exercises?.[exIdx];
+            if (!ex) return;
+            const basis = originalProgressionBasis(ex);
+            const weight = Number(field === "weight" ? input.value : row?.querySelector(".weight-input")?.value);
+            const reps = Number(field === "reps" ? input.value : row?.querySelector(".reps-input")?.value);
+            if (!Number.isFinite(weight) || weight < 0 || !Number.isInteger(reps) || reps < 1) return;
+            let choice = ex.progressionSelection;
+            if (!choice || !choice.locked) {
+                if (weight === basis.originalWeight && reps === basis.originalReps) {
+                    delete ex.progressionSelection;
+                } else {
+                    const [lo, hi] = parseRepsRangeFrontend(ex.repsRange);
+                    const harder = isAssistedMachineExercise(ex.name)
+                        ? weight < basis.originalWeight : weight > basis.originalWeight;
+                    const easier = isAssistedMachineExercise(ex.name)
+                        ? weight > basis.originalWeight : weight < basis.originalWeight;
+                    choice = {...basis, weight, reps: clampTargetRepsFrontend(reps, lo, hi),
+                        mode: harder || (!easier && reps > basis.originalReps) ? "on" : "off",
+                        locked: false};
+                    ex.progressionSelection = choice;
+                }
+            }
+            paintProgressionChoice(exIdx, ex);
+        }
+
+        function toggleProgressionChoice(exIdx) {
+            const ex = getActiveWorkoutDayObj()?.exercises?.[exIdx];
+            if (!ex?.progressionSelection) return;
+            const choice = ex.progressionSelection;
+            choice.mode = choice.mode === "on" ? "off" : "on";
+            choice.locked = true;
+            paintProgressionChoice(exIdx, ex);
+            scheduleActiveWorkoutDraftSave(0);
+        }
+
+        function editProgressionBasis(exIdx) {
+            const ex = getActiveWorkoutDayObj()?.exercises?.[exIdx];
+            const choice = ex?.progressionSelection;
+            if (!choice) return;
+            const rawWeight = prompt("다음 루틴의 기준 무게 (kg)", String(choice.weight));
+            if (rawWeight === null) return;
+            const [lo, hi] = parseRepsRangeFrontend(ex.repsRange);
+            const rawReps = prompt(`공통 목표 횟수 (${lo}–${hi}회)`, String(choice.reps));
+            if (rawReps === null) return;
+            const weight = Number(rawWeight), reps = Number(rawReps);
+            if (!rawWeight.trim() || !Number.isFinite(weight) || weight < 0
+                    || !Number.isInteger(reps) || reps < lo || reps > hi) {
+                alert("유효한 무게와 반복 범위 안의 횟수를 입력해주세요.");
+                return;
+            }
+            Object.assign(choice, {weight, reps, locked: true});
+            paintProgressionChoice(exIdx, ex);
+            scheduleActiveWorkoutDraftSave(0);
+        }
+
+        function collectProgressionChoices(dayObj) {
+            return Object.fromEntries(dayObj.exercises.map(ex => {
+                const basis = originalProgressionBasis(ex);
+                return [ex.name, ex.progressionSelection || {...basis, mode: "unchanged",
+                    weight: basis.originalWeight, reps: basis.originalReps}];
+            }));
+        }
+
+        function nextChoiceTarget(ex, previous) {
+            const choice = previous[0]?.progressionChoice;
+            if (!choice || !previous.every(log => JSON.stringify(log.progressionChoice) === JSON.stringify(choice))) return null;
+            const [lo, hi] = parseRepsRangeFrontend(ex.repsRange);
+            let weight = choice.weight, reps = clampTargetRepsFrontend(choice.reps, lo, hi);
+            const success = choice.mode !== "off" && previous.length >= choice.requiredSets
+                && previous.every(log => log.completed !== false && log.checked !== false
+                    && Number(log.rpe) > 0 && Number(log.rpe) <= choice.rpeTarget
+                    && Number(log.reps) >= choice.reps
+                    && exerciseWeightMeetsTargetFrontend(ex.name, log.weight, choice.weight));
+            if (success) {
+                if (reps < hi) reps++;
+                else {weight = getProgressedWeightFrontend(ex.name, weight); reps = lo;}
+            }
+            return {weight, reps, success};
         }
 
         function getTargetWeightForExercise(ex) {
@@ -6319,6 +6427,7 @@
             const dayObj = activeWorkoutDay || activeRoutine?.find(d => d.id === currentDayId);
             const ex = dayObj?.exercises?.[exIdx];
             const setCount = parseInt(ex?.sets) || 0;
+            recordProgressionEdit(exIdx, field, input, document.getElementById(`row-${exIdx}-${setNo}`));
 
             for (let nextSetNo = setNo + 1; nextSetNo <= setCount; nextSetNo++) {
                 const nextRow = document.getElementById(`row-${exIdx}-${nextSetNo}`);
@@ -6694,6 +6803,8 @@
             } else {
                 row.classList.add("checked");
                 btn.classList.add("checked");
+                const ex = getActiveWorkoutDayObj()?.exercises?.[exIdx];
+                if (ex?.progressionSelection) ex.progressionSelection.locked = true;
                 startRestTimerForExercise(exIdx);
             }
 
@@ -6985,6 +7096,15 @@
                 ex.targetWeight = resolveEquipmentWeightFrontend(name, ex.targetWeight);
             }
 
+            const choiceTarget = previous.length ? nextChoiceTarget(ex, previous) : null;
+            if (choiceTarget) {
+                ex.targetWeight = choiceTarget.weight;
+                ex.targetReps = choiceTarget.reps;
+                ex.progressionSets = previous.map(log => ({setNo: log.setNo,
+                    weight: choiceTarget.weight, reps: choiceTarget.reps,
+                    targetWeight: choiceTarget.weight, targetReps: choiceTarget.reps, rpe: ex.rpeTarget}));
+            }
+            delete ex.progressionSelection;
             return ex;
         }
 
@@ -7770,6 +7890,7 @@
                 logs,
                 replacements
             };
+            if (!isFreeWorkout) payload.progressionChoices = collectProgressionChoices(dayObj);
 
             const locallyQueued = queuePendingWorkoutSubmission(payload);
             showWorkoutSaveState(locallyQueued ? "기기에 보관됨 · 서버 저장 중" : "기기 보관 실패 · 서버 저장 중 · 화면을 유지해주세요");
@@ -8278,6 +8399,6 @@
         button.log-set-badge { font-family:inherit; text-align:left; cursor:pointer; }
         button.log-set-badge:disabled { opacity:1; cursor:default; }
     </style>
-    <script src="/workout-history.js?v=20261027-consistency"></script>
+    <script src="/workout-history.js?v=20261029-choices"></script>
 </body>
 </html>

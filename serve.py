@@ -15,6 +15,8 @@ from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 from flask import Flask, g, jsonify, make_response, request, send_from_directory
 from workout_log_edits import edit_saved_log, row_version, EditConflict
+from progression_choices import (validate_choices, session_choice, choice_succeeded,
+                                 attach_choices, load_choices, atomic_save)
 
 
 ROOT = Path(__file__).resolve().parent
@@ -1616,9 +1618,15 @@ def load_state(force_refresh=False, username="", user_id=""):
             loaded_sheet_state = True
         except Exception as exc:
             logs_load_failed = True
+            # Never calculate targets from logs whose persisted choices could not be read.
+            if not stale_state:
+                raise
             print(f"[warn] failed to load workout logs from Google Sheets, using cached/local state: {exc}")
-            if stale_state and stale_state.get("logs"):
+            if stale_state:
                 state["logs"] = stale_state.get("logs", [])
+        if loaded_sheet_state:
+            # If choices are unavailable, fail the request instead of silently using old targets.
+            attach_choices(state["logs"], load_choices(store, username), username)
         try:
             state["cardioLogs"] = store.load_cardio_logs(username, user_id)
         except Exception as exc:
@@ -2123,6 +2131,9 @@ def uniform_performed_session(previous, required_sets, rpe_target, exercise_name
 
 
 def progression_session_succeeded(ex, previous):
+    choice = session_choice(previous)
+    if choice:
+        return choice_succeeded(choice, previous, weight_meets_target)
     rpe_target = as_float(ex.get("rpeTarget"), 8.0)
     required = as_int(ex.get("sets"), 1)
     if uniform_performed_session(previous, required, rpe_target, ex.get("name")):
@@ -2141,6 +2152,19 @@ def progression_session_succeeded(ex, previous):
 
 def next_progression_sets(ex, previous, gym):
     min_reps, max_reps = parse_reps_range(ex.get("repsRange"))
+    choice = session_choice(previous)
+    if choice:
+        weight = choice["weight"]
+        reps = clamp_target_reps(choice["reps"], min_reps, max_reps)
+        if choice_succeeded(choice, previous, weight_meets_target):
+            if reps < max_reps:
+                reps += 1
+            else:
+                weight = progression_target_weight(ex.get("name"), weight, gym)
+                reps = min_reps
+        return [dict(setNo=as_int(log.get("setNo"), i + 1), weight=weight, reps=reps,
+                     targetWeight=weight, targetReps=reps, rpe=as_float(ex.get("rpeTarget"), 8))
+                for i, log in enumerate(previous)]
     rpe_target = as_float(ex.get("rpeTarget"), 8.0)
     assisted = is_assisted_machine_exercise(ex.get("name"))
     recorded_target_weights = [
@@ -2846,6 +2870,13 @@ def edit_workout_log(row_number):
         return jsonify({"error": "Google Sheets에 연결한 뒤 다시 시도해주세요."}), 503
     body = request.get_json(silent=True) or {}
     def target_rpe_for(row):
+        choices = load_choices(store, normalize_username(username))
+        mapped = store.parse_log_row(row, username)
+        if mapped:
+            mapped["sheetRow"] = row_number
+            attach_choices([mapped], choices, normalize_username(username))
+            if mapped.get("progressionChoice"):
+                return mapped["progressionChoice"]
         split = as_int(row[2])
         if split == 0:
             return 8.0
@@ -2956,6 +2987,57 @@ def cardio_finish():
     })
 
 
+def finish_with_progression_choices(body, state, logs, replacements, definitions,
+                                    routines, username, user_id, started_at):
+    """New clients persist explicit choices atomically; legacy clients remain readable."""
+    submission_id = str(body.get("submissionId") or "").strip()
+    if not submission_id or not logs:
+        return jsonify({"error": "회차 ID와 운동 기록이 필요합니다.", "retryable": False}), 400
+    try:
+        choices = validate_choices(body["progressionChoices"], logs, definitions)
+        for name, choice in choices.items():
+            lo, hi = parse_reps_range(definitions.get(name, {}).get("repsRange"))
+            if not lo <= choice["reps"] <= hi:
+                raise ValueError(f"{name}: 새 기준은 {lo}–{hi}회 범위로 입력해주세요.")
+        for log in logs:
+            choice = choices[log["exercise"]]
+            log["progressionChoice"] = choice
+            ok = (choice["mode"] != "off" and log["completed"]
+                  and 0 < log["rpe"] <= choice["rpeTarget"]
+                  and log["reps"] >= choice["reps"]
+                  and weight_meets_target({**log, "targetWeight": choice["weight"]}))
+            log["status"] = "SUCCESS" if ok else "FAIL"
+        first = logs[0]
+        submission = make_submission_record(submission_id, first["date"], first["split"],
+                                            first["week"], first["day"], len(logs))
+        store = sheets_store()
+        if not store.connected:
+            return jsonify({"error": "새 기준을 저장하려면 Google Sheets 연결이 필요합니다.", "retryable": True}), 503
+        save_started = time.perf_counter()
+        inserted = atomic_save(store, logs, choices, submission, username, replacements)
+        save_ms = int((time.perf_counter() - save_started) * 1000)
+        if not inserted:
+            return jsonify({**duplicate_finish_response(logs), "submissionId": submission_id,
+                            "progressionChoicesSaved": True})
+        feedback = evaluate_and_update(state, logs, first["split"], first["week"],
+                                       first["day"], routines, definitions)
+        state["logs"].extend(logs)
+        remember_submission(state, submission)
+        if replacements:
+            state["replacements"] = merge_replacements(state.get("replacements", []), replacements)
+        save_state(state, sync_one_rms=False, sync_gyms=False, username=username, user_id=user_id)
+        timing = {"atomicSheet": save_ms, "total": int((time.perf_counter() - started_at) * 1000)}
+        print(f"[finish-choices] logs={len(logs)} exercises={len(choices)} timing={timing}", flush=True)
+        return jsonify({**feedback, "submissionId": submission_id, "sheetsConnected": True,
+                        "progressionChoicesSaved": True, "saveTimingMs": timing})
+    except (ValueError, TypeError, KeyError) as exc:
+        return jsonify({"error": str(exc), "retryable": False}), 400
+    except Exception:
+        invalidate_state_cache(username)
+        return jsonify({"error": "기록과 새 기준 저장을 확인하지 못했습니다. 같은 요청으로 재시도합니다.",
+                        "retryable": True}), 503
+
+
 @app.route("/api/workout/finish", methods=["POST"])
 def workout_finish():
     started_at = time.perf_counter()
@@ -2979,6 +3061,10 @@ def workout_finish():
     for log in logs:
         log["date"] = date
     replacements = normalize_replacements(body.get("replacements", []), split, week, day_id, date, submission_id, username, user_id)
+
+    if body.get("progressionChoices") is not None and split != 0:
+        return finish_with_progression_choices(body, state, logs, replacements, exercise_defs,
+                                              active_routines, username, user_id, started_at)
 
     duplicate_check_started_at = time.perf_counter()
     is_duplicate = (
