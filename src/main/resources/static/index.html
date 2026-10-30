@@ -3886,7 +3886,7 @@
                     localStorage.removeItem(PENDING_WORKOUT_SUBMISSIONS_KEY);
                     return true;
                 }
-                localStorage.setItem(PENDING_WORKOUT_SUBMISSIONS_KEY, JSON.stringify(items.slice(-5)));
+                localStorage.setItem(PENDING_WORKOUT_SUBMISSIONS_KEY, JSON.stringify(items));
                 return true;
             } catch (err) {
                 console.error("pending 운동 기록 저장 실패", err);
@@ -3943,7 +3943,7 @@
                     localStorage.removeItem(PENDING_CARDIO_SUBMISSIONS_KEY);
                     return true;
                 }
-                localStorage.setItem(PENDING_CARDIO_SUBMISSIONS_KEY, JSON.stringify(items.slice(-5)));
+                localStorage.setItem(PENDING_CARDIO_SUBMISSIONS_KEY, JSON.stringify(items));
                 return true;
             } catch (err) {
                 console.error("pending 유산소 기록 저장 실패", err);
@@ -4100,6 +4100,15 @@
             showFeedbackModal(data);
         }
 
+        function reconcilePendingSubmissions(started, remaining, current) {
+            const originals = new Map(started.map(item => [item.submissionId, JSON.stringify(item)]));
+            const failed = new Map(remaining.map(item => [item.submissionId, item]));
+            return current.flatMap(item => {
+                if (originals.get(item.submissionId) !== JSON.stringify(item)) return [item];
+                return failed.has(item.submissionId) ? [failed.get(item.submissionId)] : [];
+            });
+        }
+
         async function retryPendingWorkoutSubmissions(options = {}) {
             if (pendingWorkoutRetryInFlight) return false;
             if (isFinishingWorkout && !options.allowWhileFinishing) {
@@ -4137,9 +4146,10 @@
                     }
                 }
 
-                const savedRemaining = savePendingWorkoutSubmissions(remaining);
-                if (remaining.length) showWorkoutSaveState(savedRemaining ? "기기에 보관됨 · 연결되면 다시 저장합니다" : "기기 보관 실패 · 화면을 유지해주세요");
-                if (savedRemaining && remaining.length) {
+                const merged = reconcilePendingSubmissions(pending, remaining, loadPendingWorkoutSubmissions());
+                const savedRemaining = savePendingWorkoutSubmissions(merged);
+                if (merged.length) showWorkoutSaveState(savedRemaining ? "기기에 보관됨 · 연결되면 다시 저장합니다" : "기기 보관 실패 · 화면을 유지해주세요");
+                if (savedRemaining && merged.length) {
                     schedulePendingWorkoutRetry(PENDING_WORKOUT_BACKGROUND_RETRY_MS);
                 }
                 if (savedAny && !handledActive) {
@@ -4190,9 +4200,10 @@
                     }
                 }
 
-                const savedRemaining = savePendingCardioSubmissions(remaining);
-                if (remaining.length) showWorkoutSaveState(savedRemaining ? "기기에 보관됨 · 연결되면 다시 저장합니다" : "기기 보관 실패 · 화면을 유지해주세요");
-                if (savedRemaining && remaining.length) {
+                const merged = reconcilePendingSubmissions(pending, remaining, loadPendingCardioSubmissions());
+                const savedRemaining = savePendingCardioSubmissions(merged);
+                if (merged.length) showWorkoutSaveState(savedRemaining ? "기기에 보관됨 · 연결되면 다시 저장합니다" : "기기 보관 실패 · 화면을 유지해주세요");
+                if (savedRemaining && merged.length) {
                     schedulePendingCardioRetry(PENDING_WORKOUT_BACKGROUND_RETRY_MS);
                 }
                 if (savedAny && !handledActive) {
@@ -7260,8 +7271,8 @@
                 const estimated = (parseFloat(log.weight) || 0) * (1 + (parseInt(log.reps) || 0) / 30);
                 return Math.max(best, estimated);
             }, 0);
-            const successLogs = logs.filter(log => String(log.status || "").toUpperCase() === "SUCCESS");
-            const volumeLogs = successLogs.length ? successLogs : logs;
+            const volumeLogs = logs.filter(log => log.completed !== false && log.checked !== false
+                && (log.completed === true || log.checked === true || Number(log.rpe) > 0));
             const volume = volumeLogs.reduce((sum, log) => sum + ((parseFloat(log.weight) || 0) * (parseInt(log.reps) || 0)), 0);
             return {
                 date: group.date,
@@ -7843,7 +7854,7 @@
                     
                     const rpeInput = row.querySelector(".rpe-input-field");
                     const parsedRpe = parseFloat(rpeInput?.value);
-                    const rpeVal = Number.isFinite(parsedRpe) && parsedRpe > 0 ? parsedRpe : (completed ? targetRpe : 0.0);
+                    const rpeVal = Number.isFinite(parsedRpe) ? parsedRpe : 0.0;
                     const setSuccess = setSucceededFrontend({
                         exercise: ex.name,
                         completed,
@@ -7884,6 +7895,20 @@
                 }
             });
 
+            const invalidRpe = logs.find(log => log.completed && (log.rpe <= 0 || log.rpe > 10));
+            if (invalidRpe) {
+                alert(`${invalidRpe.exercise} ${invalidRpe.setNo}세트: 완료한 세트의 RPE를 0 초과, 10 이하로 입력해주세요.`);
+                return;
+            }
+            if (!isFreeWorkout) {
+                const invalidBasis = Object.entries(collectProgressionChoices(dayObj)).find(([name, choice]) =>
+                    choice.mode === "on" && !(choice.weight > 0)
+                    && !isAssistedMachineExercise(name) && !isBodyweightExercise(name));
+                if (invalidBasis) {
+                    alert(`${invalidBasis[0]}: 새 기준 무게는 0보다 커야 합니다.`);
+                    return;
+                }
+            }
             const payload = {
                 submissionId,
                 date: getLocalDateString(new Date(activeWorkoutDraftCreatedAt || Date.now())),

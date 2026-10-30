@@ -111,6 +111,10 @@ The app uses double progression.
 
 ### Explicit next-routine choice (2026-10-30, takes priority for new sessions)
 
+- Pending workout/cardio queues must retain all unconfirmed submissions. Merge retry results into the current queue, preserving entries added/changed during transmission and not resurrecting removed entries.
+- Never replace an entered zero/missing RPE with target RPE. Require completed sets to have 0 < RPE <= 10 before saving; excessive RPE against the exercise target still saves as progression failure.
+- Reject zero chosen baseline weight for ordinary loaded exercises. Keep zero valid for assistance and added-load bodyweight exercises.
+- Completed-set and volume statistics count performed sets independently of progression SUCCESS/FAIL. For historical A:M rows use positive RPE as the completion proxy; do not rewrite records.
 - New regular-workout submissions include `progressionChoices` for every exercise. Keep the original recommendation, chosen common baseline, and actual performed values separate.
 - Show `다음 루틴에도 반영` when weight/reps change. Easier load defaults OFF, harder load defaults ON (assisted machines invert the weight comparison). Same-weight fewer reps defaults OFF. Preserve a manual choice.
 - ON uses the displayed new baseline: all required sets must meet its weight/reps and RPE limit. Success advances once; failure, missing sets, or excessive RPE retries that new baseline. ON alone never means success.

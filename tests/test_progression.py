@@ -13,7 +13,7 @@ FUNCTIONS = {"progression_session_succeeded", "uniform_performed_session", "as_f
              "active_gym", "is_dumbbell_exercise", "is_bodyweight_exercise", "is_barbell_exercise", "round_to_step", "resolve_equipment_weight",
              "get_increment", "is_assisted_machine_exercise", "weight_meets_target",
              "progression_target_weight", "latest_exercise_logs", "log_checked",
-             "set_succeeded", "next_progression_sets", "apply_progression", "normalize_logs", "duplicate_exercise_sets", "workout_sessions_from_logs", "routine_exercise_lookup", "workout_exercise_lookup"}
+             "set_succeeded", "log_performed", "next_progression_sets", "apply_progression", "normalize_logs", "duplicate_exercise_sets", "workout_sessions_from_logs", "routine_exercise_lookup", "workout_exercise_lookup"}
 DEFS = json.loads((ROOT / "data/exercise_definitions.json").read_text(encoding="utf-8-sig"))
 NS = {"copy": copy, "math": math, "re": re,
       "session_choice": session_choice, "choice_succeeded": choice_succeeded,

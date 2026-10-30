@@ -40,6 +40,9 @@ def validate_choices(raw, logs, definitions):
         entry["rpeTarget"] = float(ex.get("rpeTarget") or 8)
         if entry["mode"] != "on":
             entry["weight"], entry["reps"] = entry["originalWeight"], entry["originalReps"]
+        if entry["mode"] == "on" and entry["weight"] == 0 and name not in {
+                "머신 딥스", "머신 풀업", "체중 풀업", "체중 딥스", "친업"}:
+            raise ValueError(f"{name}: 새 기준 무게는 0보다 커야 합니다.")
         result[name] = entry
     return result
 

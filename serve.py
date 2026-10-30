@@ -2248,6 +2248,13 @@ def log_checked(log):
     return str(log.get("status", "")).upper() == "SUCCESS"
 
 
+def log_performed(log):
+    """Completion is independent of progression; legacy rows encode it with RPE."""
+    if "completed" in log or "checked" in log:
+        return log_checked(log)
+    return as_float(log.get("rpe")) > 0
+
+
 def set_succeeded(log, rpe_target=None):
     target_rpe = as_float(rpe_target if rpe_target is not None else log.get("targetRpe"), 8.0)
     rpe = as_float(log.get("rpe"))
@@ -2418,8 +2425,6 @@ def normalize_logs(raw_logs, split, week, day_id, exercise_defs=None, submission
             min_reps, _ = parse_reps_range(ex_def["repsRange"])
             log["targetReps"] = max(min_reps, log["targetReps"])
         log["targetRpe"] = as_float(log.get("targetRpe"), as_float(ex_def.get("rpeTarget"), 8.0))
-        if log_checked(log) and log["rpe"] <= 0:
-            log["rpe"] = log["targetRpe"]
         log["completed"] = log_checked(log)
         log["checked"] = log_checked(log)
         if not log["completed"]:
@@ -2495,8 +2500,8 @@ def duplicate_finish_response(logs):
         "status": "SUCCESS",
         "feedback": "이미 저장된 운동입니다. 중복 저장 없이 처리했습니다.",
         "sheetsConnected": sheets_connected(),
-        "totalVolume": sum(log["weight"] * log["reps"] for log in logs if log["status"] == "SUCCESS"),
-        "completedSets": sum(1 for log in logs if log["status"] == "SUCCESS"),
+        "totalVolume": sum(log["weight"] * log["reps"] for log in logs if log_performed(log)),
+        "completedSets": sum(1 for log in logs if log_performed(log)),
         "totalSets": len(logs),
         "progressReport": ["중복 제출이라 같은 운동을 다시 저장하지 않았습니다."],
         "weeklyMuscleSets": {"가슴": 0, "등": 0, "하체": 0, "어깨": 0, "팔": 0},
@@ -2507,18 +2512,18 @@ def duplicate_finish_response(logs):
 def free_workout_feedback(logs):
     weekly_muscle_sets = {"가슴": 0, "등": 0, "하체": 0, "어깨": 0, "팔": 0}
     for log in logs:
-        if log.get("status") != "SUCCESS":
+        if not log_performed(log):
             continue
         muscle = target_muscle(log.get("exercise"))
         if muscle in weekly_muscle_sets:
             weekly_muscle_sets[muscle] += 1
 
-    completed_sets = sum(1 for log in logs if log["status"] == "SUCCESS")
+    completed_sets = sum(1 for log in logs if log_performed(log))
     return {
         "status": "SUCCESS" if completed_sets else "FAIL",
         "feedback": "자유운동 기록을 저장했습니다.",
         "sheetsConnected": sheets_connected(),
-        "totalVolume": sum(log["weight"] * log["reps"] for log in logs if log["status"] == "SUCCESS"),
+        "totalVolume": sum(log["weight"] * log["reps"] for log in logs if log_performed(log)),
         "completedSets": completed_sets,
         "totalSets": len(logs),
         "progressReport": ["자유운동은 루틴 진행도와 과부하 목표를 변경하지 않습니다."],
@@ -2579,7 +2584,7 @@ def evaluate_and_update(state, logs, split, week, day_id, routines=None, exercis
     updated_logs = state.get("logs", []) + logs
     weekly_muscle_sets = {"가슴": 0, "등": 0, "하체": 0, "어깨": 0, "팔": 0}
     for log in updated_logs:
-        if log.get("split") == split and log.get("week") == week and log.get("status") == "SUCCESS":
+        if log.get("split") == split and log.get("week") == week and log_performed(log):
             muscle = target_muscle(log.get("exercise"))
             if muscle in weekly_muscle_sets:
                 weekly_muscle_sets[muscle] += 1
@@ -2588,8 +2593,8 @@ def evaluate_and_update(state, logs, split, week, day_id, routines=None, exercis
         "status": status,
         "feedback": feedback,
         "sheetsConnected": sheets_connected(),
-        "totalVolume": sum(log["weight"] * log["reps"] for log in logs if log["status"] == "SUCCESS"),
-        "completedSets": sum(1 for log in logs if log["status"] == "SUCCESS"),
+        "totalVolume": sum(log["weight"] * log["reps"] for log in logs if log_performed(log)),
+        "completedSets": sum(1 for log in logs if log_performed(log)),
         "totalSets": len(logs),
         "progressReport": progress_report,
         "weeklyMuscleSets": weekly_muscle_sets,
@@ -3058,6 +3063,9 @@ def workout_finish():
     if duplicate_exercise_sets(body.get("logs", [])):
         return jsonify({"error": "한 세션에 같은 운동을 두 번 넣을 수 없습니다. 중복 종목을 확인해주세요."}), 400
     logs = normalize_logs(body.get("logs", []), split, week, day_id, exercise_defs, submission_id, username, user_id)
+    if any(log["completed"] and not 0 < log["rpe"] <= 10 for log in logs):
+        return jsonify({"error": "완료한 세트의 RPE를 0 초과, 10 이하로 입력해주세요.",
+                        "retryable": False}), 400
     for log in logs:
         log["date"] = date
     replacements = normalize_replacements(body.get("replacements", []), split, week, day_id, date, submission_id, username, user_id)

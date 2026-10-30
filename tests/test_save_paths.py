@@ -13,6 +13,40 @@ namespace = {"normalize_username": lambda name: str(name).lower()}
 exec(compile(ast.fix_missing_locations(ast.Module(body=[ast.ClassDef(name="Store", bases=[], keywords=[], body=selected, decorator_list=[])], type_ignores=[])), "store", "exec"), namespace)
 
 class SavePathsTests(unittest.TestCase):
+    def test_off_and_failed_sets_count_as_performed_without_progression(self):
+        ns=runpy.run_path(str(ROOT / "tests/test_progression.py"))["NS"]
+        ns.update(sheets_connected=lambda:True, target_muscle=lambda name:"팔")
+        names={"evaluate_and_update","format_weight","duplicate_finish_response","free_workout_feedback"}
+        exec(compile(ast.Module(body=[n for n in SOURCE.body if isinstance(n,ast.FunctionDef)
+                                      and n.name in names],type_ignores=[]),"feedback","exec"),ns)
+        ex=dict(name="덤벨 컬",sets=3,repsRange="8-12",rpeTarget=8)
+        choice=dict(mode="off",weight=30,reps=8,requiredSets=3,rpeTarget=8)
+        logs=[dict(exercise=ex["name"],split=2,week=1,day="Day 1",setNo=i,
+                   weight=10,reps=8,rpe=8,status="FAIL",progressionChoice=choice) for i in [1,2,3]]
+        for result in [ns["evaluate_and_update"]({"logs":[],"gyms":[]},logs,2,1,"Day 1",{"2":[]},{ex["name"]:ex}),
+                       ns["duplicate_finish_response"](logs), ns["free_workout_feedback"](logs)]:
+            self.assertEqual((result["completedSets"],result["totalVolume"]),(3,240))
+        self.assertEqual(ns["next_progression_sets"](ex,logs,{})[0]["weight"],30)
+        logs[-1].update(rpe=0)
+        self.assertEqual(ns["duplicate_finish_response"](logs)["completedSets"],2)
+
+    def test_zero_rpe_is_not_replaced_with_target(self):
+        ns=runpy.run_path(str(ROOT / "tests/test_progression.py"))["NS"]
+        logs=ns["normalize_logs"]([dict(exercise="덤벨 컬",completed=True,weight=10,reps=10,rpe=0,
+                                            targetWeight=10,targetReps=10)],2,1,"Day 1")
+        self.assertEqual(logs[0]["rpe"],0)
+        self.assertEqual(logs[0]["status"],"FAIL")
+
+    def test_zero_baseline_only_for_assistance_and_bodyweight(self):
+        from progression_choices import validate_choices
+        for name, allowed in [("덤벨 컬",False),("머신 풀업",True),("체중 풀업",True)]:
+            raw={name:dict(mode="on",weight=0,reps=10,originalWeight=10,originalReps=10)}
+            if allowed:
+                self.assertEqual(validate_choices(raw,[dict(exercise=name)],{})[name]["weight"],0)
+            else:
+                with self.assertRaises(ValueError):
+                    validate_choices(raw,[dict(exercise=name)],{})
+
     def store(self):
         store = namespace["Store"]()
         store._shared_workout_tabs_ready = False
