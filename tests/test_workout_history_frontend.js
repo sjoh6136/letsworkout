@@ -4,7 +4,7 @@ const assert = require('assert');
 const path = require('path');
 const root = path.join(__dirname, '../src/main/resources/static');
 const html = fs.readFileSync(path.join(root, 'index.html'), 'utf8');
-const names = ['nextChoiceTarget', 'isBodyweightExercise', 'uniformPerformedSession', 'clampTargetRepsFrontend', 'exerciseSessions','latestExerciseSessionLogs','groupExerciseLogsBySession',
+const names = ['isPerformedHistoryLog', 'nextChoiceTarget', 'isBodyweightExercise', 'uniformPerformedSession', 'clampTargetRepsFrontend', 'exerciseSessions','latestExerciseSessionLogs','groupExerciseLogsBySession',
     'groupReplacementLogsByOriginal','getHistoryGroupsForExercise','calculateExerciseRecords',
     'buildHistoryPointFromGroup','buildExerciseHistoryPoints','formatHistoryDateLabel',
     'summarizeSessionLogs','setSucceededFrontend','exerciseWeightMeetsTargetFrontend',
@@ -31,6 +31,16 @@ assert.deepEqual(Array.from(ctx.buildExerciseHistoryPoints('레그 컬','Day 1')
 assert.equal(ctx.buildExerciseHistoryPoints('레그 컬','Day 3')[0].weight,50);
 assert.equal(ctx.calculateExerciseRecords('레그 컬','Day 1').bestWeight,'35kg');
 assert.equal(ctx.calculateExerciseRecords('싱글 레그 레그 컬','Day 1').bestWeight,'15kg');
+const performed = make('검증 종목','Day 1',30,8)[0];
+const unchecked = {...performed,setNo:2,weight:100,reps:12,rpe:0,status:'FAIL'};
+ctx.completedLogs=[performed,unchecked];
+assert.equal(ctx.calculateExerciseRecords('검증 종목','Day 1').bestWeight,'30kg');
+assert.equal(ctx.buildHistoryPointFromGroup({date:performed.date,logs:[performed,unchecked]}).weight,30);
+assert.equal(ctx.buildHistoryPointFromGroup({date:performed.date,logs:[unchecked]}),null);
+ctx.completedLogs=[{...unchecked,rpe:8,completed:false}];
+assert.equal(ctx.calculateExerciseRecords('검증 종목','Day 1').bestWeight,'-');
+ctx.completedLogs=[{...unchecked,rpe:8}]; // Completed but failed progression still counts.
+assert.equal(ctx.calculateExerciseRecords('검증 종목','Day 1').bestWeight,'100kg');
 const ex={name:'힙 어브덕션',sets:3,repsRange:'12-15',rpeTarget:8};
 ctx.completedLogs=make(ex.name,'Day 3',97.5);
 assert(ctx.describeProgression(ex,'Day 3').includes('목표 1회 증가'));

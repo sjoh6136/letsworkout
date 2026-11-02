@@ -13,6 +13,47 @@ namespace = {"normalize_username": lambda name: str(name).lower()}
 exec(compile(ast.fix_missing_locations(ast.Module(body=[ast.ClassDef(name="Store", bases=[], keywords=[], body=selected, decorator_list=[])], type_ignores=[])), "store", "exec"), namespace)
 
 class SavePathsTests(unittest.TestCase):
+    def test_weekly_statistics_exclude_previous_cycle_and_other_splits(self):
+        ns=runpy.run_path(str(ROOT / "tests/test_progression.py"))["NS"]
+        ns.update(sheets_connected=lambda:True,target_muscle=lambda name:"팔")
+        exec(compile(ast.Module(body=[n for n in SOURCE.body if isinstance(n,ast.FunctionDef)
+                         and n.name in {"evaluate_and_update","format_weight"}],type_ignores=[]),"stats","exec"),ns)
+        ex=dict(name="덤벨 컬",sets=3,repsRange="8-12",rpeTarget=8)
+        row=dict(exercise=ex["name"],split=2,week=1,day="Day 1",date="2026-11-02",
+                 setNo=1,weight=10,reps=8,rpe=8,status="FAIL",targetWeight=10,targetReps=10)
+        old=[dict(row) for _ in range(12)]
+        other=[dict(row,split=3) for _ in range(4)]
+        current=[dict(row) for _ in range(3)]
+        state={"logs":old+other+current,"gyms":[]}
+        result=ns["evaluate_and_update"](state,current,2,1,"Day 1",{"2":[]},{ex["name"]:ex},12)
+        self.assertEqual(result["weeklyMuscleSets"]["팔"],6)
+        state["logs"]=old+other
+        result=ns["evaluate_and_update"](state,current,2,1,"Day 1",{"2":[]},{ex["name"]:ex},12)
+        self.assertEqual(result["weeklyMuscleSets"]["팔"],3)
+        result=ns["evaluate_and_update"](state,current,2,1,"Day 1",{"2":[]},{ex["name"]:ex},0)
+        self.assertEqual(result["weeklyMuscleSets"]["팔"],15)
+
+    def test_registration_requires_english_letters(self):
+        import re
+        from types import SimpleNamespace
+        node=copy.deepcopy(next(n for n in SOURCE.body if isinstance(n,ast.FunctionDef) and n.name=="auth_register"))
+        node.decorator_list=[]
+        class Accepted(Exception):
+            pass
+        def accepted(*args):
+            raise Accepted()
+        ns=dict(re=re,load_auth_state=lambda:{},has_users=lambda _:False,
+                normalize_username=lambda x:re.sub(r"\s+","",x).lower(),
+                jsonify=lambda x:x,hash_password=accepted)
+        exec(compile(ast.Module(body=[node],type_ignores=[]),"register","exec"),ns)
+        for username in ["1234","abc123","한글","ab_cd","a b","a"]:
+            ns["request"]=SimpleNamespace(get_json=lambda **kw:dict(username=username,password="test"))
+            self.assertEqual(ns["auth_register"]()[1],400)
+        for username in ["sjoh","AbCd"]:
+            ns["request"]=SimpleNamespace(get_json=lambda **kw:dict(username=username,password="test"))
+            with self.assertRaises(Accepted):
+                ns["auth_register"]()
+
     def test_off_and_failed_sets_count_as_performed_without_progression(self):
         ns=runpy.run_path(str(ROOT / "tests/test_progression.py"))["NS"]
         ns.update(sheets_connected=lambda:True, target_muscle=lambda name:"팔")

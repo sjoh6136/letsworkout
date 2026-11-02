@@ -2536,7 +2536,7 @@ def day_number(day_id):
     return int(match.group(0)) if match else 1
 
 
-def evaluate_and_update(state, logs, split, week, day_id, routines=None, exercise_defs=None):
+def evaluate_and_update(state, logs, split, week, day_id, routines=None, exercise_defs=None, baseline_log_count=0):
     routines = routines or load_routines()
     exercise_defs = exercise_defs if exercise_defs is not None else routine_exercise_lookup(routines, split, day_id)
 
@@ -2581,7 +2581,10 @@ def evaluate_and_update(state, logs, split, week, day_id, routines=None, exercis
         else:
             feedback = "훈련을 저장했습니다."
 
-    updated_logs = state.get("logs", []) + logs
+    # Reset stores a count of this split's existing rows, not a calendar cutoff.
+    # Slice append order so restarting on the same day also excludes the old cycle.
+    prior_split_logs = [log for log in state.get("logs", []) if as_int(log.get("split")) == split]
+    updated_logs = prior_split_logs[max(0, as_int(baseline_log_count)):] + logs
     weekly_muscle_sets = {"가슴": 0, "등": 0, "하체": 0, "어깨": 0, "팔": 0}
     for log in updated_logs:
         if log.get("split") == split and log.get("week") == week and log_performed(log):
@@ -2644,12 +2647,13 @@ def auth_register():
         return jsonify({"error": "이미 계정이 있습니다. 로그인해주세요."}), 409
 
     body = request.get_json(silent=True) or {}
-    username = normalize_username(body.get("username"))
+    raw_username = str(body.get("username") or "").strip()
+    username = normalize_username(raw_username)
     password = str(body.get("password") or "")
     display_name = str(body.get("displayName") or username).strip()
 
-    if len(username) < 2:
-        return jsonify({"error": "아이디는 2글자 이상으로 입력해주세요."}), 400
+    if not re.fullmatch(r"[A-Za-z]{2,}", raw_username):
+        return jsonify({"error": "아이디는 영문 알파벳 2글자 이상으로 입력해주세요."}), 400
     if len(password) < 4:
         return jsonify({"error": "비밀번호는 4글자 이상으로 입력해주세요."}), 400
 
@@ -2993,7 +2997,7 @@ def cardio_finish():
 
 
 def finish_with_progression_choices(body, state, logs, replacements, definitions,
-                                    routines, username, user_id, started_at):
+                                    routines, username, user_id, started_at, baseline_log_count=0):
     """New clients persist explicit choices atomically; legacy clients remain readable."""
     submission_id = str(body.get("submissionId") or "").strip()
     if not submission_id or not logs:
@@ -3025,7 +3029,7 @@ def finish_with_progression_choices(body, state, logs, replacements, definitions
             return jsonify({**duplicate_finish_response(logs), "submissionId": submission_id,
                             "progressionChoicesSaved": True})
         feedback = evaluate_and_update(state, logs, first["split"], first["week"],
-                                       first["day"], routines, definitions)
+                                       first["day"], routines, definitions, baseline_log_count)
         state["logs"].extend(logs)
         remember_submission(state, submission)
         if replacements:
@@ -3057,7 +3061,9 @@ def workout_finish():
     submission_id = str(body.get("submissionId") or "").strip()
     date = normalize_workout_date(body.get("date"))
     routine_started_at = time.perf_counter()
-    active_routines = routines_for_progress(load_routine_progress(username, user_id))
+    active_progress = load_routine_progress(username, user_id)
+    active_routines = routines_for_progress(active_progress)
+    baseline_log_count = as_int(active_progress.get(str(split), {}).get("baselineLogCount"))
     routine_load_ms = int((time.perf_counter() - routine_started_at) * 1000)
     exercise_defs = workout_exercise_lookup(active_routines, split, day_id, body.get("replacements", []))
     if duplicate_exercise_sets(body.get("logs", [])):
@@ -3072,7 +3078,7 @@ def workout_finish():
 
     if body.get("progressionChoices") is not None and split != 0:
         return finish_with_progression_choices(body, state, logs, replacements, exercise_defs,
-                                              active_routines, username, user_id, started_at)
+                                              active_routines, username, user_id, started_at, baseline_log_count)
 
     duplicate_check_started_at = time.perf_counter()
     is_duplicate = (
@@ -3132,7 +3138,7 @@ def workout_finish():
         replacements_saved_to_sheet = append_workout_replacements_to_sheet(replacements, username, user_id)
         replacements_sheet_ms = int((time.perf_counter() - replacements_started_at) * 1000)
 
-    feedback = free_workout_feedback(logs) if split == 0 else evaluate_and_update(state, logs, split, week, day_id, active_routines, exercise_defs)
+    feedback = free_workout_feedback(logs) if split == 0 else evaluate_and_update(state, logs, split, week, day_id, active_routines, exercise_defs, baseline_log_count)
     state["logs"].extend(logs)
     state["replacements"] = merge_replacements(state.get("replacements", []), replacements)
     submission_sheet_ms = 0

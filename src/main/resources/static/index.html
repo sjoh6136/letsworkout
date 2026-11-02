@@ -3668,7 +3668,7 @@
 
             title.innerText = authSetupRequired ? "첫 계정 만들기" : "로그인";
             copy.innerText = authSetupRequired
-                ? "아직 계정이 없습니다. 앞으로 사용할 아이디와 비밀번호를 먼저 만들어주세요."
+                ? "아이디는 영문 알파벳 2글자 이상으로 입력하고, 비밀번호를 만들어주세요."
                 : "운동 기록을 불러오려면 먼저 로그인해주세요.";
             submit.innerText = authSetupRequired ? "계정 만들고 시작" : "로그인";
             footnote.innerText = authSetupRequired
@@ -3701,6 +3701,10 @@
             const username = document.getElementById("auth-username").value.trim();
             const password = document.getElementById("auth-password").value;
             const endpoint = authSetupRequired ? "/api/auth/register" : "/api/auth/login";
+            if (authSetupRequired && !/^[A-Za-z]{2,}$/.test(username)) {
+                setAuthError("아이디는 영문 알파벳 2글자 이상으로 입력해주세요.");
+                return;
+            }
 
             submit.disabled = true;
             setAuthError("");
@@ -7224,8 +7228,15 @@
             return `성공 ${successCount}/${logs.length} · 평균 RPE ${avgRpe}`;
         }
 
+        function isPerformedHistoryLog(log) {
+            if (log.completed !== undefined) return log.completed === true;
+            if (log.checked !== undefined) return log.checked === true;
+            return Number(log.rpe) > 0;
+        }
+
         function calculateExerciseRecords(name, dayId = null) {
-            const logs = exerciseSessions(name, dayId).flat().filter(log => (parseFloat(log.weight) || 0) > 0 && (parseInt(log.reps) || 0) > 0);
+            const logs = exerciseSessions(name, dayId).flat().filter(log => isPerformedHistoryLog(log)
+                && (parseFloat(log.weight) || 0) > 0 && (parseInt(log.reps) || 0) > 0);
             if (!logs.length) {
                 return { bestWeight: "-", bestReps: "-", estimatedOneRm: "-" };
             }
@@ -7264,7 +7275,8 @@
                 };
             }
 
-            const logs = (group.logs || []).filter(log => (parseFloat(log.weight) || 0) > 0 && (parseInt(log.reps) || 0) > 0);
+            const logs = (group.logs || []).filter(log => isPerformedHistoryLog(log)
+                && (parseFloat(log.weight) || 0) > 0 && (parseInt(log.reps) || 0) > 0);
             if (!logs.length) return null;
             const bestWeight = Math.max(...logs.map(log => parseFloat(log.weight) || 0));
             const oneRm = logs.reduce((best, log) => {
