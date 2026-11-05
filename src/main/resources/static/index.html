@@ -6220,6 +6220,23 @@
             paintProgressionChoice(exIdx, ex);
         }
 
+        function handleSetValueInput(exIdx, setNo, field, input) {
+            if (field === "weight") {
+                recordProgressionEdit(exIdx, field, input, document.getElementById(`row-${exIdx}-${setNo}`));
+            }
+            scheduleActiveWorkoutDraftSave();
+        }
+
+        function reconcileUnlockedProgressionChoice(exIdx) {
+            if (activeWorkoutMode === "free") return;
+            const ex = getActiveWorkoutDayObj()?.exercises?.[exIdx];
+            if (!ex?.progressionSelection || ex.progressionSelection.locked) return;
+            const row = document.querySelector(`#ex-${exIdx} .set-row`);
+            const weightInput = row?.querySelector(".weight-input");
+            if (!row || !weightInput) return;
+            recordProgressionEdit(exIdx, "weight", weightInput, row);
+        }
+
         function toggleProgressionChoice(exIdx) {
             const ex = getActiveWorkoutDayObj()?.exercises?.[exIdx];
             if (!ex?.progressionSelection) return;
@@ -6407,7 +6424,7 @@
                     <div style="font-weight:400; color:var(--text-muted); font-size:inherit;">${formatIntensityCell(ex)}</div>
                 </div>
                 <div class="input-group">
-                    <input type="number" class="weight-input" value="${inputWeight}" step="2.5" min="0" inputmode="decimal" oninput="scheduleActiveWorkoutDraftSave()" onchange="handleSetValueChange(${exIdx}, ${setNo}, 'weight', this)">
+                    <input type="number" class="weight-input" value="${inputWeight}" step="2.5" min="0" inputmode="decimal" oninput="handleSetValueInput(${exIdx}, ${setNo}, 'weight', this)" onchange="handleSetValueChange(${exIdx}, ${setNo}, 'weight', this)">
                     <span>kg</span>
                 </div>
                 <div class="input-group">
@@ -6495,6 +6512,7 @@
             wrap.remove();
             ex.sets = Math.max(baseSets, (parseInt(ex.sets, 10) || baseSets) - 1);
             renumberSetRows(exIdx, ex);
+            reconcileUnlockedProgressionChoice(exIdx);
             updateExerciseMeta(exIdx, ex);
             closeOpenSetSwipeRows();
             calculateVolume();

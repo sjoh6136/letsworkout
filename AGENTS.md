@@ -422,6 +422,8 @@ For routine changes, verify the live API contains the new exercise names and no 
 - 2026-11-02: New account usernames accept only English letters (at least 2); preserve login compatibility for existing accounts.
 - Personal records and history graph weight/estimated 1RM exclude unchecked sets. Completed progression failures remain eligible; legacy rows use positive RPE as the completion proxy.
 - Weekly set totals exclude the active split's pre-reset rows using its saved baselineLogCount, including same-day restarts. This filter is for statistics, not progression history.
+- 2026-11-05: An unlocked automatic next-routine choice must be reconciled after deleting an added set. Weight input updates the choice on `input`, before draft persistence, so a background/pagehide save cannot preserve a stale displayed baseline.
+- Routine version/reset writes are authoritative only after Google Sheets succeeds. Return a retryable error and let the frontend roll back its optimistic UI on a disconnected or failed write.
 
 - Render may continue serving the old commit until manually deployed.
 - Render free instances can spin down; first request after inactivity may be slow.

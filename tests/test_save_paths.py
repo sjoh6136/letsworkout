@@ -13,6 +13,34 @@ namespace = {"normalize_username": lambda name: str(name).lower()}
 exec(compile(ast.fix_missing_locations(ast.Module(body=[ast.ClassDef(name="Store", bases=[], keywords=[], body=selected, decorator_list=[])], type_ignores=[])), "store", "exec"), namespace)
 
 class SavePathsTests(unittest.TestCase):
+    def test_routine_progress_requires_authoritative_sheet_write(self):
+        error_node = next(n for n in SOURCE.body if isinstance(n, ast.ClassDef)
+                          and n.name == "RoutineProgressSaveError")
+        save_node = next(n for n in SOURCE.body if isinstance(n, ast.FunctionDef)
+                         and n.name == "save_routine_progress")
+        local_writes = []
+        class Store:
+            connected = True
+            def save_routine_progress(self, *args):
+                raise OSError("sheet write failed")
+        ns = {
+            "normalize_username": lambda value: str(value).lower(),
+            "load_json": lambda *args: {"alice": {"2": {"version": "ver.1"}}},
+            "normalize_routine_progress": lambda value: copy.deepcopy(value),
+            "routine_progress_key": lambda *args: "alice",
+            "sheets_store": lambda: Store(),
+            "save_json": lambda *args: local_writes.append(args),
+            "ROUTINE_PROGRESS_FILE": "routine-progress.json",
+        }
+        exec(compile(ast.Module(body=[error_node, save_node], type_ignores=[]), "progress-save", "exec"), ns)
+        with self.assertRaises(ns["RoutineProgressSaveError"]):
+            ns["save_routine_progress"]({"2": {"version": "ver.2"}}, "alice")
+        self.assertEqual(local_writes, [])
+        Store.connected = False
+        with self.assertRaises(ns["RoutineProgressSaveError"]):
+            ns["save_routine_progress"]({"2": {"version": "ver.2"}}, "alice")
+        self.assertEqual(local_writes, [])
+
     def test_weekly_statistics_exclude_previous_cycle_and_other_splits(self):
         ns=runpy.run_path(str(ROOT / "tests/test_progression.py"))["NS"]
         ns.update(sheets_connected=lambda:True,target_muscle=lambda name:"팔")

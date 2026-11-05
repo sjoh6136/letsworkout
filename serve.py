@@ -47,6 +47,12 @@ APP_BUILD_COMMIT = os.environ.get("RENDER_GIT_COMMIT") or os.environ.get("SOURCE
 _SHEETS_STORE = None
 _AUTH_SESSION_CACHE = {}
 _STATE_CACHE = {}
+
+
+class RoutineProgressSaveError(RuntimeError):
+    pass
+
+
 _ROUTINES_CACHE = None
 _TWO_DAY_VERSIONS_CACHE = None
 _EXERCISE_DEFINITIONS_CACHE = None
@@ -1852,11 +1858,14 @@ def save_routine_progress(progress, username="", user_id=""):
     key = routine_progress_key(username, user_id)
     all_settings[key] = normalize_routine_progress(progress)
     store = sheets_store()
-    if store.connected and username:
+    if username and not store.connected:
+        raise RoutineProgressSaveError("Google Sheets 연결이 끊겨 진행 위치를 저장하지 못했습니다.")
+    if username:
         try:
             store.save_routine_progress(all_settings[key], username, user_id)
         except Exception as exc:
             print(f"[warn] failed to save routine progress to Google Sheets: {exc}")
+            raise RoutineProgressSaveError("진행 위치를 Google Sheets에 저장하지 못했습니다.") from exc
     save_json(ROUTINE_PROGRESS_FILE, all_settings)
     return all_settings[key]
 
@@ -2832,7 +2841,10 @@ def routine_progress():
         if "blockLength" in body:
             current["blockLength"] = as_int(body.get("blockLength"), current.get("blockLength", 12))
         progress[split] = normalize_routine_progress_entry(current, split)
-        progress = save_routine_progress(progress, username, user_id)
+        try:
+            progress = save_routine_progress(progress, username, user_id)
+        except RoutineProgressSaveError as exc:
+            return jsonify({"error": str(exc), "retryable": True}), 503
     routines = routines_for_progress(progress)
     payload = routine_progress_payload(state, username, user_id, progress, routines)
     status_payload = workout_status_payload(state, routines, progress)
@@ -2860,7 +2872,10 @@ def two_day_program():
         if "blockLength" in body:
             current["blockLength"] = as_int(body.get("blockLength"), current.get("blockLength", 12))
         progress["2"] = normalize_routine_progress_entry(current, 2)
-        progress = save_routine_progress(progress, username, user_id)
+        try:
+            progress = save_routine_progress(progress, username, user_id)
+        except RoutineProgressSaveError as exc:
+            return jsonify({"error": str(exc), "retryable": True}), 503
     routines = routines_for_progress(progress)
     return jsonify(two_day_program_payload(state, username, user_id, progress, routines))
 
