@@ -4,6 +4,10 @@ const assert = require('assert');
 const path = require('path');
 const root = path.join(__dirname, '../src/main/resources/static');
 const html = fs.readFileSync(path.join(root, 'index.html'), 'utf8');
+const editableSetBadge = html.split(/\r?\n/).find(line => line.includes('Set ${set.setNo}:'));
+assert(editableSetBadge, 'saved set badge markup');
+assert(!editableSetBadge.includes('수정'), 'editable set badge should not show redundant edit text');
+assert(html.includes('onclick="openSavedLogEditor(${Number(set.sheetRow)})"'), 'saved set badge remains clickable');
 const names = ['isPerformedHistoryLog', 'nextChoiceTarget', 'isBodyweightExercise', 'uniformPerformedSession', 'clampTargetRepsFrontend', 'exerciseSessions','latestExerciseSessionLogs','groupExerciseLogsBySession',
     'groupReplacementLogsByOriginal','getHistoryGroupsForExercise','calculateExerciseRecords',
     'buildHistoryPointFromGroup','buildExerciseHistoryPoints','formatHistoryDateLabel',

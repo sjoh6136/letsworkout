@@ -8391,7 +8391,7 @@
                     const rpeText = set.rpe > 0 ? `, RPE ${set.rpe}` : "";
                     setBadgesHTML += `
                         <button type="button" class="${badgeClass}" ${set.sheetRow && set.rowVersion ? `onclick="openSavedLogEditor(${Number(set.sheetRow)})"` : "disabled"}>
-                            Set ${set.setNo}: ${set.weight}kg × ${set.reps}회${rpeText}${set.sheetRow && set.rowVersion ? " · 수정" : ""}
+                            Set ${set.setNo}: ${set.weight}kg × ${set.reps}회${rpeText}
                         </button>
                     `;
                 });
